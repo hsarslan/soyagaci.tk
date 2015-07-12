@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,11 +13,12 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 use Rhumsaa\Uuid\Uuid;
 
 /**
- * Class Menu - System for generating menus.
+ * System for generating menus.
  */
 class Menu {
 	/** @var string The text to be displayed in the mneu */
@@ -31,10 +30,10 @@ class Menu {
 	/** @var string The CSS class used to style this menu item */
 	private $class;
 
-	/** @var string An onclick action, typically used with a link of "#" */
-	private $onclick;
+	/** @var string[] A list of optional HTML attributes, such as onclick or data-xxx */
+	private $attrs;
 
-	/** @var Menu[] */
+	/** @var Menu[] An optional list of sub-menus. */
 	private $submenus;
 
 	/** @var string Used internally to create javascript menus */
@@ -44,26 +43,23 @@ class Menu {
 	private $submenuclass;
 
 	/** @var string Used to format javascript menus */
-	private $iconclass;
-
-	/** @var string Used to format javascript menus */
 	private $menuclass;
 
 	/**
 	 * Constructor for the menu class
 	 *
-	 * @param string    $label    The label for the menu item
-	 * @param string    $link     The target URL
-	 * @param string    $class    An CSS class
-	 * @param string    $onclick  A javascript onclick handler
-	 * @param Menu[] $submenus Any submenus
+	 * @param string   $label    The label for the menu item
+	 * @param string   $link     The target URL
+	 * @param string   $class    A CSS class
+	 * @param string[] $attrs    Optional attributes, such as onclick or data-xxx
+	 * @param Menu[]   $submenus Any submenus
 	 */
-	public function __construct($label, $link = '#', $class = '', $onclick = '', $submenus = array()) {
+	public function __construct($label, $link = '#', $class = '', array $attrs = array(), array $submenus = array()) {
 		$this
 			->setLabel($label)
 			->setLink($link)
 			->setClass($class)
-			->setOnclick($onclick)
+			->setAttrs($attrs)
 			->setSubmenus($submenus);
 	}
 
@@ -99,14 +95,35 @@ class Menu {
 				'</ul>' .
 				'</li>';
 		} else {
-			if ($this->onclick) {
-				$onclick = ' onclick="' . $this->onclick . '"';
-			} else {
-				$onclick = '';
+			$attrs = '';
+			foreach ($this->attrs as $key => $value) {
+				$attrs .= ' ' . $key . '="' . Filter::escapeHtml($value) . '"';
 			}
 
-			return '<li class="' . $this->class . '"><a href="' . $this->link . '"' . $onclick . '>' . $this->label . '</a></li>';
+			return '<li class="' . $this->class . '"><a href="' . $this->link . '"' . $attrs . '>' . $this->label . '</a></li>';
 		}
+	}
+
+	/**
+	 * Get the optional attributes.
+	 *
+	 * @return string[]
+	 */
+	public function getAttrs() {
+		return $this->attrs;
+	}
+
+	/**
+	 * Set the optional attributes.
+	 *
+	 * @param string[] $attrs
+	 *
+	 * @return $this
+	 */
+	public function setAttrs(array $attrs) {
+		$this->attrs = $attrs;
+
+		return $this;
 	}
 
 	/**
@@ -114,15 +131,15 @@ class Menu {
 	 *
 	 * @param string $menuclass
 	 * @param string $submenuclass
-	 * @param string $iconclass
 	 */
-	public function addClass($menuclass, $submenuclass = '', $iconclass = '') {
-		$this->menuclass = $menuclass;
+	public function addClass($menuclass, $submenuclass = '') {
+		$this->menuclass    = $menuclass;
 		$this->submenuclass = $submenuclass;
-		$this->iconclass = $iconclass;
 	}
 
 	/**
+	 * Get the class.
+	 *
 	 * @return string
 	 */
 	public function getClass() {
@@ -130,6 +147,8 @@ class Menu {
 	}
 
 	/**
+	 * Set the class.
+	 *
 	 * @param string $class
 	 *
 	 * @return $this
@@ -141,6 +160,8 @@ class Menu {
 	}
 
 	/**
+	 * Get the label.
+	 *
 	 * @return string
 	 */
 	public function getLabel() {
@@ -148,6 +169,8 @@ class Menu {
 	}
 
 	/**
+	 * Set the label.
+	 *
 	 * @param string $label
 	 *
 	 * @return $this
@@ -159,6 +182,8 @@ class Menu {
 	}
 
 	/**
+	 * Get the link.
+ *
 	 * @return string
 	 */
 	public function getLink() {
@@ -166,30 +191,14 @@ class Menu {
 	}
 
 	/**
+	 * Set the link.
+	 *
 	 * @param string $link
 	 *
 	 * @return $this
 	 */
 	public function setLink($link) {
 		$this->link = $link;
-
-		return $this;
-	}
-
-	/**
-	 * @return string
-	 */
-	public function getOnclick() {
-		return $this->onclick;
-	}
-
-	/**
-	 * @param string $onclick
-	 *
-	 * @return $this
-	 */
-	public function setOnclick($onclick) {
-		$this->onclick = $onclick;
 
 		return $this;
 	}
@@ -217,8 +226,8 @@ class Menu {
 		$sub_menu_id = 'sub-' . $menu_id;
 
 		$html = '<a href="' . $this->link . '"';
-		if ($this->onclick) {
-			$html .= ' onclick="' . $this->onclick . '"';
+		foreach ($this->attrs as $key => $value) {
+			$html .= ' ' . $key . '="' . Filter::escapeHtml($value) . '"';
 		}
 		if (!empty($this->submenus)) {
 			$html .= ' onmouseover="show_submenu(\'' . $sub_menu_id . '\', \'' . $menu_id . '\');"';
@@ -247,17 +256,16 @@ class Menu {
 	 * @return string
 	 */
 	public function getMenuAsList() {
-		if ($this->onclick) {
-			$onclick = ' onclick="' . $this->onclick . '"';
-		} else {
-			$onclick = '';
+		$attrs = '';
+		foreach ($this->attrs as $key => $value) {
+			$attrs .= ' ' . $key . '="' . Filter::escapeHtml($value) . '"';
 		}
 		if ($this->link) {
 			$link = ' href="' . $this->link . '"';
 		} else {
 			$link = '';
 		}
-		$html = '<a' . $link . $onclick . '>' . $this->label . '</a>';
+		$html = '<a' . $link . $attrs . '>' . $this->label . '</a>';
 		if ($this->submenus) {
 			$html .= '<ul>';
 			foreach ($this->submenus as $submenu) {
@@ -270,6 +278,8 @@ class Menu {
 	}
 
 	/**
+	 * Get the sub-menus.
+	 *
 	 * @return Menu[]
 	 */
 	public function getSubmenus() {
@@ -277,6 +287,8 @@ class Menu {
 	}
 
 	/**
+	 * Set the sub-menus.
+	 *
 	 * @param Menu[] $submenus
 	 *
 	 * @return $this

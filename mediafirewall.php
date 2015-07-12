@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,8 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-
-use Zend_Session;
+namespace Fisharebest\Webtrees;
 
 /**
  * Defined in session.php
@@ -25,10 +22,10 @@ use Zend_Session;
  */
 global $WT_TREE;
 
+use Fisharebest\Webtrees\Functions\FunctionsMedia;
+
 define('WT_SCRIPT_NAME', 'mediafirewall.php');
 require './includes/session.php';
-
-Zend_Session::writeClose();
 
 $mid   = Filter::get('mid', WT_REGEX_XREF);
 $thumb = Filter::getBool('thumb');
@@ -46,7 +43,7 @@ function send404AsImage() {
 	$bgc    = imagecolorallocate($im, 255, 255, 255); /* set background color */
 	imagefilledrectangle($im, 2, 2, $width - 4, $height - 4, $bgc); /* create a rectangle, leaving 2 px border */
 
-	embedText($im, $error, 100, '255, 0, 0', '', 'top', 'left');
+	embedText($im, $error, 100, '255, 0, 0', WT_ROOT . Config::FONT_DEJAVU_SANS_TTF, 'top', 'left');
 
 	http_response_code(404);
 	header('Content-Type: image/png');
@@ -71,8 +68,8 @@ function applyWatermark($im, Tree $tree) {
 	$word1_maxsize = 100;
 	// rgb color codes for text
 	$word1_color = '0,0,0';
-	// ttf font file to use. must exist in the includes/fonts/ folder
-	$word1_font = '';
+	// ttf font file to use
+	$word1_font = WT_ROOT . Config::FONT_DEJAVU_SANS_TTF;
 	// vertical position for the text to past; possible values are: top, middle or bottom, across
 	$word1_vpos = 'across';
 	// horizontal position for the text to past in media file; possible values are: left, right, top2bottom, bottom2top
@@ -82,7 +79,7 @@ function applyWatermark($im, Tree $tree) {
 	$word2_text    = $_SERVER['HTTP_HOST'];
 	$word2_maxsize = 20;
 	$word2_color   = '0,0,0';
-	$word2_font    = '';
+	$word2_font    = WT_ROOT . Config::FONT_DEJAVU_SANS_TTF;
 	$word2_vpos    = 'top';
 	$word2_hpos    = 'top2bottom';
 
@@ -93,9 +90,11 @@ function applyWatermark($im, Tree $tree) {
 }
 
 /**
+ * Embed text into an image.
+ *
  * @param resource $im
  * @param string   $text
- * @param integer  $maxsize
+ * @param int      $maxsize
  * @param string   $color
  * @param string   $font
  * @param string   $vpos
@@ -107,15 +106,6 @@ function embedText($im, $text, $maxsize, $color, $font, $vpos, $hpos) {
 	// there are two ways to embed text with PHP
 	// (preferred) using GD and FreeType you can embed text using any True Type font
 	// (fall back) if that is not available, you can insert basic monospaced text
-	if ($useTTF) {
-		// imagettftext is available, make sure the requested font exists
-		if (!isset($font) || ($font == '') || !file_exists(WT_ROOT . 'includes/fonts/' . $font)) {
-			$font = 'DejaVuSans.ttf'; // this font ships with webtrees
-			if (!file_exists(WT_ROOT . 'includes/fonts/' . $font)) {
-				$useTTF = false;
-			}
-		}
-	}
 
 	$col       = explode(',', $color);
 	$textcolor = imagecolorallocate($im, $col[0], $col[1], $col[2]);
@@ -189,8 +179,8 @@ function embedText($im, $text, $maxsize, $color, $font, $vpos, $hpos) {
 	// apply the text
 	if ($useTTF) {
 		// if imagettftext throws errors, catch them with a custom error handler
-		set_error_handler(__NAMESPACE__ . '\\imagettftextErrorHandler');
-		imagettftext($im, $taille, $rotation, $pos_x, $pos_y, $textcolor, 'includes/fonts/' . $font, $text);
+		set_error_handler('\Fisharebest\Webtrees\\imagettftextErrorHandler');
+		imagettftext($im, $taille, $rotation, $pos_x, $pos_y, $textcolor, $font, $text);
 		restore_error_handler();
 	}
 	// Don’t use an ‘else’ here since imagettftextErrorHandler may have changed the value of $useTTF from true to false
@@ -205,11 +195,13 @@ function embedText($im, $text, $maxsize, $color, $font, $vpos, $hpos) {
 }
 
 /**
- * @param integer $t
- * @param integer $mxl
- * @param string  $text
+ * Generate an approximate length of text, in pixels.
  *
- * @return integer
+ * @param int    $t
+ * @param int    $mxl
+ * @param string $text
+ *
+ * @return int
  */
 function textlength($t, $mxl, $text) {
 	$taille_c = $t;
@@ -228,10 +220,10 @@ function textlength($t, $mxl, $text) {
  * imagettftext is the function that is most likely to throw an error
  * use this custom error handler to catch and log it
  *
- * @param integer $errno
- * @param string  $errstr
+ * @param int    $errno
+ * @param string $errstr
  *
- * @return boolean
+ * @return bool
  */
 function imagettftextErrorHandler($errno, $errstr) {
 	global $useTTF, $serverFilename;
@@ -318,7 +310,7 @@ if ($type) {
 
 // determine whether we have enough memory to watermark this image
 if ($usewatermark) {
-	if (!hasMemoryForImage($serverFilename)) {
+	if (!FunctionsMedia::hasMemoryForImage($serverFilename)) {
 		// not enough memory to watermark this file
 		$usewatermark = false;
 	}
@@ -374,14 +366,14 @@ if ($if_modified_since === $filetimeHeader) {
 	// then check if the etag matches
 	if ($if_none_match === $etag) {
 		http_response_code(304);
-		
+
 		return;
 	}
 }
 
 // send headers for the image
 header('Content-Type: ' . $mimetype);
-header('Content-Disposition: filename="' . addslashes(basename($media->file)) . '"');
+header('Content-Disposition: filename="' . addslashes(basename($media->getFilename())) . '"');
 
 if ($generatewatermark) {
 	// generate the watermarked image

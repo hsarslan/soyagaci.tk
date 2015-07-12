@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,7 +13,14 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module;
 
+use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\Database;
+use Fisharebest\Webtrees\Filter;
+use Fisharebest\Webtrees\FlashMessages;
+use Fisharebest\Webtrees\GedcomRecord;
+use Fisharebest\Webtrees\I18N;
 use PDO;
 
 /**
@@ -29,12 +34,20 @@ class UserFavoritesModule extends FamilyTreeFavoritesModule {
 		return /* I18N: Description of the “Favorites” module */ I18N::translate('Display and manage a user’s favorite pages.');
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Can this block be shown on the user’s home page?
+	 *
+	 * @return bool
+	 */
 	public function isUserBlock() {
 		return true;
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Can this block be shown on the tree’s home page?
+	 *
+	 * @return bool
+	 */
 	public function isGedcomBlock() {
 		return false;
 	}
@@ -42,14 +55,12 @@ class UserFavoritesModule extends FamilyTreeFavoritesModule {
 	/**
 	 * Get the favorites for a user (for the current family tree)
 	 *
-	 * @param integer $user_id
+	 * @param int $user_id
 	 *
 	 * @return string[][]
 	 */
 	public static function getFavorites($user_id) {
 		global $WT_TREE;
-
-		self::updateSchema(); // make sure the favorites table has been created
 
 		return
 			Database::prepare(
@@ -59,11 +70,16 @@ class UserFavoritesModule extends FamilyTreeFavoritesModule {
 			->fetchAll(PDO::FETCH_ASSOC);
 	}
 
-	/** {@inheritdoc} */
-	public function modAction($modAction) {
+	/**
+	 * This is a general purpose hook, allowing modules to respond to routes
+	 * of the form module.php?mod=FOO&mod_action=BAR
+	 *
+	 * @param string $mod_action
+	 */
+	public function modAction($mod_action) {
 		global $WT_TREE;
 
-		switch ($modAction) {
+		switch ($mod_action) {
 		case 'menu-add-favorite':
 			// Process the "add to user favorites" menu item on indi/fam/etc. pages
 			$record = GedcomRecord::getInstance(Filter::post('xref', WT_REGEX_XREF), $WT_TREE);

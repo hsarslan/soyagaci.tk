@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,9 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
+
+use Fisharebest\Webtrees\Controller\AdvancedSearchController;
 
 define('WT_SCRIPT_NAME', 'search_advanced.php');
 require './includes/session.php';
@@ -54,7 +55,7 @@ echo '<script>';
 		};
 
 		// all of the field options
-		<?php foreach ($controller->getOtherFields() as $field=>$label) { ?>
+		<?php foreach ($controller->getOtherFields() as $field => $label) { ?>
 		opt = document.createElement('option');
 		opt.value='<?php echo $field; ?>';
 		opt.text='<?php echo Filter::escapeJs($label); ?>';
@@ -145,9 +146,9 @@ echo '</script>';
 		<td id="vcell<?php echo $i; ?>" class="list_value">
 			<?php
 			$currentFieldSearch = $controller->getField($i); // Get this field’s name and the search criterion
-			$currentField = substr($currentFieldSearch, 0, strrpos($currentFieldSearch, ':')); // Get the actual field name
+			$currentField       = substr($currentFieldSearch, 0, strrpos($currentFieldSearch, ':')); // Get the actual field name
 			?>
-				<input type="text" id="value<?php echo $i; ?>" name="values[<?php echo $i; ?>]" value="<?php echo Filter::escapeHtml($controller->getValue($i)); ?>"<?php echo (substr($controller->getField($i), -4) == 'PLAC') ? 'data-autocomplete-type="PLAC"' : ''; ?>>
+				<input type="text" id="value<?php echo $i; ?>" name="values[<?php echo $i; ?>]" value="<?php echo Filter::escapeHtml($controller->getValue($i)); ?>"<?php echo substr($controller->getField($i), -4) == 'PLAC' ? 'data-autocomplete-type="PLAC"' : ''; ?>>
 			<?php if (preg_match("/^NAME:/", $currentFieldSearch) > 0) { ?>
 				<select name="fields[<?php echo $i; ?>]">
 					<option value="<?php echo $currentField; ?>:EXACT" <?php if (preg_match("/:EXACT$/", $currentFieldSearch) > 0) echo 'selected'; ?>><?php echo I18N::translate('Exact'); ?></option>
@@ -178,7 +179,7 @@ echo '</script>';
 			$motherGivnOption = 'SDX';
 			$motherSurnOption = 'SDX';
 			for ($k = 0; $k < $fct; $k++) {
-				$searchField = $controller->getField($k);
+				$searchField  = $controller->getField($k);
 				$searchOption = substr($searchField, 20); // Assume we have something like "FAMC:HUSB:NAME:GIVN:foo"
 				switch (substr($searchField, 0, 20)) {
 				case 'FAMC:HUSB:NAME:GIVN:':
@@ -284,8 +285,8 @@ echo '</script>';
 	<?php } ?>
 	</table>
 		<div class="center" style="margin-top:10px;">
-			<a href="#" onclick="addFields();"><?php echo I18N::translate('Add more fields'); ?></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+			<a href="#" onclick="addFields();"><?php echo I18N::translate('Add more fields'); ?></a>
+			<p><input type="submit" value="<?php echo I18N::translate('Search'); ?>"></p>
 		</div>
-	<input type="submit" value="<?php echo I18N::translate('Search'); ?>">
 </form>
 </div>

@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,17 +13,17 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-
-use Zend_Session;
-use Zend_Session_Namespace;
+namespace Fisharebest\Webtrees;
 
 /**
  * Defined in session.php
  *
- * @global Zend_Session_Namespace $WT_SESSION
- * @global Tree                   $WT_TREE
+ * @global Tree $WT_TREE
  */
-global $WT_SESSION, $WT_TREE;
+global $WT_TREE;
+
+use Fisharebest\Webtrees\Controller\PageController;
+use Fisharebest\Webtrees\Functions\FunctionsDb;
 
 define('WT_SCRIPT_NAME', 'index_edit.php');
 require './includes/session.php';
@@ -54,14 +52,6 @@ if ($user_id) {
 	}
 }
 
-if ($user_id < 0 || $gedcom_id < 0 || Auth::isAdmin() && $user_id != Auth::id()) {
-	// We're doing this from an admin page.  Use the admin theme, and return there afterwards.
-	Theme::theme(new AdministrationTheme)->init($WT_SESSION, $WT_TREE);
-	$return_to = 'admin_trees_manage.php?ged=';
-} else {
-	$return_to = 'index.php';
-}
-
 // Only an admin can edit the "default" page
 // Only managers can edit the "home page"
 // Only a user or an admin can edit a user’s "my page"
@@ -70,7 +60,7 @@ if (
 	$gedcom_id > 0 && !Auth::isManager(Tree::findById($gedcom_id)) ||
 	$user_id && Auth::id() != $user_id && !Auth::isAdmin()
 ) {
-	header('Location: ' . WT_BASE_URL . $return_to);
+	header('Location: ' . WT_BASE_URL);
 
 	return;
 }
@@ -79,9 +69,9 @@ $action = Filter::get('action');
 
 if ($can_reset && Filter::post('default') === '1') {
 	if ($user_id) {
-		$defaults = get_user_blocks(-1);
+		$defaults = FunctionsDb::getUserBlocks(-1);
 	} else {
-		$defaults = get_gedcom_blocks(-1);
+		$defaults = FunctionsDb::getTreeBlocks(-1);
 	}
 	$main  = $defaults['main'];
 	$right = $defaults['side'];
@@ -121,13 +111,12 @@ foreach (Module::getActiveBlocks($WT_TREE) as $name => $block) {
 }
 
 if ($user_id) {
-	$blocks = get_user_blocks($user_id);
+	$blocks = FunctionsDb::getUserBlocks($user_id);
 } else {
-	$blocks = get_gedcom_blocks($gedcom_id);
+	$blocks = FunctionsDb::getTreeBlocks($gedcom_id);
 }
 
 if ($action === 'update') {
-	Zend_Session::writeClose();
 	foreach (array('main', 'side') as $location) {
 		if ($location === 'main') {
 			$new_blocks = $main;
@@ -150,14 +139,18 @@ if ($action === 'update') {
 			}
 		}
 		// deleted blocks
-		foreach ($blocks[$location] as $block_id=>$block_name) {
+		foreach ($blocks[$location] as $block_id => $block_name) {
 			if (!in_array($block_id, $main) && !in_array($block_id, $right)) {
 				Database::prepare("DELETE FROM `##block_setting` WHERE block_id=?")->execute(array($block_id));
 				Database::prepare("DELETE FROM `##block`         WHERE block_id=?")->execute(array($block_id));
 			}
 		}
 	}
-	header('Location: ' . WT_BASE_URL . $return_to);
+	if ($user_id) {
+		header('Location: ' . WT_BASE_URL . 'index.php?ctype=user&ged=' . $WT_TREE->getName());
+	} else {
+		header('Location: ' . WT_BASE_URL . 'index.php?ctype=gedcom&ged=' . $WT_TREE->getName());
+	}
 
 	return;
 }
@@ -281,7 +274,6 @@ $controller
 	var block_descr = new Array();
 	');
 
-
 	// Load Block Description array for use by javascript
 	foreach ($all_blocks as $block_name => $block) {
 		$controller->addInlineJavascript(
@@ -292,18 +284,6 @@ $controller
 		'block_descr["advice1"] = "' . I18N::translate('Highlight a block name and then click on one of the arrow icons to move that highlighted block in the indicated direction.') . '";'
 	);
 ?>
-
-<?php if ($return_to !== 'index.php'): ?>
-<ol class="breadcrumb small">
-	<li><a href="admin.php"><?php echo I18N::translate('Control panel'); ?></a></li>
-	<?php if ($user_id): ?>
-	<li><a href="admin_users.php"><?php echo I18N::translate('User administration'); ?></a></li>
-	<?php else: ?>
-	<li><a href="admin_trees_manage.php"><?php echo I18N::translate('Manage family trees'); ?></a></li>
-	<?php endif; ?>
-	<li class="active"><?php echo $controller->getPageTitle(); ?></li>
-</ol>
-<?php endif; ?>
 
 <h1><?php echo $controller->getPageTitle(); ?></h1>
 
@@ -331,12 +311,11 @@ $controller
 		echo '<br>';
 		echo '<a onclick="move_down_block(\'main_select\');" title="', I18N::translate('Move down'), '"class="', $IconDarrow, '"></a>';
 		echo '<br><br>';
-		echo help_link('block_move_up');
 	echo '</td>';
 	// NOTE: Row 2 column 2: Left (Main) block list
 	echo '<td class="optionbox center">';
 		echo '<select multiple="multiple" id="main_select" name="main[]" size="10" onchange="show_description(\'main_select\');">';
-		foreach ($blocks['main'] as $block_id=>$block_name) {
+		foreach ($blocks['main'] as $block_id => $block_name) {
 			echo '<option value="', $block_id, '">', $all_blocks[$block_name]->getTitle(), '</option>';
 		}
 		echo '</select>';
@@ -349,12 +328,11 @@ $controller
 		echo '<br>';
 		echo '<a onclick="move_left_right_block(\'available_select\', \'main_select\');" title="', I18N::translate('Add'), '"class="', $IconLarrow, '"></a>';
 		echo '<br><br>';
-		echo help_link('block_move_right');
 	echo '</td>';
 	// Row 2 column 4: Middle (Available) block list
 	echo '<td class="optionbox center">';
 		echo '<select id="available_select" name="available[]" size="10" onchange="show_description(\'available_select\');">';
-		foreach ($all_blocks as $block_name=>$block) {
+		foreach ($all_blocks as $block_name => $block) {
 			echo '<option value="', $block_name, '">', $block->getTitle(), '</option>';
 		}
 		echo '</select>';
@@ -367,12 +345,11 @@ $controller
 		echo '<br>';
 		echo '<a onclick="move_left_right_block(\'available_select\', \'right_select\');" title="', I18N::translate('Add'), '"class="', $IconRarrow, '"></a>';
 		echo '<br><br>';
-		echo help_link('block_move_right');
 	echo '</td>';
 	// NOTE: Row 2 column 6: Right block list
 	echo '<td class="optionbox center">';
 		echo '<select multiple="multiple" id="right_select" name="right[]" size="10" onchange="show_description(\'right_select\');">';
-		foreach ($blocks['side'] as $block_id=>$block_name) {
+		foreach ($blocks['side'] as $block_id => $block_name) {
 			echo '<option value="', $block_id, '">', $all_blocks[$block_name]->getTitle(), '</option>';
 		}
 		echo '</select>';
@@ -383,7 +360,6 @@ $controller
 		echo '<br>';
 		echo '<a onclick="move_down_block(\'right_select\');" title="', I18N::translate('Move down'), '"class="', $IconDarrow, '"></a>';
 		echo '<br><br>';
-		echo help_link('block_move_up');
 	echo '</td>';
 	echo '</tr>';
 	// NOTE: Row 3 columns 1-7: Summary description of currently selected block

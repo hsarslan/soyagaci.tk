@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,11 +13,10 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-
-use Zend_Session;
+namespace Fisharebest\Webtrees;
 
 /**
- * Class Auth - authentication functions
+ * Authentication.
  */
 class Auth {
 	// Privacy constants
@@ -31,7 +28,7 @@ class Auth {
 	/**
 	 * Are we currently logged in?
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public static function check() {
 		return self::id() !== null;
@@ -42,7 +39,7 @@ class Auth {
 	 *
 	 * @param User|null $user
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public static function isAdmin(User $user = null) {
 		if ($user === null) {
@@ -58,7 +55,7 @@ class Auth {
 	 * @param Tree      $tree
 	 * @param User|null $user
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public static function isManager(Tree $tree, User $user = null) {
 		if ($user === null) {
@@ -74,7 +71,7 @@ class Auth {
 	 * @param Tree      $tree
 	 * @param User|null $user
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public static function isModerator(Tree $tree, User $user = null) {
 		if ($user === null) {
@@ -90,8 +87,7 @@ class Auth {
 	 * @param Tree      $tree
 	 * @param User|null $user
 	 *
-	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public static function isEditor(Tree $tree, User $user = null) {
 		if ($user === null) {
@@ -107,7 +103,7 @@ class Auth {
 	 * @param Tree      $tree
 	 * @param User|null $user
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public static function isMember(Tree $tree, User $user = null) {
 		if ($user === null) {
@@ -123,7 +119,7 @@ class Auth {
 	 * @param Tree      $tree
 	 * @param User|null $user
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public static function accessLevel(Tree $tree, User $user = null) {
 		if ($user === null) {
@@ -142,7 +138,7 @@ class Auth {
 	/**
 	 * Is the current visitor a search engine?  The global is set in session.php
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public static function isSearchEngine() {
 		global $SEARCH_SPIDER;
@@ -156,9 +152,7 @@ class Auth {
 	 * @return string|null
 	 */
 	public static function id() {
-		global $WT_SESSION;
-
-		return $WT_SESSION ? $WT_SESSION->wt_user : null;
+		return Session::get('wt_user');
 	}
 
 	/**
@@ -169,11 +163,11 @@ class Auth {
 	public static function user() {
 		$user = User::find(self::id());
 		if ($user === null) {
-			$visitor = new \stdClass;
-			$visitor->user_id = '';
+			$visitor            = new \stdClass;
+			$visitor->user_id   = '';
 			$visitor->user_name = '';
 			$visitor->real_name = '';
-			$visitor->email = '';
+			$visitor->email     = '';
 
 			return new User($visitor);
 		} else {
@@ -187,17 +181,14 @@ class Auth {
 	 * @param User $user
 	 */
 	public static function login(User $user) {
-		global $WT_SESSION;
-
-		$WT_SESSION->wt_user = $user->getUserId();
-		Zend_Session::regenerateId();
+		Session::put('wt_user', $user->getUserId());
+		Session::regenerate(false);
 	}
 
 	/**
 	 * End the session for the current user.
 	 */
 	public static function logout() {
-		Zend_Session::regenerateId();
-		Zend_Session::destroy();
+		Session::regenerate(true);
 	}
 }

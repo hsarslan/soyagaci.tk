@@ -45,7 +45,6 @@ fieldset,
 .facts_label,
 .facts_label03,
 .facts_value,
-.lifespan_outer,
 .list_label,
 .list_label_wrap,
 .list_value,
@@ -107,8 +106,9 @@ a:hover {
 	outline-style: none;
 }
 
-#flash-messages {
+.flash-messages {
 	clear: both;
+	text-align: center;
 }
 
 dl {
@@ -215,6 +215,15 @@ header form {
 	font-size: 12px;
 }
 
+/* Some styles from bootstrap */
+.text-muted {
+	color: #777;
+}
+
+.small {
+	font-size: 12px;
+}
+
 #mycart a img {
 	height: 15px;
 }
@@ -232,21 +241,21 @@ hr {
 	border-color: #006;
 }
 
-.person_box {
+.person_box, .action_header {
 	background: #ddf;
-	border: 1px solid #8bf;
+	border: 1px solid #aaa;
 	padding: 3px;
 }
 
-.person_boxF {
+.person_boxF, .action_headerF {
 	background: #fdd;
-	border: 1px solid #8bf;
+	border: 1px solid #aaa;
 	padding: 3px;
 }
 
 .person_boxNN {
 	background: #fff;
-	border: 1px solid #8bf;
+	border: 1px solid #aaa;
 	padding: 3px;
 }
 
@@ -254,10 +263,6 @@ hr {
 .news_box:target,
 #gedcom_stats:target {
 	background-color: #ffc;
-}
-
-.person_box_lifespan {
-	display: inline;
 }
 
 /* families tab person box */
@@ -314,6 +319,10 @@ table.center {
 
 .facts_table {
 	width: 100%;
+}
+
+.facts_table .optionbox {
+	white-space: normal;
 }
 
 div.fact_SHARED_NOTE {
@@ -467,7 +476,7 @@ a:hover .nameZoom {
 }
 
 .subheaders {
-	color: #006
+	color: #006;
 	font-weight: bold;
 	font-size: 15px;
 	margin-top: 15px;
@@ -815,39 +824,6 @@ a:hover .nameZoom {
 	overflow: hidden;
 }
 
-a.showit {
-	position: relative;
-	z-index: 24;
-	text-decoration: none;
-}
-
-a.showit:hover {
-	z-index: 25;
-	background-color: #ff9;
-	cursor: crosshair;
-}
-
-a.showit > span {
-	display: none;
-}
-
-a.showit:hover > span {
-	display: block;
-	position: absolute;
-	top: 22px;
-	left: 0;
-	width: 225px;
-	border: 2px solid #000;
-	border-left: 15px outset;
-	padding: 3px;
-	background-color: #444;
-	color: #fff;
-	font-size: 15px;
-	text-align: left;
-	opacity: .85;
-	z-index: 5;
-}
-
 .tag_cloud {
 	text-align: center;
 }
@@ -1176,7 +1152,8 @@ a.showit:hover > span {
 }
 
 /* login.php */
-#login-register-page h2 {
+#login-register-page h2,
+#login-page .confirm {
 	text-align: center;
 }
 
@@ -1680,7 +1657,7 @@ background-color: #fff;
 }
 
 .blockcontent .list_table {
-	border-spacing: 0;
+	border-spacing: 1px;
 	border: solid #999 1px;
 	border-right: 0;
 }
@@ -1794,10 +1771,6 @@ background-color: #fff;
 .add_fav_ref label {
 	display: inline-block;
 	min-width: 100px;
-}
-
-.add_fav_ref label:after {
-	content: ":";
 }
 
 .add_fav_ref input {
@@ -2004,26 +1977,16 @@ span.link_text {
 
 #indi_mainimage {
 	float: left;
-	padding: 0 10px 0 0;
 }
 
 #header_accordion1 {
-	padding: 0 10px 0 0;
 	overflow: hidden;
-}
-
-[dir='rtl'] #header_accordion1 {
-	padding: 0 0 0 10px;
 }
 
 #header_accordion1 .indi_name_details {
 	margin: 0;
 	overflow: hidden;
 	padding: 5px;
-}
-
-.indi_name_details dt:after {
-	content: ":";
 }
 
 .indi_name_details .name1 {
@@ -2084,6 +2047,7 @@ dd .deletelink {
 
 .markdown table {
 	border-collapse: collapse;
+	margin-bottom: 5px;
 }
 
 .markdown th {
@@ -2297,7 +2261,7 @@ dd .deletelink {
 }
 
 .ui-helper-reset {
-	line-height: 1.5;
+	line-height: 1.3;
 }
 
 [dir=rtl] .ui-tabs .ui-tabs-nav li {
@@ -2464,8 +2428,8 @@ dd .deletelink {
 
 #tabs {
 	background-color: #fff;
-	border-color: #8fbcff;
 	width: 100%;
+	padding-top: 0.2em;
 	overflow: visible;
 }
 
@@ -2865,7 +2829,6 @@ dd .deletelink {
 	font-weight: bold;
 	padding: 5px 10px 0;
 	width: 240px;
-	white-space: nowrap;
 }
 
 #edituser-table .value {
@@ -2944,10 +2907,6 @@ dd .deletelink {
 
 #edit_interface-page input[type="text"][id$="DATE"] {
 	width: 160px;
-}
-
-#edit_interface-page input[type="text"][id^="TIME"] {
-	width: 100px;
 }
 
 #edit_interface-page input[type="text"][id*="OBJE_FILE"] {
@@ -3436,57 +3395,54 @@ table.table-census-assistant th {
 }
 
 /*-- Lifespan ---- */
-#lifespan-page .person0 {
-	padding: 5px;
+#lifespan-chart {
+	padding:    0 10px 10px;
+	margin:     0 auto;
+	min-height: 500px;
 }
 
-#lifespan-page .person0 div{
-	text-align: center;
+#lifespan-scale {
+	background: transparent url(images/lifespan-chunk.png) repeat-x left bottom;
+	display: inline-block;
+	padding-bottom: 37px;
 }
 
-#lifespan_chart .div-controls {
-	opacity: 0.67;
+#lifespan-scale .date {
+	display: inline-block;
+	width:   70px;
+}
+
+[dir='rtl'] #lifespan-scale .date {
+	text-align: right;
+}
+
+#lifespan-people {
 	position: relative;
-	top: 80px;
-	width: 180px;
-	z-index: 100;
-	margin-left: 20px;
 }
 
-.lifespan_people span:first-letter {
-	font-variant: small-caps;
-	font-size: 16px;
-	padding: 1px;
-}
-
-.lifespan_outer {
-	position: relative;
-	width: 99.5%;
-	height: 600px;
-	overflow: hidden;
-	border: solid #00f 1px;
-}
-
-.lifespan_outer a:hover {
-	color: #f00;
-	text-decoration: none;
-}
-
-.lifespan_timeline {
+#lifespan-people > div {
 	position: absolute;
-	width: 100%;
-	left: -10px;
-	top: -65px;
-	z-index: 2;
-	background-color: #fff;
+	padding:  0;
 }
 
-.lifespan_people {
-	position: absolute;
-	width: 500px;
-	left: -10px;
-	top: -60px;
-	z-index: 1;
+#lifespan-people .itr {
+	display: inline;
+	white-space: nowrap;
+}
+
+#lifespan-people .popup div:first-of-type {
+	font-weight: 900;
+}
+
+#lifespan-people .popup {
+	left:        0;
+	right:       auto;
+	white-space: nowrap;
+}
+
+[dir='rtl'] #lifespan-people .popup {
+	left:  auto;
+	right: 0;
 }
 
 /*-- Pedigree ---- */
@@ -3791,12 +3747,6 @@ a.icon-ldarrow:hover {
 	background-image: url(images/ldarrow2.png);
 }
 
-.icon-lifespan-chunk {
-	width: 50px;
-	height: 37px;
-	background-image: url(images/lifespan-chunk.png);
-}
-
 .icon-loading-small {
 	width: 16px;
 	height: 16px;
@@ -3807,30 +3757,6 @@ a.icon-ldarrow:hover {
 	width: 32px;
 	height: 32px;
 	background-image: url(images/loading.gif);
-}
-
-.icon-lsdnarrow {
-	width: 48px;
-	height: 48px;
-	background-image: url(images/lifespan-down.png);
-}
-
-.icon-lsltarrow {
-	width: 48px;
-	height: 48px;
-	background-image: url(images/lifespan-left.png);
-}
-
-.icon-lsrtarrow {
-	width: 48px;
-	height: 48px;
-	background-image: url(images/lifespan-right.png);
-}
-
-.icon-lsuparrow {
-	width: 48px;
-	height: 48px;
-	background-image: url(images/lifespan-up.png);
 }
 
 .icon-media {
@@ -4273,7 +4199,7 @@ a.icon-udarrow:hover {
 
 header {
 	background: #acf url(images/clouds.png) repeat-x;
-	border: 1px solid #039;
+	border: 1px solid #79c;
 	height: 63px;
 	position: relative;
 	margin: 0;
@@ -5360,19 +5286,84 @@ footer .error {
 		vertical-align: middle;
 	}
 
-	.lifespan_outer {
+	#lifespan-chart {
+		margin: 0;
 		border: 0;
-		height: auto;
-		overflow: visible;
-		position: relative;
+		padding: 0;
+	}
+}
+
+/* Mobile low resolution viewport */
+@media (max-width: 600px) {
+	/* Search */
+	#search-page-table {
 		width: auto;
 	}
+	#search-page-table .value {
+		margin: 0 0 0 30%;
+		white-space: normal;
+	}
+	[dir=rtl] #search-page-table .value {
+		margin: 0 30% 0 0;
+	}
+	#search-page-table div #query {
+		width: 150px;
+	}
+	#search-page-table > input {
+		width: 20px;
+	}
+}
 
-	.lifespan_people {
-		left: -10px;
-		position: absolute;
-		top: -60px;
-		width: auto;
-		z-index: 1;
+@media (max-width: 480px) {
+	/* Header */
+	header {
+		height: 83px;
+	}
+	.secondary-menu {
+		top: 50px;
+		margin-top: 10px;
+	}
+	.primary-menu > li > a {
+		height: 20px;
+	}
+	/* Front Page */
+	#index_main_blocks {
+		float: left;
+		width: 100%;
+	}
+	#index_small_blocks {
+		float: left;
+		width: 100%;
+	}
+	.stat-table1, .stat-table2{
+		width: 100%;
+	}
+	/* Indi Page */
+	#indi_left {
+		float: left;
+		width: 100%;
+		font-size: 10px;
+	}
+	#header_accordion1 {
+		font-size: 10px;
+	}
+	#main {
+		display: inline;
+	}
+	#separator {
+		display: none;
+	}
+	#sidebar {
+		float: left;
+		width: 100%;
+		display: inline;
+	}
+	/* Lists */
+	#place_hierarchy td {
+		white-space: normal;
+	}
+	/* Reports */
+	#reportengine-page table {
+		width: 100%;
 	}
 }

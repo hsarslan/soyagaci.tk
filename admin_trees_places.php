@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
  * Defined in session.php
@@ -22,6 +21,8 @@ namespace Fisharebest\Webtrees;
  * @global Tree $WT_TREE
  */
 global $WT_TREE;
+
+use Fisharebest\Webtrees\Controller\PageController;
 
 define('WT_SCRIPT_NAME', 'admin_trees_places.php');
 require './includes/session.php';
@@ -45,7 +46,7 @@ if ($search && $replace) {
 		foreach ($record->getFacts() as $fact) {
 			$old_place = $fact->getAttribute('PLAC');
 			if (preg_match('/(^|, )' . preg_quote($search, '/') . '$/i', $old_place)) {
-				$new_place = preg_replace('/(^|, )' . preg_quote($search, '/') . '$/i', '$1' . $replace, $old_place);
+				$new_place           = preg_replace('/(^|, )' . preg_quote($search, '/') . '$/i', '$1' . $replace, $old_place);
 				$changes[$old_place] = $new_place;
 				if ($confirm == 'update') {
 					$gedcom = preg_replace('/(\n2 PLAC (?:.*, )*)' . preg_quote($search, '/') . '(\n|$)/i', '$1' . $replace . '$2', $fact->getGedcom());
@@ -66,7 +67,7 @@ if ($search && $replace) {
 		foreach ($record->getFacts() as $fact) {
 			$old_place = $fact->getAttribute('PLAC');
 			if (preg_match('/(^|, )' . preg_quote($search, '/') . '$/i', $old_place)) {
-				$new_place = preg_replace('/(^|, )' . preg_quote($search, '/') . '$/i', '$1' . $replace, $old_place);
+				$new_place           = preg_replace('/(^|, )' . preg_quote($search, '/') . '$/i', '$1' . $replace, $old_place);
 				$changes[$old_place] = $new_place;
 				if ($confirm == 'update') {
 					$gedcom = preg_replace('/(\n2 PLAC (?:.*, )*)' . preg_quote($search, '/') . '(\n|$)/i', '$1' . $replace . '$2', $fact->getGedcom());
@@ -110,7 +111,7 @@ $controller
 <?php if ($search && $replace) { ?>
 	<?php if ($changes) { ?>
 	<p>
-		<?php echo ($confirm) ? I18N::translate('The following places have been changed:') : I18N::translate('The following places would be changed:'); ?>
+		<?php echo $confirm ? I18N::translate('The following places have been changed:') : I18N::translate('The following places would be changed:'); ?>
 	</p>
 	<ul>
 		<?php foreach ($changes as $old_place => $new_place) { ?>

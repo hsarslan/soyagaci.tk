@@ -34,28 +34,6 @@ var pastefield, nameElement, remElement; // Elements to paste to
 // "rtl" on right-to-left pages.
 var textDirection = jQuery('html').attr('dir');
 
-// Create a modal dialog, fetching the contents from a URL
-function modalDialog(url, title, width) {
-	jQuery('<div title="' + title + '"></div>')
-		.load(url)
-		.dialog({
-			modal: true,
-			width: typeof width === 'undefined' ? 700 : width,
-			open: function() {
-				// Close the window when we click outside it.
-				var self = this;
-				jQuery('.ui-widget-overlay').on('click', function () {
-					jQuery(self).dialog('close');
-				});
-			},
-			close: function() {
-					jQuery(this).dialog ('destroy').remove ();
-			}
-		});
-
-	return false;
-}
-
 // Get a help message.
 function helpDialog(topic, module) {
 	jQuery.getJSON('help_text.php?help=' + topic + '&mod=' + module, function (json) {
@@ -79,18 +57,6 @@ function modalNotes(content, title) {
 			}
 		});
 
-	return false;
-}
-
-// For a dialog containing a form, submit the form via AJAX
-// (to save the data), then reload the page (to display it).
-function modalDialogSubmitAjax(form) {
-	jQuery.ajax({
-		type:    'POST',
-		url:     jQuery(form).attr('action'),
-		data:    jQuery(form).serialize(),
-		success: function() { window.location.reload(); }
-	});
 	return false;
 }
 
@@ -1298,3 +1264,22 @@ jQuery ('body').on ('click', '.iconz', function (e) {
 	}
 	wrapper.find ('.iconz').toggleClass ("icon-zoomin icon-zoomout");
 });
+
+// Activate the langauge selection menu.
+jQuery(".menu-language").on("click", "li a", function() {
+	jQuery.post("action.php", {
+		action: "language",
+		language: $(this).data("language"),
+		csrf: WT_CSRF_TOKEN
+	}, function() { window.location.href = window.location.href; /*location.reload();*/ });
+});
+
+// Activate the theme selection menu.
+jQuery(".menu-theme").on("click", "li a", function() {
+	jQuery.post("action.php", {
+		action: "theme",
+		theme: $(this).data("theme"),
+		csrf: WT_CSRF_TOKEN
+	}, function() { location.reload(); });
+});
+

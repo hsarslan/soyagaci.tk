@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,40 +13,33 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Controller;
 
-use Zend_Session;
+use Fisharebest\Webtrees\Database;
 
 /**
- * Class BaseController - Base controller for all other controllers
+ * Base controller for all other controllers
  */
 class BaseController {
 	// The controller accumulates Javascript (inline and external), and renders it in the footer
-	const JS_PRIORITY_HIGH = 0;
+	const JS_PRIORITY_HIGH   = 0;
 	const JS_PRIORITY_NORMAL = 1;
-	const JS_PRIORITY_LOW = 2;
+	const JS_PRIORITY_LOW    = 2;
+
+	/** @var string[][] Inline JavaScript to add to the page. */
 	private $inline_javascript = array(
 		self::JS_PRIORITY_HIGH   => array(),
 		self::JS_PRIORITY_NORMAL => array(),
 		self::JS_PRIORITY_LOW    => array(),
 	);
-	private $external_javascript = array();
 
-	protected $page_header = false; // Have we printed a page header?
+	/** @var string[] Exteral JavaScript files to load. */
+	private $external_javascript = array();
 
 	/**
 	 * Startup activity
 	 */
 	public function __construct() {
-	}
-
-	/**
-	 * Shutdown activity
-	 */
-	public function __destruct() {
-		// If we printed a header, automatically print a footer
-		if ($this->page_header) {
-			echo $this->pageFooter();
-		}
 	}
 
 	/**
@@ -69,13 +60,13 @@ class BaseController {
 	 * NOTE: there is no need to use "jQuery(document).ready(function(){...})", etc.
 	 * as this Javascript won’t be inserted until the very end of the page.
 	 *
-	 * @param string  $script
-	 * @param integer $priority
+	 * @param string $script
+	 * @param int    $priority
 	 *
 	 * @return $this
 	 */
 	public function addInlineJavascript($script, $priority = self::JS_PRIORITY_NORMAL) {
-		$tmp = & $this->inline_javascript[$priority];
+		$tmp   = &$this->inline_javascript[$priority];
 		$tmp[] = $script;
 
 		return $this;
@@ -130,11 +121,8 @@ class BaseController {
 	 * @return $this
 	 */
 	public function pageHeader() {
-		// Once we've displayed the header, we should no longer write session data.
-		Zend_Session::writeClose();
-
 		// We've displayed the header - display the footer automatically
-		$this->page_header = true;
+		register_shutdown_function(array($this, 'pageFooter'));
 
 		return $this;
 	}
@@ -142,7 +130,7 @@ class BaseController {
 	/**
 	 * Print the page footer, using the theme
 	 */
-	protected function pageFooter() {
+	public function pageFooter() {
 		if (WT_DEBUG_SQL) {
 			echo Database::getQueryLog();
 		}

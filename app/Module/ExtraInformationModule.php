@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,11 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module;
+
+use Fisharebest\Webtrees\Fact;
+use Fisharebest\Webtrees\Functions\FunctionsPrintFacts;
+use Fisharebest\Webtrees\I18N;
 
 /**
  * Class ExtraInformationModule
@@ -41,9 +44,13 @@ class ExtraInformationModule extends AbstractModule implements ModuleSidebarInte
 		return true;
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Load this sidebar synchronously.
+	 *
+	 * @return string
+	 */
 	public function getSidebarContent() {
-		global $WT_TREE, $controller;
+		global $controller;
 
 		$indifacts = array();
 		// The individual’s own facts
@@ -58,7 +65,7 @@ class ExtraInformationModule extends AbstractModule implements ModuleSidebarInte
 			echo I18N::translate('There are no facts for this individual.');
 		} else {
 			foreach ($indifacts as $fact) {
-				print_fact($fact, $controller->record);
+				FunctionsPrintFacts::printFact($fact, $controller->record);
 			}
 		}
 
@@ -75,7 +82,7 @@ class ExtraInformationModule extends AbstractModule implements ModuleSidebarInte
 	 *
 	 * @param Fact $fact
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public static function showFact(Fact $fact) {
 		switch ($fact->getTag()) {

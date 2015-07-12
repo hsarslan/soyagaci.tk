@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,13 +13,14 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 use HTMLPurifier;
 use HTMLPurifier_Config;
 use Michelf\MarkdownExtra;
 
 /**
- * Class Filter - Filter/escape/validate input and output
+ * Filter input and escape output.
  */
 class Filter {
 	// REGEX to match a URL
@@ -66,7 +65,7 @@ class Filter {
 	 * @return string
 	 */
 	public static function escapeJs($string) {
-		return preg_replace_callback('/[^A-Za-z0-9,. _]/Su', function($x) {
+		return preg_replace_callback('/[^A-Za-z0-9,. _]/Su', function ($x) {
 			if (strlen($x[0]) == 1) {
 				return sprintf('\\x%02X', ord($x[0]));
 			} elseif (function_exists('iconv')) {
@@ -135,7 +134,7 @@ class Filter {
 	public static function expandUrls($text) {
 		return preg_replace_callback(
 			'/' . addcslashes('(?!>)' . self::URL_REGEX . '(?!</a>)', '/') . '/i',
-			function($m) {
+			function ($m) {
 				return '<a href="' . $m[0] . '" target="_blank">' . $m[0] . '</a>';
 			},
 			self::escapeHtml($text)
@@ -165,7 +164,7 @@ class Filter {
 		$config = HTMLPurifier_Config::createDefault();
 		$config->set('Cache.SerializerPath', $HTML_PURIFIER_CACHE_DIR);
 		$purifier = new HTMLPurifier($config);
-		$text = $purifier->purify($text);
+		$text     = $purifier->purify($text);
 
 		return $text;
 	}
@@ -199,11 +198,12 @@ class Filter {
 				$variable,
 				FILTER_CALLBACK,
 				array(
-					'options' => function($x) {
+					'options' => function ($x) {
 						return mb_check_encoding($x, 'UTF-8') ? $x : false;
 					},
 				)
 			);
+
 			return ($tmp === null || $tmp === false) ? $default : $tmp;
 		}
 	}
@@ -234,6 +234,7 @@ class Filter {
 					),
 				)
 			);
+
 			return $tmp[$variable] ?: array();
 		} else {
 			// PHP5.3 requires the $tmp variable
@@ -243,12 +244,13 @@ class Filter {
 					$variable => array(
 						'flags'   => FILTER_REQUIRE_ARRAY,
 						'filter'  => FILTER_CALLBACK,
-						'options' => function($x) {
+						'options' => function ($x) {
 							return !function_exists('mb_convert_encoding') || mb_check_encoding($x, 'UTF-8') ? $x : false;
-						}
+						},
 					),
 				)
 			);
+
 			return $tmp[$variable] ?: array();
 		}
 	}
@@ -284,7 +286,7 @@ class Filter {
 	 *
 	 * @param string $variable
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public static function getBool($variable) {
 		return (bool) filter_input(INPUT_GET, $variable, FILTER_VALIDATE_BOOLEAN);
@@ -293,15 +295,15 @@ class Filter {
 	/**
 	 * Validate integer GET parameters
 	 *
-	 * @param string  $variable
-	 * @param integer $min
-	 * @param integer $max
-	 * @param integer $default
+	 * @param string $variable
+	 * @param int    $min
+	 * @param int    $max
+	 * @param int    $default
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public static function getInteger($variable, $min = 0, $max = PHP_INT_MAX, $default = 0) {
-		return filter_input(INPUT_GET, $variable, FILTER_VALIDATE_INT, array('options'=>array('min_range'=>$min, 'max_range'=>$max, 'default'=>$default)));
+		return filter_input(INPUT_GET, $variable, FILTER_VALIDATE_INT, array('options' => array('min_range' => $min, 'max_range' => $max, 'default' => $default)));
 	}
 
 	/**
@@ -359,7 +361,7 @@ class Filter {
 	 *
 	 * @param string $variable
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public static function postBool($variable) {
 		return (bool) filter_input(INPUT_POST, $variable, FILTER_VALIDATE_BOOLEAN);
@@ -368,15 +370,15 @@ class Filter {
 	/**
 	 * Validate integer POST parameters
 	 *
-	 * @param string  $variable
-	 * @param integer $min
-	 * @param integer $max
-	 * @param integer $default
+	 * @param string $variable
+	 * @param int    $min
+	 * @param int    $max
+	 * @param int    $default
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public static function postInteger($variable, $min = 0, $max = PHP_INT_MAX, $default = 0) {
-		return filter_input(INPUT_POST, $variable, FILTER_VALIDATE_INT, array('options'=>array('min_range'=>$min, 'max_range'=>$max, 'default'=>$default)));
+		return filter_input(INPUT_POST, $variable, FILTER_VALIDATE_INT, array('options' => array('min_range' => $min, 'max_range' => $max, 'default' => $default)));
 	}
 
 	/**
@@ -445,16 +447,16 @@ $_SERVER[$variable]))) {
 	 * @return string
 	 */
 	public static function getCsrfToken() {
-		global $WT_SESSION;
-
-		if ($WT_SESSION->CSRF_TOKEN === null) {
-			$charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcedfghijklmnopqrstuvwxyz0123456789';
+		if (!Session::has('CSRF_TOKEN')) {
+			$charset    = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcedfghijklmnopqrstuvwxyz0123456789';
+			$csrf_token = '';
 			for ($n = 0; $n < 32; ++$n) {
-				$WT_SESSION->CSRF_TOKEN .= substr($charset, mt_rand(0, 61), 1);
+				$csrf_token .= substr($charset, mt_rand(0, 61), 1);
 			}
+			Session::put('CSRF_TOKEN', $csrf_token);
 		}
 
-		return $WT_SESSION->CSRF_TOKEN;
+		return Session::get('CSRF_TOKEN');
 	}
 
 	/**
@@ -469,7 +471,7 @@ $_SERVER[$variable]))) {
 	/**
 	 * Check that the POST request contains the CSRF token generated above.
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public static function checkCsrf() {
 		if (self::post('csrf') !== self::getCsrfToken()) {

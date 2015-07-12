@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,35 +13,42 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Date;
 
 use Fisharebest\ExtCalendar\ArabicCalendar;
+use Fisharebest\Webtrees\I18N;
 
 /**
- * Class HijriDate - Definitions for the Hijri calendar.
+ * Definitions for the Hijri calendar.
  *
  * Note that these are "theoretical" dates.
  * "True" dates are based on local lunar observations, and can be a +/- one day.
  */
 class HijriDate extends CalendarDate {
-	const CALENDAR_ESCAPE = '@#DHIJRI@';
-	const CAL_START_JD = 1948440; // @#DHIJRI@ 1 MUHAR 0001 = @#JULIAN@ 16 JUL 0622
-
-	/** {@inheritdoc} */
+	/** @var integer[] Convert GEDCOM month names to month numbers  */
 	public static $MONTH_ABBREV = array('' => 0, 'MUHAR' => 1, 'SAFAR' => 2, 'RABIA' => 3, 'RABIT' => 4, 'JUMAA' => 5, 'JUMAT' => 6, 'RAJAB' => 7, 'SHAAB' => 8, 'RAMAD' => 9, 'SHAWW' => 10, 'DHUAQ' => 11, 'DHUAH' => 12);
 
-	/** {@inheritdoc} */
+	/**
+	 * Create a date from either:
+	 * a Julian day number
+	 * day/month/year strings from a GEDCOM date
+	 * another CalendarDate object
+	 *
+	 * @param array|int|CalendarDate $date
+	 */
 	public function __construct($date) {
 		$this->calendar = new ArabicCalendar;
 		parent::__construct($date);
 	}
 
-	/** {@inheritdoc} */
-	public static function calendarName() {
-		return /* I18N: The Arabic/Hijri calendar */
-			I18N::translate('Hijri');
-	}
-
-	/** {@inheritdoc} */
+	/**
+	 * Full month name in nominative case.
+	 *
+	 * @param int  $month_number
+	 * @param bool $leap_year    Some calendars use leap months
+	 *
+	 * @return string
+	 */
 	public static function monthNameNominativeCase($month_number, $leap_year) {
 		static $translated_month_names;
 
@@ -68,8 +73,15 @@ class HijriDate extends CalendarDate {
 		return $translated_month_names[$month_number];
 	}
 
-	/** {@inheritdoc} */
-	static function monthNameGenitiveCase($month_number, $leap_year) {
+	/**
+	 * Full month name in genitive case.
+	 *
+	 * @param int  $month_number
+	 * @param bool $leap_year    Some calendars use leap months
+	 *
+	 * @return string
+	 */
+	protected function monthNameGenitiveCase($month_number, $leap_year) {
 		static $translated_month_names;
 
 		if ($translated_month_names === null) {
@@ -93,8 +105,15 @@ class HijriDate extends CalendarDate {
 		return $translated_month_names[$month_number];
 	}
 
-	/** {@inheritdoc} */
-	static function monthNameLocativeCase($month_number, $leap_year) {
+	/**
+	 * Full month name in locative case.
+	 *
+	 * @param int  $month_number
+	 * @param bool $leap_year    Some calendars use leap months
+	 *
+	 * @return string
+	 */
+	protected function monthNameLocativeCase($month_number, $leap_year) {
 		static $translated_month_names;
 
 		if ($translated_month_names === null) {
@@ -118,8 +137,15 @@ class HijriDate extends CalendarDate {
 		return $translated_month_names[$month_number];
 	}
 
-	/** {@inheritdoc} */
-	static function monthNameInstrumentalCase($month_number, $leap_year) {
+	/**
+	 * Full month name in instrumental case.
+	 *
+	 * @param int  $month_number
+	 * @param bool $leap_year    Some calendars use leap months
+	 *
+	 * @return string
+	 */
+	protected function monthNameInstrumentalCase($month_number, $leap_year) {
 		static $translated_month_names;
 
 		if ($translated_month_names === null) {
@@ -143,8 +169,15 @@ class HijriDate extends CalendarDate {
 		return $translated_month_names[$month_number];
 	}
 
-	/** {@inheritdoc} */
-	static function monthNameAbbreviated($month_number, $leap_year) {
+	/**
+	 * Abbreviated month name
+	 *
+	 * @param int  $month_number
+	 * @param bool $leap_year    Some calendars use leap months
+	 *
+	 * @return string
+	 */
+	protected function monthNameAbbreviated($month_number, $leap_year) {
 		return self::monthNameNominativeCase($month_number, $leap_year);
 	}
 }

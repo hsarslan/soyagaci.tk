@@ -1,5 +1,97 @@
 [
     {
+        "name": "pclzip/pclzip",
+        "version": "2.8.2",
+        "version_normalized": "2.8.2.0",
+        "source": {
+            "type": "git",
+            "url": "https://github.com/ivanlanin/pclzip.git",
+            "reference": "19dd1de9d3f5fc4d7d70175b4c344dee329f45fd"
+        },
+        "dist": {
+            "type": "zip",
+            "url": "https://api.github.com/repos/ivanlanin/pclzip/zipball/19dd1de9d3f5fc4d7d70175b4c344dee329f45fd",
+            "reference": "19dd1de9d3f5fc4d7d70175b4c344dee329f45fd",
+            "shasum": ""
+        },
+        "time": "2014-06-05 11:42:24",
+        "type": "library",
+        "installation-source": "dist",
+        "autoload": {
+            "classmap": [
+                "pclzip.lib.php"
+            ]
+        },
+        "notification-url": "https://packagist.org/downloads/",
+        "license": [
+            "LGPL-2.1"
+        ],
+        "authors": [
+            {
+                "name": "Vincent Blavet"
+            }
+        ],
+        "description": "A PHP library that offers compression and extraction functions for Zip formatted archives",
+        "homepage": "http://www.phpconcept.net/pclzip",
+        "keywords": [
+            "php",
+            "zip"
+        ]
+    },
+    {
+        "name": "bombayworks/zendframework1",
+        "version": "v1.12.13",
+        "version_normalized": "1.12.13.0",
+        "source": {
+            "type": "git",
+            "url": "https://github.com/bombayworks/zendframework1.git",
+            "reference": "9d7220bba71e86518ce93abbe47d978f275f03dc"
+        },
+        "dist": {
+            "type": "zip",
+            "url": "https://api.github.com/repos/bombayworks/zendframework1/zipball/9d7220bba71e86518ce93abbe47d978f275f03dc",
+            "reference": "9d7220bba71e86518ce93abbe47d978f275f03dc",
+            "shasum": ""
+        },
+        "require": {
+            "php": ">=5.2.11"
+        },
+        "require-dev": {
+            "phpunit/dbunit": "1.3.*",
+            "phpunit/phpunit": "3.7.*"
+        },
+        "time": "2015-05-20 16:00:33",
+        "bin": [
+            "bin/zf.sh",
+            "bin/zf.php"
+        ],
+        "type": "library",
+        "extra": {
+            "branch-alias": {
+                "dev-master": "1.12.x-dev"
+            }
+        },
+        "installation-source": "dist",
+        "autoload": {
+            "psr-0": {
+                "Zend_": "library/"
+            }
+        },
+        "notification-url": "https://packagist.org/downloads/",
+        "include-path": [
+            "library/"
+        ],
+        "license": [
+            "BSD-3-Clause"
+        ],
+        "description": "Zend Framework 1",
+        "homepage": "http://framework.zend.com/",
+        "keywords": [
+            "ZF1",
+            "framework"
+        ]
+    },
+    {
         "name": "ezyang/htmlpurifier",
         "version": "v4.6.0",
         "version_normalized": "4.6.0.0",
@@ -36,14 +128,177 @@
             {
                 "name": "Edward Z. Yang",
                 "email": "admin@htmlpurifier.org",
-                "homepage": "http://ezyang.com",
-                "role": "Developer"
+                "homepage": "http://ezyang.com"
             }
         ],
         "description": "Standards compliant HTML filter written in PHP",
         "homepage": "http://htmlpurifier.org/",
         "keywords": [
             "html"
+        ]
+    },
+    {
+        "name": "fisharebest/algorithm",
+        "version": "1.0.1",
+        "version_normalized": "1.0.1.0",
+        "source": {
+            "type": "git",
+            "url": "https://github.com/fisharebest/algorithm.git",
+            "reference": "39c51e71151410c72047467d63231aa377cf934a"
+        },
+        "dist": {
+            "type": "zip",
+            "url": "https://api.github.com/repos/fisharebest/algorithm/zipball/39c51e71151410c72047467d63231aa377cf934a",
+            "reference": "39c51e71151410c72047467d63231aa377cf934a",
+            "shasum": ""
+        },
+        "require": {
+            "php": ">=5.3.0"
+        },
+        "require-dev": {
+            "phpunit/phpunit": "*",
+            "satooshi/php-coveralls": "*"
+        },
+        "time": "2015-05-15 17:06:43",
+        "type": "library",
+        "installation-source": "dist",
+        "autoload": {
+            "psr-4": {
+                "Fisharebest\\Algorithm\\": "src/"
+            }
+        },
+        "notification-url": "https://packagist.org/downloads/",
+        "license": [
+            "GPL-3.0+"
+        ],
+        "authors": [
+            {
+                "name": "Greg Roach",
+                "email": "greg@subaqua.co.uk",
+                "role": "Developer"
+            }
+        ],
+        "description": "Implementation of standard algorithms in PHP.",
+        "homepage": "https://github.com/fisharebest/algorithm",
+        "keywords": [
+            "Algorithm",
+            "dijkstra"
+        ]
+    },
+    {
+        "name": "fisharebest/ext-calendar",
+        "version": "2.1.0",
+        "version_normalized": "2.1.0.0",
+        "source": {
+            "type": "git",
+            "url": "https://github.com/fisharebest/ext-calendar.git",
+            "reference": "e34274eb932db010369ebe8c76c6b6a6a2ad14c5"
+        },
+        "dist": {
+            "type": "zip",
+            "url": "https://api.github.com/repos/fisharebest/ext-calendar/zipball/e34274eb932db010369ebe8c76c6b6a6a2ad14c5",
+            "reference": "e34274eb932db010369ebe8c76c6b6a6a2ad14c5",
+            "shasum": ""
+        },
+        "require": {
+            "php": ">=5.3.0"
+        },
+        "require-dev": {
+            "phpunit/phpunit": "*",
+            "satooshi/php-coveralls": "*"
+        },
+        "time": "2015-04-02 20:40:10",
+        "type": "library",
+        "installation-source": "dist",
+        "autoload": {
+            "psr-4": {
+                "Fisharebest\\ExtCalendar\\": "src/"
+            }
+        },
+        "notification-url": "https://packagist.org/downloads/",
+        "license": [
+            "GPL-3.0+"
+        ],
+        "authors": [
+            {
+                "name": "Greg Roach",
+                "email": "fisharebest@gmail.com",
+                "role": "Developer"
+            }
+        ],
+        "description": "Implementation of the Arabic (Hijri), French, Gregorian, Jewish, Julian and Persian (Jalali) calendars.  Optional PHP shims for servers without the ext/calendar extension.",
+        "homepage": "https://github.com/fisharebest/ext-calendar",
+        "keywords": [
+            "Jalali",
+            "arabic",
+            "calendar",
+            "ext-calendar",
+            "french",
+            "gregorian",
+            "hebrew",
+            "hijri",
+            "jewish",
+            "julian",
+            "julian day",
+            "julian day number",
+            "persian",
+            "shamsi"
+        ]
+    },
+    {
+        "name": "fisharebest/localization",
+        "version": "1.4.1",
+        "version_normalized": "1.4.1.0",
+        "source": {
+            "type": "git",
+            "url": "https://github.com/fisharebest/localization.git",
+            "reference": "6514b2fb91b6d95968d31d008fcc82df63d7d902"
+        },
+        "dist": {
+            "type": "zip",
+            "url": "https://api.github.com/repos/fisharebest/localization/zipball/6514b2fb91b6d95968d31d008fcc82df63d7d902",
+            "reference": "6514b2fb91b6d95968d31d008fcc82df63d7d902",
+            "shasum": ""
+        },
+        "require": {
+            "php": ">=5.3.0"
+        },
+        "require-dev": {
+            "phpunit/phpunit": "*",
+            "satooshi/php-coveralls": "*"
+        },
+        "time": "2015-04-06 15:20:23",
+        "type": "library",
+        "installation-source": "dist",
+        "autoload": {
+            "psr-4": {
+                "Fisharebest\\Localization\\": "src/"
+            }
+        },
+        "notification-url": "https://packagist.org/downloads/",
+        "license": [
+            "GPL-3.0+"
+        ],
+        "authors": [
+            {
+                "name": "Greg Roach",
+                "email": "fisharebest@gmail.com",
+                "role": "Developer"
+            }
+        ],
+        "description": "A lightweight localization database and translation tools, with data from the CLDR, IANA, ISO, etc.",
+        "homepage": "https://github.com/fisharebest/localization",
+        "keywords": [
+            "cldr",
+            "gettext",
+            "i18n",
+            "l10n",
+            "language",
+            "locale",
+            "localization",
+            "script",
+            "translate",
+            "translation"
         ]
     },
     {
@@ -91,7 +346,119 @@
         ]
     },
     {
-        "name": "rhumsaa/uuid",
+        "name": "michelf/php-markdown",
+        "version": "1.5.0",
+        "version_normalized": "1.5.0.0",
+        "source": {
+            "type": "git",
+            "url": "https://github.com/michelf/php-markdown.git",
+            "reference": "e1aabe18173231ebcefc90e615565742fc1c7fd9"
+        },
+        "dist": {
+            "type": "zip",
+            "url": "https://api.github.com/repos/michelf/php-markdown/zipball/e1aabe18173231ebcefc90e615565742fc1c7fd9",
+            "reference": "e1aabe18173231ebcefc90e615565742fc1c7fd9",
+            "shasum": ""
+        },
+        "require": {
+            "php": ">=5.3.0"
+        },
+        "time": "2015-03-01 12:03:08",
+        "type": "library",
+        "extra": {
+            "branch-alias": {
+                "dev-lib": "1.4.x-dev"
+            }
+        },
+        "installation-source": "dist",
+        "autoload": {
+            "psr-0": {
+                "Michelf": ""
+            }
+        },
+        "notification-url": "https://packagist.org/downloads/",
+        "license": [
+            "BSD-3-Clause"
+        ],
+        "authors": [
+            {
+                "name": "John Gruber",
+                "homepage": "http://daringfireball.net/"
+            },
+            {
+                "name": "Michel Fortin",
+                "email": "michel.fortin@michelf.ca",
+                "homepage": "https://michelf.ca/",
+                "role": "Developer"
+            }
+        ],
+        "description": "PHP Markdown",
+        "homepage": "https://michelf.ca/projects/php-markdown/",
+        "keywords": [
+            "markdown"
+        ]
+    },
+    {
+        "name": "patchwork/utf8",
+        "version": "v1.2.2",
+        "version_normalized": "1.2.2.0",
+        "source": {
+            "type": "git",
+            "url": "https://github.com/tchwork/utf8.git",
+            "reference": "7287a6fb2c46a66ac6bfbaf0e4975229b27efcba"
+        },
+        "dist": {
+            "type": "zip",
+            "url": "https://api.github.com/repos/tchwork/utf8/zipball/7287a6fb2c46a66ac6bfbaf0e4975229b27efcba",
+            "reference": "7287a6fb2c46a66ac6bfbaf0e4975229b27efcba",
+            "shasum": ""
+        },
+        "require": {
+            "lib-pcre": ">=7.3",
+            "php": ">=5.3.0"
+        },
+        "suggest": {
+            "ext-iconv": "Use iconv for best performance",
+            "ext-intl": "Use Intl for best performance",
+            "ext-mbstring": "Use Mbstring for best performance",
+            "ext-wfio": "Use WFIO for UTF-8 filesystem access on Windows"
+        },
+        "time": "2015-04-26 09:51:43",
+        "type": "library",
+        "extra": {
+            "branch-alias": {
+                "dev-master": "1.2-dev"
+            }
+        },
+        "installation-source": "dist",
+        "autoload": {
+            "psr-0": {
+                "Patchwork": "class/",
+                "Normalizer": "class/"
+            }
+        },
+        "notification-url": "https://packagist.org/downloads/",
+        "license": [
+            "(Apache-2.0 or GPL-2.0)"
+        ],
+        "authors": [
+            {
+                "name": "Nicolas Grekas",
+                "email": "p@tchwork.com"
+            }
+        ],
+        "description": "Portable and performant UTF-8, Unicode and Grapheme Clusters for PHP",
+        "homepage": "https://github.com/tchwork/utf8",
+        "keywords": [
+            "grapheme",
+            "i18n",
+            "unicode",
+            "utf-8",
+            "utf8"
+        ]
+    },
+    {
+        "name": "ramsey/uuid",
         "version": "2.8.0",
         "version_normalized": "2.8.0.0",
         "source": {
@@ -159,83 +526,24 @@
         ]
     },
     {
-        "name": "patchwork/utf8",
-        "version": "v1.2.1",
-        "version_normalized": "1.2.1.0",
-        "source": {
-            "type": "git",
-            "url": "https://github.com/tchwork/utf8.git",
-            "reference": "01f0ed1628db7794e2d4e336f55a09daef4248a5"
-        },
-        "dist": {
-            "type": "zip",
-            "url": "https://api.github.com/repos/tchwork/utf8/zipball/01f0ed1628db7794e2d4e336f55a09daef4248a5",
-            "reference": "01f0ed1628db7794e2d4e336f55a09daef4248a5",
-            "shasum": ""
-        },
-        "require": {
-            "lib-pcre": ">=7.3",
-            "php": ">=5.3.0"
-        },
-        "suggest": {
-            "ext-iconv": "Use iconv for best performance",
-            "ext-intl": "Use Intl for best performance",
-            "ext-mbstring": "Use Mbstring for best performance",
-            "ext-wfio": "Use WFIO for UTF-8 filesystem access on Windows"
-        },
-        "time": "2015-01-29 08:36:50",
-        "type": "library",
-        "extra": {
-            "branch-alias": {
-                "dev-master": "1.2-dev"
-            }
-        },
-        "installation-source": "dist",
-        "autoload": {
-            "psr-0": {
-                "Patchwork": "class/",
-                "Normalizer": "class/"
-            }
-        },
-        "notification-url": "https://packagist.org/downloads/",
-        "license": [
-            "(Apache-2.0 or GPL-2.0)"
-        ],
-        "authors": [
-            {
-                "name": "Nicolas Grekas",
-                "email": "p@tchwork.com"
-            }
-        ],
-        "description": "Portable and performant UTF-8, Unicode and Grapheme Clusters for PHP",
-        "homepage": "https://github.com/tchwork/utf8",
-        "keywords": [
-            "grapheme",
-            "i18n",
-            "unicode",
-            "utf-8",
-            "utf8"
-        ]
-    },
-    {
         "name": "tecnick.com/tcpdf",
-        "version": "6.2.6",
-        "version_normalized": "6.2.6.0",
+        "version": "6.2.8",
+        "version_normalized": "6.2.8.0",
         "source": {
             "type": "git",
             "url": "https://github.com/tecnickcom/TCPDF.git",
-            "reference": "a2e8f5b505a7a14a4ed960313c4baf699fd1f4bb"
+            "reference": "3dee9e7f3a414875fd1d9f4f1dfc2433493a86d2"
         },
         "dist": {
             "type": "zip",
-            "url": "https://api.github.com/repos/tecnickcom/TCPDF/zipball/a2e8f5b505a7a14a4ed960313c4baf699fd1f4bb",
-            "reference": "a2e8f5b505a7a14a4ed960313c4baf699fd1f4bb",
+            "url": "https://api.github.com/repos/tecnickcom/TCPDF/zipball/3dee9e7f3a414875fd1d9f4f1dfc2433493a86d2",
+            "reference": "3dee9e7f3a414875fd1d9f4f1dfc2433493a86d2",
             "shasum": ""
         },
         "require": {
             "php": ">=5.3.0"
         },
-        "time": "2015-01-28 18:51:40",
+        "time": "2015-04-29 16:13:58",
         "type": "library",
         "installation-source": "dist",
         "autoload": {
@@ -280,315 +588,6 @@
             "pdf",
             "pdf417",
             "qrcode"
-        ]
-    },
-    {
-        "name": "pclzip/pclzip",
-        "version": "2.8.2",
-        "version_normalized": "2.8.2.0",
-        "source": {
-            "type": "git",
-            "url": "https://github.com/ivanlanin/pclzip.git",
-            "reference": "19dd1de9d3f5fc4d7d70175b4c344dee329f45fd"
-        },
-        "dist": {
-            "type": "zip",
-            "url": "https://api.github.com/repos/ivanlanin/pclzip/zipball/19dd1de9d3f5fc4d7d70175b4c344dee329f45fd",
-            "reference": "19dd1de9d3f5fc4d7d70175b4c344dee329f45fd",
-            "shasum": ""
-        },
-        "time": "2014-06-05 11:42:24",
-        "type": "library",
-        "installation-source": "dist",
-        "autoload": {
-            "classmap": [
-                "pclzip.lib.php"
-            ]
-        },
-        "notification-url": "https://packagist.org/downloads/",
-        "license": [
-            "LGPL-2.1"
-        ],
-        "authors": [
-            {
-                "name": "Vincent Blavet"
-            }
-        ],
-        "description": "A PHP library that offers compression and extraction functions for Zip formatted archives",
-        "homepage": "http://www.phpconcept.net/pclzip",
-        "keywords": [
-            "php",
-            "zip"
-        ]
-    },
-    {
-        "name": "bombayworks/zendframework1",
-        "version": "v1.12.11",
-        "version_normalized": "1.12.11.0",
-        "source": {
-            "type": "git",
-            "url": "https://github.com/bombayworks/zendframework1.git",
-            "reference": "64447e39d4c7a08ba17d2087a89caab713804d27"
-        },
-        "dist": {
-            "type": "zip",
-            "url": "https://api.github.com/repos/bombayworks/zendframework1/zipball/64447e39d4c7a08ba17d2087a89caab713804d27",
-            "reference": "64447e39d4c7a08ba17d2087a89caab713804d27",
-            "shasum": ""
-        },
-        "require": {
-            "php": ">=5.2.11"
-        },
-        "require-dev": {
-            "phpunit/dbunit": "1.3.*",
-            "phpunit/phpunit": "3.7.*"
-        },
-        "time": "2015-02-11 16:00:41",
-        "bin": [
-            "bin/zf.sh",
-            "bin/zf.php"
-        ],
-        "type": "library",
-        "extra": {
-            "branch-alias": {
-                "dev-master": "1.12.x-dev"
-            }
-        },
-        "installation-source": "dist",
-        "autoload": {
-            "psr-0": {
-                "Zend_": "library/"
-            }
-        },
-        "notification-url": "https://packagist.org/downloads/",
-        "include-path": [
-            "library/"
-        ],
-        "license": [
-            "BSD-3-Clause"
-        ],
-        "description": "Zend Framework 1",
-        "homepage": "http://framework.zend.com/",
-        "keywords": [
-            "ZF1",
-            "framework"
-        ]
-    },
-    {
-        "name": "michelf/php-markdown",
-        "version": "1.5.0",
-        "version_normalized": "1.5.0.0",
-        "source": {
-            "type": "git",
-            "url": "https://github.com/michelf/php-markdown.git",
-            "reference": "e1aabe18173231ebcefc90e615565742fc1c7fd9"
-        },
-        "dist": {
-            "type": "zip",
-            "url": "https://api.github.com/repos/michelf/php-markdown/zipball/e1aabe18173231ebcefc90e615565742fc1c7fd9",
-            "reference": "e1aabe18173231ebcefc90e615565742fc1c7fd9",
-            "shasum": ""
-        },
-        "require": {
-            "php": ">=5.3.0"
-        },
-        "time": "2015-03-01 12:03:08",
-        "type": "library",
-        "extra": {
-            "branch-alias": {
-                "dev-lib": "1.4.x-dev"
-            }
-        },
-        "installation-source": "dist",
-        "autoload": {
-            "psr-0": {
-                "Michelf": ""
-            }
-        },
-        "notification-url": "https://packagist.org/downloads/",
-        "license": [
-            "BSD-3-Clause"
-        ],
-        "authors": [
-            {
-                "name": "John Gruber",
-                "homepage": "http://daringfireball.net/"
-            },
-            {
-                "name": "Michel Fortin",
-                "email": "michel.fortin@michelf.ca",
-                "homepage": "https://michelf.ca/",
-                "role": "Developer"
-            }
-        ],
-        "description": "PHP Markdown",
-        "homepage": "https://michelf.ca/projects/php-markdown/",
-        "keywords": [
-            "markdown"
-        ]
-    },
-    {
-        "name": "fisharebest/algorithm",
-        "version": "1.0.0",
-        "version_normalized": "1.0.0.0",
-        "source": {
-            "type": "git",
-            "url": "https://github.com/fisharebest/algorithm.git",
-            "reference": "ddfbf31e7b1ef49f227409a41261770ed3fb467b"
-        },
-        "dist": {
-            "type": "zip",
-            "url": "https://api.github.com/repos/fisharebest/algorithm/zipball/ddfbf31e7b1ef49f227409a41261770ed3fb467b",
-            "reference": "ddfbf31e7b1ef49f227409a41261770ed3fb467b",
-            "shasum": ""
-        },
-        "require": {
-            "php": ">=5.3.0"
-        },
-        "require-dev": {
-            "phpunit/phpunit": "*",
-            "satooshi/php-coveralls": "*"
-        },
-        "time": "2015-02-15 21:38:53",
-        "type": "library",
-        "installation-source": "dist",
-        "autoload": {
-            "psr-4": {
-                "Fisharebest\\Algorithm\\": "src/"
-            }
-        },
-        "notification-url": "https://packagist.org/downloads/",
-        "license": [
-            "GPL-3.0+"
-        ],
-        "authors": [
-            {
-                "name": "Greg Roach",
-                "email": "greg@subaqua.co.uk",
-                "role": "Developer"
-            }
-        ],
-        "description": "Implementation of standard algorithms in PHP.",
-        "homepage": "https://github.com/fisharebest/algorithm",
-        "keywords": [
-            "Algorithm",
-            "dijkstra"
-        ]
-    },
-    {
-        "name": "fisharebest/ext-calendar",
-        "version": "1.3.0",
-        "version_normalized": "1.3.0.0",
-        "source": {
-            "type": "git",
-            "url": "https://github.com/fisharebest/ext-calendar.git",
-            "reference": "1498941b9b83222312bb957b5a425df075421443"
-        },
-        "dist": {
-            "type": "zip",
-            "url": "https://api.github.com/repos/fisharebest/ext-calendar/zipball/1498941b9b83222312bb957b5a425df075421443",
-            "reference": "1498941b9b83222312bb957b5a425df075421443",
-            "shasum": ""
-        },
-        "require": {
-            "php": ">=5.3.0"
-        },
-        "require-dev": {
-            "phpunit/phpunit": "*",
-            "satooshi/php-coveralls": "*"
-        },
-        "time": "2014-10-31 19:49:13",
-        "type": "library",
-        "installation-source": "dist",
-        "autoload": {
-            "psr-4": {
-                "Fisharebest\\ExtCalendar\\": "src/"
-            }
-        },
-        "notification-url": "https://packagist.org/downloads/",
-        "license": [
-            "GPL-3.0+"
-        ],
-        "authors": [
-            {
-                "name": "Greg Roach",
-                "email": "fisharebest@gmail.com",
-                "role": "Developer"
-            }
-        ],
-        "description": "Implementation of the Arabic (Hijri), French, Gregorian, Jewish, Julian and Persian (Jalali) calendars.  Optional PHP shims for servers without the ext/calendar extension.",
-        "homepage": "https://github.com/fisharebest/ext-calendar",
-        "keywords": [
-            "Jalali",
-            "arabic",
-            "calendar",
-            "ext-calendar",
-            "french",
-            "gregorian",
-            "hebrew",
-            "hijri",
-            "jewish",
-            "julian",
-            "julian day",
-            "julian day number",
-            "persian",
-            "shamsi"
-        ]
-    },
-    {
-        "name": "fisharebest/localization",
-        "version": "1.4.0",
-        "version_normalized": "1.4.0.0",
-        "source": {
-            "type": "git",
-            "url": "https://github.com/fisharebest/localization.git",
-            "reference": "72153e73c7771d61835e00d42f47794417ae53b6"
-        },
-        "dist": {
-            "type": "zip",
-            "url": "https://api.github.com/repos/fisharebest/localization/zipball/72153e73c7771d61835e00d42f47794417ae53b6",
-            "reference": "72153e73c7771d61835e00d42f47794417ae53b6",
-            "shasum": ""
-        },
-        "require": {
-            "php": ">=5.3.0"
-        },
-        "require-dev": {
-            "phpunit/phpunit": "*",
-            "satooshi/php-coveralls": "*"
-        },
-        "time": "2015-03-27 22:05:59",
-        "type": "library",
-        "installation-source": "dist",
-        "autoload": {
-            "psr-4": {
-                "Fisharebest\\Localization\\": "src/"
-            }
-        },
-        "notification-url": "https://packagist.org/downloads/",
-        "license": [
-            "GPL-3.0+"
-        ],
-        "authors": [
-            {
-                "name": "Greg Roach",
-                "email": "fisharebest@gmail.com",
-                "role": "Developer"
-            }
-        ],
-        "description": "A lightweight localization database and translation tools, with data from the CLDR, IANA, ISO, etc.",
-        "homepage": "https://github.com/fisharebest/localization",
-        "keywords": [
-            "cldr",
-            "gettext",
-            "i18n",
-            "l10n",
-            "language",
-            "locale",
-            "localization",
-            "script",
-            "translate",
-            "translation"
         ]
     }
 ]

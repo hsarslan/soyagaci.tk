@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,8 +13,14 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module;
 
-use Zend_Session;
+use Fisharebest\Webtrees\Database;
+use Fisharebest\Webtrees\Family;
+use Fisharebest\Webtrees\Filter;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Individual;
+use Fisharebest\Webtrees\Tree;
 
 /**
  * Class DescendancyModule
@@ -34,17 +38,21 @@ class DescendancyModule extends AbstractModule implements ModuleSidebarInterface
 			I18N::translate('A sidebar showing the descendants of an individual.');
 	}
 
-	/** {@inheritdoc} */
-	public function modAction($modAction) {
+	/**
+	 * This is a general purpose hook, allowing modules to respond to routes
+	 * of the form module.php?mod=FOO&mod_action=BAR
+	 *
+	 * @param string $mod_action
+	 */
+	public function modAction($mod_action) {
 		global $WT_TREE;
 
-		Zend_Session::writeClose();
 		header('Content-Type: text/html; charset=UTF-8');
 
-		switch ($modAction) {
+		switch ($mod_action) {
 		case 'search':
 			$search = Filter::get('search');
-			echo $this->search($search);
+			echo $this->search($search, $WT_TREE);
 			break;
 		case 'descendants':
 			$individual = Individual::getInstance(Filter::get('xref', WT_REGEX_XREF), $WT_TREE);
@@ -65,7 +73,7 @@ class DescendancyModule extends AbstractModule implements ModuleSidebarInterface
 
 	/** {@inheritdoc} */
 	public function hasSidebarContent() {
-		return !Auth::isSearchEngine();
+		return true;
 	}
 
 	/** {@inheritdoc} */
@@ -73,7 +81,11 @@ class DescendancyModule extends AbstractModule implements ModuleSidebarInterface
 		return '';
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Load this sidebar synchronously.
+	 *
+	 * @return string
+	 */
 	public function getSidebarContent() {
 		global $controller;
 
@@ -127,68 +139,88 @@ class DescendancyModule extends AbstractModule implements ModuleSidebarInterface
 	}
 
 	/**
+	 * Format an individual in a list.
+	 *
 	 * @param Individual $person
-	 * @param integer       $generations
+	 * @param int        $generations
 	 *
 	 * @return string
 	 */
 	public function getPersonLi(Individual $person, $generations = 0) {
-		$icon = $generations > 0 ? 'icon-minus' : 'icon-plus';
+		$icon     = $generations > 0 ? 'icon-minus' : 'icon-plus';
 		$lifespan = $person->canShow() ? '(' . $person->getLifeSpan() . ')' : '';
-		$spouses = $generations > 0 ? $this->loadSpouses($person, 0) : '';
-		return sprintf('<li class="sb_desc_indi_li">
-		                  <a class="sb_desc_indi" href="module.php?mod=%s&amp;mod_action=descendants&amp;xref=%s"><i class="plusminus %s"></i>%s %s %s</a>
-		                  <a class="icon-button_indi" href="%s"></a>
-		                  %s
-		                  <div>%s</div>
-		                </li>', $this->getName(), $person->getXref(), $icon, $person->getSexImage(), $person->getFullName(), $lifespan, $person->getHtmlUrl(), '', $spouses);
+		$spouses  = $generations > 0 ? $this->loadSpouses($person, 0) : '';
+
+		return
+			'<li class="sb_desc_indi_li">' .
+			'<a class="sb_desc_indi" href="module.php?mod=' . $this->getName() . '&amp;mod_action=descendants&amp;xref=' . $person->getXref() . '">' .
+			'<i class="plusminus ' . $icon . '"></i>' .
+			$person->getSexImage() . $person->getFullName() . $lifespan .
+			'</a>' .
+			'<a class="icon-button_indi" href="' . $person->getHtmlUrl() . '"></a>' .
+			'<div>' . $spouses . '</div>' .
+			'</li>';
 	}
 
 	/**
+	 * Format a family in a list.
+	 *
 	 * @param Family     $family
 	 * @param Individual $person
-	 * @param integer       $generations
+	 * @param int        $generations
 	 *
 	 * @return string
 	 */
 	public function getFamilyLi(Family $family, Individual $person, $generations = 0) {
+		$spouse = $family->getSpouse($person);
+		if ($spouse) {
+			$spouse_name = $spouse->getSexImage() . $spouse->getFullName();
+			$spouse_link = '<a class="icon-button_indi" href="' . $spouse->getHtmlUrl() . '"></a>';
+		} else {
+			$spouse_name = '';
+			$spouse_link = '';
+		}
+
 		$marryear = $family->getMarriageYear();
-		$marr = $marryear ? '<i class="icon-rings"></i>' . $marryear : '';
-		$fam = '<a href="' . $family->getHtmlUrl() . '" class="icon-button_family"></a>';
-		$kids = $this->loadChildren($family, $generations);
-		return sprintf('<li class="sb_desc_indi_li">
-		                  <a class="sb_desc_indi" href="#"><i class="plusminus icon-minus"></i>%s %s %s</a>
-		                  <a class="icon-button_indi" href="%s"></a>
-		                  %s
-		                  <div>%s</div>
-		                </li>', $person->getSexImage(), $person->getFullName(), $marr, $person->getHtmlUrl(), $fam, $kids);
+		$marr     = $marryear ? '<i class="icon-rings"></i>' . $marryear : '';
+
+		return
+			'<li class="sb_desc_indi_li">' .
+			'<a class="sb_desc_indi" href="#"><i class="plusminus icon-minus"></i>' . $spouse_name . $marr . '</a>' .
+			$spouse_link .
+			'<a href="' . $family->getHtmlUrl() . '" class="icon-button_family"></a>' .
+		 '<div>' . $this->loadChildren($family, $generations) . '</div>' .
+			'</li>';
 	}
 
 	/**
-	 * @param string $query
+	 * Respond to an autocomplete search request.
+	 *
+	 * @param string $query Search for this term
+	 * @param Tree   $tree  Search in this tree
 	 *
 	 * @return string
 	 */
-	public function search($query) {
-		global $WT_TREE;
-
+	public function search($query, Tree $tree) {
 		if (strlen($query) < 2) {
 			return '';
 		}
+
 		$rows = Database::prepare(
 			"SELECT i_id AS xref" .
-			" FROM `##individuals`, `##name`" .
-			" WHERE (i_id LIKE ? OR n_sort LIKE ?)" .
-			" AND i_id=n_id AND i_file=n_file AND i_file=?" .
+			" FROM `##individuals`" .
+			" JOIN `##name` ON i_id = n_id AND i_file = n_file" .
+			" WHERE n_sort LIKE CONCAT('%', :query, '%') AND i_file = :tree_id" .
 			" ORDER BY n_sort"
-		)
-			->execute(array("%{$query}%", "%{$query}%", $WT_TREE->getTreeId()))
-			->fetchAll();
+		)->execute(array(
+			'query'   => $query,
+			'tree_id' => $tree->getTreeId(),
+		))->fetchAll();
 
 		$out = '';
 		foreach ($rows as $row) {
-			$person = Individual::getInstance($row->xref, $WT_TREE);
-			if ($person->canShowName()) {
+			$person = Individual::getInstance($row->xref, $tree);
+			if ($person && $person->canShowName()) {
 				$out .= $this->getPersonLi($person);
 			}
 		}
@@ -200,8 +232,10 @@ class DescendancyModule extends AbstractModule implements ModuleSidebarInterface
 	}
 
 	/**
+	 * Display spouses.
+	 *
 	 * @param Individual $person
-	 * @param integer       $generations
+	 * @param int        $generations
 	 *
 	 * @return string
 	 */
@@ -209,13 +243,7 @@ class DescendancyModule extends AbstractModule implements ModuleSidebarInterface
 		$out = '';
 		if ($person && $person->canShow()) {
 			foreach ($person->getSpouseFamilies() as $family) {
-				$spouse = $family->getSpouse($person);
-				if ($spouse) {
-					$out .= $this->getFamilyLi($family, $spouse, $generations - 1);
-				}
-			}
-			if (!$out) {
-				$out = '<li class="sb_desc_none">' . I18N::translate('No children') . '</li>';
+				$out .= $this->getFamilyLi($family, $person, $generations - 1);
 			}
 		}
 		if ($out) {
@@ -226,8 +254,10 @@ class DescendancyModule extends AbstractModule implements ModuleSidebarInterface
 	}
 
 	/**
+	 * Display descendants.
+	 *
 	 * @param Family $family
-	 * @param integer   $generations
+	 * @param int    $generations
 	 *
 	 * @return string
 	 */

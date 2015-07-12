@@ -1,5 +1,4 @@
 <?php
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -14,11 +13,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-
 namespace Fisharebest\Webtrees;
 
 /**
- * Class Log - record webtrees events in the database
+ * Record webtrees events in the database
  */
 class Log {
 	// We can log the following types of message in the wt_log table.
@@ -38,7 +36,7 @@ class Log {
 	 * @param Tree|null $tree
 	 */
 	private static function addLog($message, $log_type, Tree $tree = null) {
-		global $WT_REQUEST, $WT_TREE;
+		global $WT_TREE;
 
 		if (!$tree) {
 			$tree = $WT_TREE;
@@ -49,9 +47,9 @@ class Log {
 		)->execute(array(
 					$log_type,
 					$message,
-					$WT_REQUEST->getClientIp(),
+					WT_CLIENT_IP,
 					Auth::id(),
-					$tree ? $tree->getTreeId() : null
+					$tree ? $tree->getTreeId() : null,
 		));
 	}
 

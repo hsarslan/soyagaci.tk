@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,23 +13,60 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module;
+
+use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\Database;
+use Fisharebest\Webtrees\Filter;
+use Fisharebest\Webtrees\Functions\FunctionsDate;
+use Fisharebest\Webtrees\Functions\FunctionsPrint;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Theme;
 
 /**
  * Class FamilyTreeNewsModule
  */
 class FamilyTreeNewsModule extends AbstractModule implements ModuleBlockInterface {
-	/** {@inheritdoc} */
+	/**
+	 * Create a new module.
+	 *
+	 * @param string $directory Where is this module installed
+	 */
+	public function __construct($directory) {
+		parent::__construct($directory);
+
+		// Create/update the database tables.
+		Database::updateSchema('\Fisharebest\Webtrees\Module\FamilyTreeNews\Schema', 'NB_SCHEMA_VERSION', 3);
+	}
+
+	/**
+	 * How should this module be labelled on tabs, menus, etc.?
+	 *
+	 * @return string
+	 */
 	public function getTitle() {
 		return /* I18N: Name of a module */ I18N::translate('News');
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * A sentence describing what this module does.
+	 *
+	 * @return string
+	 */
 	public function getDescription() {
 		return /* I18N: Description of the “GEDCOM News” module */ I18N::translate('Family news and site announcements.');
 	}
 
-	/** {@inheritdoc} */
-	public function getBlock($block_id, $template = true, $cfg = null) {
+	/**
+	 * Generate the HTML content of this block.
+	 *
+	 * @param int      $block_id
+	 * @param bool     $template
+	 * @param string[] $cfg
+	 *
+	 * @return string
+	 */
+	public function getBlock($block_id, $template = true, $cfg = array()) {
 		global $ctype, $WT_TREE;
 
 		switch (Filter::get('action')) {
@@ -54,11 +89,9 @@ class FamilyTreeNewsModule extends AbstractModule implements ModuleBlockInterfac
 				$limit = $this->getBlockSetting($block_id, 'limit', 'nolimit');
 			}
 		}
-		if ($cfg) {
-			foreach (array('limit', 'flag') as $name) {
-				if (array_key_exists($name, $cfg)) {
-					$$name = $cfg[$name];
-				}
+		foreach (array('limit', 'flag') as $name) {
+			if (array_key_exists($name, $cfg)) {
+				$$name = $cfg[$name];
 			}
 		}
 		$usernews = Database::prepare(
@@ -68,7 +101,7 @@ class FamilyTreeNewsModule extends AbstractModule implements ModuleBlockInterfac
 		$id    = $this->getName() . $block_id;
 		$class = $this->getName() . '_block';
 		if ($ctype === 'gedcom' && Auth::isManager($WT_TREE) || $ctype === 'user' && Auth::check()) {
-			$title = '<i class="icon-admin" title="' . I18N::translate('Configure') . '" onclick="modalDialog(\'block_edit.php?block_id=' . $block_id . '\', \'' . $this->getTitle() . '\');"></i>';
+			$title = '<a class="icon-admin" title="' . I18N::translate('Configure') . '" href="block_edit.php?block_id=' . $block_id . '&amp;ged=' . $WT_TREE->getNameHtml() . '&amp;ctype=' . $ctype . '"></a>';
 		} else {
 			$title = '';
 		}
@@ -93,14 +126,14 @@ class FamilyTreeNewsModule extends AbstractModule implements ModuleBlockInterfac
 			}
 			$content .= '<div class="news_box" id="article' . $news->news_id . '">';
 			$content .= '<div class="news_title">' . Filter::escapeHtml($news->subject) . '</div>';
-			$content .= '<div class="news_date">' . format_timestamp($news->updated) . '</div>';
+			$content .= '<div class="news_date">' . FunctionsDate::formatTimestamp($news->updated) . '</div>';
 			if ($news->body == strip_tags($news->body)) {
 				$news->body = nl2br($news->body, false);
 			}
 			$content .= $news->body;
 			// Print Admin options for this News item
 			if (Auth::isManager($WT_TREE)) {
-				$content .= '<hr>' . '<a href="#" onclick="window.open(\'editnews.php?news_id=\'+' . $news->news_id . ', \'_blank\', news_window_specs); return false;">' . I18N::translate('Edit') . '</a> | ' . '<a href="index.php?action=deletenews&amp;news_id=' . $news->news_id . '&amp;ctype=' . $ctype . '" onclick="return confirm(\'' . I18N::translate('Are you sure you want to delete this news article?') . "');\">" . I18N::translate('Delete') . '</a><br>';
+				$content .= '<hr>' . '<a href="#" onclick="window.open(\'editnews.php?news_id=\'+' . $news->news_id . ', \'_blank\', news_window_specs); return false;">' . I18N::translate('Edit') . '</a> | ' . '<a href="index.php?action=deletenews&amp;news_id=' . $news->news_id . '&amp;ctype=' . $ctype . '&amp;ged=' . $WT_TREE->getNameHtml() . '" onclick="return confirm(\'' . I18N::translate('Are you sure you want to delete “%s”?', Filter::escapeHtml($news->subject)) . "');\">" . I18N::translate('Delete') . '</a><br>';
 			}
 			$content .= '</div>';
 		}
@@ -113,8 +146,8 @@ class FamilyTreeNewsModule extends AbstractModule implements ModuleBlockInterfac
 			if ($printedAddLink) {
 				$content .= '&nbsp;&nbsp;|&nbsp;&nbsp;';
 			}
-			$content .= '<a href="index.php?gedcom_news_archive=yes&amp;ctype=' . $ctype . '">' . I18N::translate('View archive') . "</a>";
-			$content .= help_link('gedcom_news_archive') . '<br>';
+			$content .= '<a href="index.php?gedcom_news_archive=yes&amp;ctype=' . $ctype . '&amp;ged=' . $WT_TREE->getNameHtml() . '">' . I18N::translate('View archive') . "</a>";
+			$content .= FunctionsPrint::helpLink('gedcom_news_archive') . '<br>';
 		}
 
 		if ($template) {
@@ -139,7 +172,11 @@ class FamilyTreeNewsModule extends AbstractModule implements ModuleBlockInterfac
 		return true;
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * An HTML form to edit block settings
+	 *
+	 * @param int $block_id
+	 */
 	public function configureBlock($block_id) {
 		if (Filter::postBool('save') && Filter::checkCsrf()) {
 			$this->setBlockSetting($block_id, 'limit', Filter::post('limit'));

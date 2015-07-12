@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,15 +13,17 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Report;
 
 /**
  * Class ReportBasePageheader
  */
 class ReportBasePageheader extends ReportBaseElement {
+	/** @var ReportBaseElement[] Elements */
 	public $elements = array();
 
 	/**
-	 *
+	 * Create a page header
 	 */
 	public function __construct() {
 		$this->elements = array();
@@ -32,9 +32,11 @@ class ReportBasePageheader extends ReportBaseElement {
 	}
 
 	/**
-	 * @return integer
+	 * Unknown?
+	 *
+	 * @return int
 	 */
-	function textBox() {
+	public function textBox() {
 		$this->elements = array();
 
 		return 0;
@@ -43,13 +45,9 @@ class ReportBasePageheader extends ReportBaseElement {
 	/**
 	 * Add element - PageHeader
 	 *
-	 * @param $element
-	 *
-	 * @return integer
+	 * @param ReportBaseElement $element
 	 */
-	function addElement($element) {
+	public function addElement($element) {
 		$this->elements[] = $element;
-
-		return 0;
 	}
 }

@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,18 +13,21 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Report;
 
 /**
  * Class ReportPdfHtml
  */
 class ReportPdfHtml extends ReportBaseHtml {
 	/**
-	 * @param         $renderer
-	 * @param boolean $sub
+	 * Render the output.
 	 *
-	 * @return integer|string
+	 * @param      $renderer
+	 * @param bool $sub
+	 *
+	 * @return int|string
 	 */
-	function render($renderer, $sub = false) {
+	public function render($renderer, $sub = false) {
 		if (!empty($this->attrs['style'])) {
 			$renderer->setCurrentStyle($this->attrs['style']);
 		}
@@ -41,7 +42,7 @@ class ReportPdfHtml extends ReportBaseHtml {
 			} elseif (is_string($element) && $element == "addpage") {
 				$renderer->newPage();
 			} elseif ($element instanceof ReportBaseHtml) {
-				$this->text .= $element->render($renderer, true);
+				$element->render($renderer, true);
 			} else {
 				$element->render($renderer);
 			}

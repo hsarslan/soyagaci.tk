@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,19 +13,22 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Report;
 
 /**
  * Class ReportHtmlHtml
  */
 class ReportHtmlHtml extends ReportBaseHtml {
 	/**
+	 * Render the elements.
+	 *
 	 * @param ReportHtml $renderer
-	 * @param boolean        $sub
-	 * @param boolean        $inat
+	 * @param bool       $sub
+	 * @param bool       $inat
 	 *
 	 * @return string
 	 */
-	function render($renderer, $sub = false, $inat = true) {
+	public function render($renderer, $sub = false, $inat = true) {
 		if (!empty($this->attrs["wt_style"])) {
 			$renderer->setCurrentStyle($this->attrs["wt_style"]);
 		}
@@ -39,7 +40,7 @@ class ReportHtmlHtml extends ReportBaseHtml {
 			} elseif (is_string($element) && $element == "addpage") {
 				$renderer->AddPage();
 			} elseif ($element instanceof ReportBaseHtml) {
-				$this->text .= $element->render($renderer, true, false);
+				$element->render($renderer, true, false);
 			} else {
 				$element->render($renderer);
 			}
@@ -53,7 +54,7 @@ class ReportHtmlHtml extends ReportBaseHtml {
 		if ($inat) {
 			$startX = $renderer->GetX();
 			$startY = $renderer->GetY();
-			$width = $renderer->getRemainingWidth();
+			$width  = $renderer->getRemainingWidth();
 			echo "<div style=\"position: absolute;top: ", $startY, "pt;", $renderer->alignRTL, ": ", $startX, "pt;width: ", $width, "pt;\">";
 			$startY += $renderer->getCurrentStyleHeight() + 2;
 			$renderer->SetY($startY);

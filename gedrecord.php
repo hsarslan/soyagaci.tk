@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,8 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-
-use Zend_Session;
+namespace Fisharebest\Webtrees;
 
 /**
  * Defined in session.php
@@ -24,6 +21,8 @@ use Zend_Session;
  * @global Tree $WT_TREE
  */
 global $WT_TREE;
+
+use Fisharebest\Webtrees\Controller\PageController;
 
 define('WT_SCRIPT_NAME', 'gedrecord.php');
 require './includes/session.php';
@@ -40,9 +39,8 @@ if (
 	$obj instanceof Note ||
 	$obj instanceof Media
 ) {
-	Zend_Session::writeClose();
 	header('Location: ' . WT_BASE_URL . $obj->getRawUrl());
-	
+
 	return;
 } elseif (!$obj || !$obj->canShow()) {
 	$controller->pageHeader();

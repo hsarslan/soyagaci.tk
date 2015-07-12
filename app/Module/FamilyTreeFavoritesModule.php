@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,7 +13,19 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module;
 
+use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\Database;
+use Fisharebest\Webtrees\Filter;
+use Fisharebest\Webtrees\FlashMessages;
+use Fisharebest\Webtrees\Functions\FunctionsEdit;
+use Fisharebest\Webtrees\Functions\FunctionsPrint;
+use Fisharebest\Webtrees\GedcomRecord;
+use Fisharebest\Webtrees\GedcomTag;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Individual;
+use Fisharebest\Webtrees\Theme;
 use PDO;
 use PDOException;
 use Rhumsaa\Uuid\Uuid;
@@ -27,21 +37,47 @@ use Rhumsaa\Uuid\Uuid;
  * logic works for both.
  */
 class FamilyTreeFavoritesModule extends AbstractModule implements ModuleBlockInterface {
-	/** {@inheritdoc} */
+	/**
+	 * Create a new module.
+	 *
+	 * @param string $directory Where is this module installed
+	 */
+	public function __construct($directory) {
+		parent::__construct($directory);
+
+		// Create/update the database tables.
+		Database::updateSchema('\Fisharebest\Webtrees\Module\FamilyTreeFavorites\Schema', 'FV_SCHEMA_VERSION', 4);
+	}
+
+	/**
+	 * How should this module be labelled on tabs, menus, etc.?
+	 *
+	 * @return string
+	 */
 	public function getTitle() {
 		return /* I18N: Name of a module */ I18N::translate('Favorites');
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * A sentence describing what this module does.
+	 *
+	 * @return string
+	 */
 	public function getDescription() {
 		return /* I18N: Description of the “Favorites” module */ I18N::translate('Display and manage a family tree’s favorite pages.');
 	}
 
-	/** {@inheritdoc} */
-	public function getBlock($block_id, $template = true, $cfg = null) {
+	/**
+	 * Generate the HTML content of this block.
+	 *
+	 * @param int      $block_id
+	 * @param bool     $template
+	 * @param string[] $cfg
+	 *
+	 * @return string
+	 */
+	public function getBlock($block_id, $template = true, $cfg = array()) {
 		global $ctype, $controller, $WT_TREE;
-
-		self::updateSchema(); // make sure the favorites table has been created
 
 		$action = Filter::get('action');
 		switch ($action) {
@@ -86,11 +122,9 @@ class FamilyTreeFavoritesModule extends AbstractModule implements ModuleBlockInt
 
 		$block = $this->getBlockSetting($block_id, 'block', '0');
 
-		if ($cfg) {
-			foreach (array('block') as $name) {
-				if (array_key_exists($name, $cfg)) {
-					$$name = $cfg[$name];
-				}
+		foreach (array('block') as $name) {
+			if (array_key_exists($name, $cfg)) {
+				$$name = $cfg[$name];
 			}
 		}
 
@@ -99,7 +133,7 @@ class FamilyTreeFavoritesModule extends AbstractModule implements ModuleBlockInt
 			$userfavs = array();
 		}
 
-		$id = $this->getName() . $block_id;
+		$id    = $this->getName() . $block_id;
 		$class = $this->getName() . '_block';
 		$title = $this->getTitle();
 
@@ -111,7 +145,7 @@ class FamilyTreeFavoritesModule extends AbstractModule implements ModuleBlockInt
 
 		$content = '';
 		if ($userfavs) {
-			foreach ($userfavs as $key=>$favorite) {
+			foreach ($userfavs as $key => $favorite) {
 				if (isset($favorite['id'])) {
 					$key = $favorite['id'];
 				}
@@ -173,12 +207,12 @@ class FamilyTreeFavoritesModule extends AbstractModule implements ModuleBlockInt
 			$content .= '<input type="radio" name="fav_category" value="record" checked onclick="jQuery(\'#gid' . $uniqueID . '\').removeAttr(\'disabled\'); jQuery(\'#url, #favtitle\').attr(\'disabled\',\'disabled\').val(\'\');">';
 			$content .= '<label for="gid' . $uniqueID . '">' . I18N::translate('Enter an individual, family, or source ID') . '</label>';
 			$content .= '<input class="pedigree_form" data-autocomplete-type="IFSRO" type="text" name="gid" id="gid' . $uniqueID . '" size="5" value="">';
-			$content .= ' ' . print_findindi_link('gid' . $uniqueID);
-			$content .= ' ' . print_findfamily_link('gid' . $uniqueID);
-			$content .= ' ' . print_findsource_link('gid' . $uniqueID);
-			$content .= ' ' . print_findrepository_link('gid' . $uniqueID);
-			$content .= ' ' . print_findnote_link('gid' . $uniqueID);
-			$content .= ' ' . print_findmedia_link('gid' . $uniqueID);
+			$content .= ' ' . FunctionsPrint::printFindIndividualLink('gid' . $uniqueID);
+			$content .= ' ' . FunctionsPrint::printFindFamilyLink('gid' . $uniqueID);
+			$content .= ' ' . FunctionsPrint::printFindSourceLink('gid' . $uniqueID);
+			$content .= ' ' . FunctionsPrint::printFindRepositoryLink('gid' . $uniqueID);
+			$content .= ' ' . FunctionsPrint::printFindNoteLink('gid' . $uniqueID);
+			$content .= ' ' . FunctionsPrint::printFindMediaLink('gid' . $uniqueID);
 			$content .= '</div>';
 			$content .= '<div class="add_fav_url">';
 			$content .= '<input type="radio" name="fav_category" value="url" onclick="jQuery(\'#url, #favtitle\').removeAttr(\'disabled\'); jQuery(\'#gid' . $uniqueID . '\').attr(\'disabled\',\'disabled\').val(\'\');">';
@@ -195,28 +229,48 @@ class FamilyTreeFavoritesModule extends AbstractModule implements ModuleBlockInt
 			if ($block) {
 				$class .= ' small_inner_block';
 			}
+
 			return Theme::theme()->formatBlock($id, $title, $class, $content);
 		} else {
 			return $content;
 		}
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Should this block load asynchronously using AJAX?
+	 *
+	 * Simple blocks are faster in-line, more comples ones
+	 * can be loaded later.
+	 *
+	 * @return bool
+	 */
 	public function loadAjax() {
 		return false;
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Can this block be shown on the user’s home page?
+	 *
+	 * @return bool
+	 */
 	public function isUserBlock() {
 		return false;
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Can this block be shown on the tree’s home page?
+	 *
+	 * @return bool
+	 */
 	public function isGedcomBlock() {
 		return true;
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * An HTML form to edit block settings
+	 *
+	 * @param int $block_id
+	 */
 	public function configureBlock($block_id) {
 		if (Filter::postBool('save') && Filter::checkCsrf()) {
 			$this->setBlockSetting($block_id, 'block', Filter::postBool('block'));
@@ -227,16 +281,16 @@ class FamilyTreeFavoritesModule extends AbstractModule implements ModuleBlockInt
 		echo '<tr><td class="descriptionbox wrap width33">';
 		echo /* I18N: label for a yes/no option */ I18N::translate('Add a scrollbar when block contents grow');
 		echo '</td><td class="optionbox">';
-		echo edit_field_yes_no('block', $block);
+		echo FunctionsEdit::editFieldYesNo('block', $block);
 		echo '</td></tr>';
 	}
 
 	/**
 	 * Delete a favorite from the database
 	 *
-	 * @param integer $favorite_id
+	 * @param int $favorite_id
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public static function deleteFavorite($favorite_id) {
 		return (bool)
@@ -249,7 +303,7 @@ class FamilyTreeFavoritesModule extends AbstractModule implements ModuleBlockInt
 	 *
 	 * @param $favorite
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public static function addFavorite($favorite) {
 		// -- make sure a favorite is added
@@ -288,13 +342,11 @@ class FamilyTreeFavoritesModule extends AbstractModule implements ModuleBlockInt
 	/**
 	 * Get favorites for a user or family tree
 	 *
-	 * @param integer $gedcom_id
+	 * @param int $gedcom_id
 	 *
 	 * @return string[][]
 	 */
 	public static function getFavorites($gedcom_id) {
-		self::updateSchema(); // make sure the favorites table has been created
-
 		return
 			Database::prepare(
 				"SELECT SQL_CACHE favorite_id AS id, user_id, gedcom_id, xref AS gid, favorite_type AS type, title, note, url" .

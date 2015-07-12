@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,66 +13,57 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
+
+use Fisharebest\Webtrees\Functions\FunctionsMedia;
+use Fisharebest\Webtrees\Functions\FunctionsPrintFacts;
 
 /**
- * Class Media - Class that defines a media object
+ * A GEDCOM media (OBJE) object.
  */
 class Media extends GedcomRecord {
 	const RECORD_TYPE = 'OBJE';
-	const URL_PREFIX = 'mediaviewer.php?mid=';
+	const URL_PREFIX  = 'mediaviewer.php?mid=';
 
-	// TODO: these should be private, with getTitle() and getFilename() functions
 	/** @var string The "TITL" value from the GEDCOM */
-	public $title;
+	private $title = '';
 
 	/** @var string The "FILE" value from the GEDCOM */
-	public $file;
+	private $file = '';
 
-	/** {@inheritdoc} */
+	/**
+	 * Create a GedcomRecord object from raw GEDCOM data.
+	 *
+	 * @param string      $xref
+	 * @param string      $gedcom  an empty string for new/pending records
+	 * @param string|null $pending null for a record with no pending edits,
+	 *                             empty string for records with pending deletions
+	 * @param Tree        $tree
+	 */
 	public function __construct($xref, $gedcom, $pending, $tree) {
 		parent::__construct($xref, $gedcom, $pending, $tree);
 
-		// TODO get this data from Fact objects
 		if (preg_match('/\n1 FILE (.+)/', $gedcom . $pending, $match)) {
 			$this->file = $match[1];
-		} else {
-			$this->file = '';
 		}
 		if (preg_match('/\n\d TITL (.+)/', $gedcom . $pending, $match)) {
 			$this->title = $match[1];
-		} else {
-			$this->title = $this->file;
 		}
 	}
 
 	/**
-	 * Get an instance of a media object.  For single records,
-	 * we just receive the XREF.  For bulk records (such as lists
-	 * and search results) we can receive the GEDCOM data as well.
+	 * Each object type may have its own special rules, and re-implement this function.
 	 *
-	 * @param string      $xref
-	 * @param Tree        $tree
-	 * @param string|null $gedcom
+	 * @param int $access_level
 	 *
-	 * @return null|Media
+	 * @return bool
 	 */
-	public static function getInstance($xref, Tree $tree, $gedcom = null) {
-		$record = parent::getInstance($xref, $tree, $gedcom);
-
-		if ($record instanceof Media) {
-			return $record;
-		} else {
-			return null;
-		}
-	}
-
-	/** {@inheritdoc} */
 	protected function canShowByType($access_level) {
 		// Hide media objects if they are attached to private records
 		$linked_ids = Database::prepare(
 			"SELECT l_from FROM `##link` WHERE l_to = ? AND l_file = ?"
 		)->execute(array(
-			$this->xref, $this->tree->getTreeId()
+			$this->xref, $this->tree->getTreeId(),
 		))->fetchOneColumn();
 		foreach ($linked_ids as $linked_id) {
 			$linked_record = GedcomRecord::getInstance($linked_id, $this->tree);
@@ -87,15 +76,21 @@ class Media extends GedcomRecord {
 		return parent::canShowByType($access_level);
 	}
 
-	/** {@inheritdoc} */
-	protected static function fetchGedcomRecord($xref, $gedcom_id) {
-		static $statement = null;
-
-		if ($statement === null) {
-			$statement = Database::prepare("SELECT m_gedcom FROM `##media` WHERE m_id=? AND m_file=?");
-		}
-
-		return $statement->execute(array($xref, $gedcom_id))->fetchOne();
+	/**
+	 * Fetch data from the database
+	 *
+	 * @param string $xref
+	 * @param int    $tree_id
+	 *
+	 * @return null|string
+	 */
+	protected static function fetchGedcomRecord($xref, $tree_id) {
+		return Database::prepare(
+			"SELECT m_gedcom FROM `##media` WHERE m_id = :xref AND m_file = :tree_id"
+		)->execute(array(
+			'xref'    => $xref,
+			'tree_id' => $tree_id,
+		))->fetchOne();
 	}
 
 	/**
@@ -124,6 +119,15 @@ class Media extends GedcomRecord {
 	 */
 	public function getFilename() {
 		return $this->file;
+	}
+
+	/**
+	 * Get the media's title (name)
+	 *
+	 * @return string
+	 */
+	public function getTitle() {
+		return $this->title;
 	}
 
 	/**
@@ -182,7 +186,7 @@ class Media extends GedcomRecord {
 						Log::addMediaLog('Thumbnail could not be created for ' . $main_file . ' (copy of main image)');
 					}
 				} else {
-					if (hasMemoryForImage($main_file)) {
+					if (FunctionsMedia::hasMemoryForImage($main_file)) {
 						try {
 							switch ($imgsize['mime']) {
 							case 'image/png':
@@ -242,7 +246,7 @@ class Media extends GedcomRecord {
 	 *
 	 * @param string $which specify either 'main' or 'thumb'
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public function fileExists($which = 'main') {
 		return file_exists($this->getServerFilename($which));
@@ -250,6 +254,7 @@ class Media extends GedcomRecord {
 
 	/**
 	 * Determine if the file is an external url
+	 *
 	 * @return bool
 	 */
 	public function isExternal() {
@@ -276,7 +281,7 @@ class Media extends GedcomRecord {
 	 *
 	 * @param string $which specify either 'main' or 'thumb'
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public function getFilesizeraw($which = 'main') {
 		try {
@@ -291,7 +296,7 @@ class Media extends GedcomRecord {
 	 *
 	 * @param string $which specify either 'main' or 'thumb'
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public function getFiletime($which = 'main') {
 		try {
@@ -324,7 +329,6 @@ class Media extends GedcomRecord {
 	 * Deprecated? This does not need to be a function here.
 	 *
 	 * @return string
-	 *
 	 */
 	public function getMediaType() {
 		if (preg_match('/\n\d TYPE (.+)/', $this->gedcom, $match)) {
@@ -350,9 +354,9 @@ class Media extends GedcomRecord {
 	/**
 	 * get image properties
 	 *
-	 * @param string  $which     specify either 'main' or 'thumb'
-	 * @param integer $addWidth  amount to add to width
-	 * @param integer $addHeight amount to add to height
+	 * @param string $which     specify either 'main' or 'thumb'
+	 * @param int    $addWidth  amount to add to width
+	 * @param int    $addHeight amount to add to height
 	 *
 	 * @return array
 	 */
@@ -394,13 +398,13 @@ class Media extends GedcomRecord {
 
 		if (!is_array($imgsize) || empty($imgsize['0'])) {
 			// this is not an image, OR the file doesn’t exist OR it is a url
-			$imgsize[0] = 0;
-			$imgsize[1] = 0;
-			$imgsize['adjW'] = 0;
-			$imgsize['adjH'] = 0;
-			$imgsize['ext'] = '';
-			$imgsize['mime'] = '';
-			$imgsize['WxH'] = '';
+			$imgsize[0]       = 0;
+			$imgsize[1]       = 0;
+			$imgsize['adjW']  = 0;
+			$imgsize['adjH']  = 0;
+			$imgsize['ext']   = '';
+			$imgsize['mime']  = '';
+			$imgsize['WxH']   = '';
 			$imgsize['imgWH'] = '';
 			if ($this->isExternal()) {
 				// don’t let large external images break the dislay
@@ -411,7 +415,7 @@ class Media extends GedcomRecord {
 		if (empty($imgsize['mime'])) {
 			// this is not an image, OR the file doesn’t exist OR it is a url
 			// set file type equal to the file extension - can’t use parse_url because this may not be a full url
-			$exp = explode('?', $this->file);
+			$exp            = explode('?', $this->file);
 			$imgsize['ext'] = strtoupper(pathinfo($exp[0], PATHINFO_EXTENSION));
 			// all mimetypes we wish to serve with the media firewall must be added to this array.
 			$mime = array(
@@ -446,15 +450,15 @@ class Media extends GedcomRecord {
 	/**
 	 * Generate a URL directly to the media file
 	 *
-	 * @param string  $which
-	 * @param boolean $download
+	 * @param string $which
+	 * @param bool   $download
 	 *
 	 * @return string
 	 */
 	public function getHtmlUrlDirect($which = 'main', $download = false) {
 		// “cb” is “cache buster”, so clients will make new request if anything significant about the user or the file changes
 		// The extension is there so that image viewers (e.g. colorbox) can do something sensible
-		$thumbstr = ($which == 'thumb') ? '&amp;thumb=1' : '';
+		$thumbstr    = ($which == 'thumb') ? '&amp;thumb=1' : '';
 		$downloadstr = ($download) ? '&dl=1' : '';
 
 		return
@@ -538,8 +542,6 @@ class Media extends GedcomRecord {
 
 	/**
 	 * Display an image-thumbnail or a media-icon, and add markup for image viewers such as colorbox.
-	 * TODO - take a size parameter and generate different thumbnails for each size, rather than
-	 * always send the same image and resize it in the browser.
 	 *
 	 * @return string
 	 */
@@ -547,7 +549,7 @@ class Media extends GedcomRecord {
 		if ($this->isExternal() || !file_exists($this->getServerFilename('thumb'))) {
 			// Use an icon
 			$mime_type = str_replace('/', '-', $this->mimeType());
-			$image =
+			$image     =
 				'<i' .
 				' dir="' . 'auto' . '"' . // For the tool-tip
 				' class="' . 'icon-mime-' . $mime_type . '"' .
@@ -577,7 +579,11 @@ class Media extends GedcomRecord {
 			'>' . $image . '</a>';
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * If this object has no name, what do we call it?
+	 *
+	 * @return string
+	 */
 	public function getFallBackName() {
 		if ($this->canShow()) {
 			return basename($this->file);
@@ -586,7 +592,9 @@ class Media extends GedcomRecord {
 		}
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Extract names from the GEDCOM record.
+	 */
 	public function extractNames() {
 		// Earlier gedcom versions had level 1 titles
 		// Later gedcom versions had level 2 titles
@@ -594,10 +602,15 @@ class Media extends GedcomRecord {
 		$this->extractNamesFromFacts(1, 'TITL', $this->getFacts('TITL'));
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * This function should be redefined in derived classes to show any major
+	 * identifying characteristics of this record.
+	 *
+	 * @return string
+	 */
 	public function formatListDetails() {
 		ob_start();
-		print_media_links('1 OBJE @' . $this->getXref() . '@', 1);
+		FunctionsPrintFacts::printMediaLinks('1 OBJE @' . $this->getXref() . '@', 1);
 
 		return ob_get_clean();
 	}

@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
  * Defined in session.php
@@ -22,6 +21,9 @@ namespace Fisharebest\Webtrees;
  * @global Tree $WT_TREE
  */
 global $WT_TREE;
+
+use Fisharebest\Webtrees\Controller\PageController;
+use Fisharebest\Webtrees\Functions\Functions;
 
 define('WT_SCRIPT_NAME', 'admin.php');
 
@@ -51,8 +53,6 @@ $old_files = array(
 	WT_ROOT . 'includes/classes',
 	WT_ROOT . 'includes/controllers',
 	WT_ROOT . 'includes/family_nav.php',
-	WT_ROOT . 'includes/functions/functions_lang.php',
-	WT_ROOT . 'includes/functions/functions_tools.php',
 	WT_ROOT . 'logs.php',
 	WT_ROOT . 'manageservers.php',
 	WT_ROOT . 'media.php',
@@ -178,7 +178,6 @@ $old_files = array(
 	WT_ROOT . 'gedcheck.php',
 	WT_ROOT . 'images',
 	WT_ROOT . 'includes/dmsounds_UTF8.php',
-	WT_ROOT . 'includes/functions/functions_name.php',
 	WT_ROOT . 'includes/grampsxml.rng',
 	WT_ROOT . 'includes/session_spider.php',
 	WT_ROOT . 'modules_v3/googlemap/admin_editconfig.php',
@@ -191,7 +190,6 @@ $old_files = array(
 	WT_ROOT . 'modules_v3/tree/css/vline.jpg',
 	// Removed in 1.3.1
 	WT_ROOT . 'imageflush.php',
-	WT_ROOT . 'includes/functions/functions_places.php',
 	WT_ROOT . 'modules_v3/googlemap/wt_v3_pedigree_map.js.php',
 	WT_ROOT . 'modules_v3/lightbox/js/tip_balloon_RTL.js',
 	// Removed in 1.3.2
@@ -201,7 +199,6 @@ $old_files = array(
 	WT_ROOT . 'modules_v3/random_media/help_text.php',
 	// Removed in 1.4.0
 	WT_ROOT . 'imageview.php',
-	WT_ROOT . 'includes/functions/functions_media_reorder.php',
 	WT_ROOT . 'media/MediaInfo.txt',
 	WT_ROOT . 'media/thumbs/ThumbsInfo.txt',
 	WT_ROOT . 'modules_v3/GEDFact_assistant/css/media_0_inverselink.css',
@@ -245,8 +242,6 @@ $old_files = array(
 	WT_ROOT . 'themes/webtrees/jquery-ui-1.10.0',
 	WT_ROOT . 'themes/xenea/jquery-ui-1.10.0',
 	// Removed in 1.5.0
-	WT_ROOT . 'includes/functions/functions_mail.php',
-	WT_ROOT . 'includes/functions/functions_privacy.php',
 	WT_ROOT . 'includes/media_reorder.php',
 	WT_ROOT . 'includes/old_messages.php',
 	WT_ROOT . 'modules_v3/GEDFact_assistant/_CENS/census_note_decode.php',
@@ -322,7 +317,6 @@ $old_files = array(
 	WT_ROOT . 'themes/xenea/css-1.5.2',
 	// Removed in 1.6.0
 	WT_ROOT . 'downloadbackup.php',
-	WT_ROOT . 'includes/functions/functions_utf-8.php',
 	WT_ROOT . 'modules_v3/ckeditor/ckeditor-4.3.2-custom',
 	WT_ROOT . 'site-php-version.php',
 	WT_ROOT . 'themes/_administration/css-1.5.3',
@@ -353,7 +347,38 @@ $old_files = array(
 	WT_ROOT . 'themes/_administration/jquery-ui-1.10.3',
 	// Removed in 1.7.0
 	WT_ROOT . 'admin_site_other.php',
+	WT_ROOT . 'includes/config_data.php',
+	WT_ROOT . 'includes/db_schema',
+	WT_ROOT . 'includes/fonts',
+	WT_ROOT . 'includes/functions',
+	WT_ROOT . 'includes/hitcount.php',
+	WT_ROOT . 'includes/reportheader.php',
+	WT_ROOT . 'includes/specialchars.php',
 	WT_ROOT . 'js',
+	WT_ROOT . 'language/en_GB.mo', // Replaced with en-GB.mo
+	WT_ROOT . 'language/en_US.mo', // Replaced with en-US.mo
+	WT_ROOT . 'language/pt_BR.mo', // Replaced with pt-BR.mo
+	WT_ROOT . 'language/zh_CN.mo', // Replaced with zh-Hans.mo
+	WT_ROOT . 'language/extra',
+	WT_ROOT . 'library',
+	WT_ROOT . 'modules_v3/batch_update/admin_batch_update.php',
+	WT_ROOT . 'modules_v3/batch_update/plugins',
+	WT_ROOT . 'modules_v3/charts/help_text.php',
+	WT_ROOT . 'modules_v3/ckeditor/ckeditor-4.4.1-custom',
+	WT_ROOT . 'modules_v3/clippings/clippings_ctrl.php',
+	WT_ROOT . 'modules_v3/clippings/help_text.php',
+	WT_ROOT . 'modules_v3/faq/help_text.php',
+	WT_ROOT . 'modules_v3/gedcom_favorites/db_schema',
+	WT_ROOT . 'modules_v3/gedcom_news/db_schema',
+	WT_ROOT . 'modules_v3/googlemap/db_schema',
+	WT_ROOT . 'modules_v3/googlemap/help_text.php',
+	WT_ROOT . 'modules_v3/html/help_text.php',
+	WT_ROOT . 'modules_v3/logged_in/help_text.php',
+	WT_ROOT . 'modules_v3/review_changes/help_text.php',
+	WT_ROOT . 'modules_v3/todo/help_text.php',
+	WT_ROOT . 'modules_v3/tree/class_treeview.php',
+	WT_ROOT . 'modules_v3/user_blog/db_schema',
+	WT_ROOT . 'modules_v3/yahrzeit/help_text.php',
 	WT_ROOT . 'save.php',
 	WT_ROOT . 'themes/_administration/css-1.6.2',
 	WT_ROOT . 'themes/_administration/templates',
@@ -400,9 +425,9 @@ $controller
 	->pageHeader();
 
 // Check for updates
-$latest_version_txt = fetch_latest_version();
+$latest_version_txt = Functions::fetchLatestVersion();
 if (preg_match('/^[0-9.]+\|[0-9.]+\|/', $latest_version_txt)) {
-	list($latest_version, $earliest_version, $download_url) = explode('|', $latest_version_txt);
+	list($latest_version) = explode('|', $latest_version_txt);
 } else {
 	// Cannot determine the latest version
 	$latest_version = '';
@@ -588,7 +613,9 @@ if (
 							<td>
 								<?php foreach ($administrators as $n => $user): ?>
 									<?php echo $n ? I18N::$list_separator : ''; ?>
-									<a href="admin_users.php?action=edit&user_id=<?php echo $user->user_id; ?>"><?php echo Filter::escapeHtml($user->real_name); ?></a>
+									<a href="admin_users.php?action=edit&user_id=<?php echo $user->user_id; ?>" dir="auto">
+										<?php echo Filter::escapeHtml($user->real_name); ?>
+									</a>
 								<?php endforeach; ?>
 							</td>
 						</tr>
@@ -599,7 +626,9 @@ if (
 							<td>
 								<?php foreach ($managers as $n => $user): ?>
 									<?php echo $n ? I18N::$list_separator : ''; ?>
-									<a href="admin_users.php?action=edit&user_id=<?php echo $user->user_id; ?>"><?php echo Filter::escapeHtml($user->real_name); ?></a>
+									<a href="admin_users.php?action=edit&user_id=<?php echo $user->user_id; ?>" dir="auto">
+										<?php echo Filter::escapeHtml($user->real_name); ?>
+									</a>
 								<?php endforeach; ?>
 							</td>
 						</tr>
@@ -610,7 +639,9 @@ if (
 							<td>
 								<?php foreach ($moderators as $n => $user): ?>
 									<?php echo $n ? I18N::$list_separator : ''; ?>
-									<a href="admin_users.php?action=edit&user_id=<?php echo $user->user_id; ?>"><?php echo Filter::escapeHtml($user->real_name); ?></a>
+									<a href="admin_users.php?action=edit&user_id=<?php echo $user->user_id; ?>" dir="auto">
+										<?php echo Filter::escapeHtml($user->real_name); ?>
+									</a>
 								<?php endforeach; ?>
 							</td>
 						</tr>
@@ -621,7 +652,9 @@ if (
 							<td>
 								<?php foreach ($unverified as $n => $user): ?>
 									<?php echo $n ? I18N::$list_separator : ''; ?>
-									<a href="admin_users.php?action=edit&user_id=<?php echo $user->user_id; ?>"><?php echo Filter::escapeHtml($user->real_name); ?></a>
+									<a href="admin_users.php?action=edit&user_id=<?php echo $user->user_id; ?>" dir="auto">
+										<?php echo Filter::escapeHtml($user->real_name); ?>
+									</a>
 								<?php endforeach; ?>
 							</td>
 						</tr>
@@ -632,7 +665,9 @@ if (
 							<td>
 								<?php foreach ($unapproved as $n => $user): ?>
 									<?php echo $n ? I18N::$list_separator : ''; ?>
-									<a href="admin_users.php?action=edit&user_id=<?php echo $user->user_id; ?>"><?php echo Filter::escapeHtml($user->real_name); ?></a>
+									<a href="admin_users.php?action=edit&user_id=<?php echo $user->user_id; ?>" dir="auto">
+										<?php echo Filter::escapeHtml($user->real_name); ?>
+									</a>
 								<?php endforeach; ?>
 							</td>
 						</tr>
@@ -643,7 +678,9 @@ if (
 							<td>
 								<?php foreach ($logged_in as $n => $user): ?>
 								<?php echo $n ? I18N::$list_separator : ''; ?>
-									<a href="admin_users.php?action=edit&user_id=<?php echo $user->user_id; ?>"><?php echo Filter::escapeHtml($user->real_name); ?></a>
+									<a href="admin_users.php?action=edit&user_id=<?php echo $user->user_id; ?>" dir="auto">
+										<?php echo Filter::escapeHtml($user->real_name); ?>
+									</a>
 								<?php endforeach; ?>
 							</td>
 						</tr>
@@ -722,7 +759,7 @@ if (
 								</td>
 							<td class="text-right flip">
 								<?php if ($sources[$tree->getTreeId()]): ?>
-								<a href="sourlist.php?ged=<?php echo $tree->getNameUrl(); ?>">
+								<a href="sourcelist.php?ged=<?php echo $tree->getNameUrl(); ?>">
 									<?php echo I18N::number($sources[$tree->getTreeId()]); ?>
 									<span class="sr-only"><?php echo I18N::translate('Sources'); ?> <?php echo $tree->getTitleHtml(); ?></span>
 								</a>
@@ -779,7 +816,7 @@ if (
 								<?php echo I18N::number(array_sum($media)); ?>
 							</td>
 						</tr>
-					</tbody>
+					</tfoot>
 				</table>
 			</div>
 		</div>

@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,9 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module\BatchUpdate;
+
+use Fisharebest\Webtrees\I18N;
 
 /**
  * Class BatchUpdateDuplicateLinksPlugin Batch Update plugin: remove duplicate links in records
@@ -53,7 +54,7 @@ class BatchUpdateDuplicateLinksPlugin extends BatchUpdateBasePlugin {
 	 * @param string $xref
 	 * @param string $gedrec
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public function doesRecordNeedUpdate($xref, $gedrec) {
 		return
@@ -75,7 +76,7 @@ class BatchUpdateDuplicateLinksPlugin extends BatchUpdateBasePlugin {
 			array(
 				'/(\n1.*@.+@.*(?:(?:\n[2-9].*)*))((?:\n1.*(?:\n[2-9].*)*)*\1)/',
 				'/(\n2.*@.+@.*(?:(?:\n[3-9].*)*))((?:\n2.*(?:\n[3-9].*)*)*\1)/',
-				'/(\n3.*@.+@.*(?:(?:\n[4-9].*)*))((?:\n3.*(?:\n[4-9].*)*)*\1)/'
+				'/(\n3.*@.+@.*(?:(?:\n[4-9].*)*))((?:\n3.*(?:\n[4-9].*)*)*\1)/',
 			),
 			'$2',
 			$gedrec

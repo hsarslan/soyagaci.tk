@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
  * Defined in session.php
@@ -22,6 +21,8 @@ namespace Fisharebest\Webtrees;
  * @global Tree $WT_TREE
  */
 global $WT_TREE;
+
+use Fisharebest\Webtrees\Controller\BranchesController;
 
 define('WT_SCRIPT_NAME', 'branches.php');
 require './includes/session.php';
@@ -34,7 +35,7 @@ $controller
 
 ?>
 <div id="branches-page">
-	<h2><?php echo $controller->getPageTitle(); ?></h2>
+	<h2 class="center"><?php echo $controller->getPageTitle(); ?></h2>
 	<form name="surnlist" id="surnlist" action="branches.php">
 		<table class="facts_table width50">
 			<tbody>

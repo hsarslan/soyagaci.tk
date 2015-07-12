@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,18 +13,8 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
-use PDOException;
-
-// Create tables, if not already present
-
-try {
-	Database::updateSchema(WT_ROOT . WT_MODULES_DIR . 'gedcom_news/db_schema/', 'NB_SCHEMA_VERSION', 3);
-} catch (PDOException $ex) {
-	// The schema update scripts should never fail.  If they do, there is no clean recovery.
-	FlashMessages::addMessage($ex->getMessage(), 'danger');
-	header('Location: ' . WT_BASE_URL . 'site-unavailable.php');
-	throw $ex;
-}
+use Fisharebest\Webtrees\Module\FamilyTreeNewsModule;
 
 return new FamilyTreeNewsModule(__DIR__);

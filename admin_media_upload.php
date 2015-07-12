@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
  * Defined in session.php
@@ -22,6 +21,10 @@ namespace Fisharebest\Webtrees;
  * @global Tree $WT_TREE
  */
 global $WT_TREE;
+
+use Fisharebest\Webtrees\Controller\PageController;
+use Fisharebest\Webtrees\Functions\Functions;
+use Fisharebest\Webtrees\Query\QueryMedia;
 
 define('WT_SCRIPT_NAME', 'admin_media_upload.php');
 require './includes/session.php';
@@ -141,7 +144,7 @@ if ($action == "upload") {
 					FlashMessages::addMessage(
 						I18N::translate('There was an error uploading your file.') .
 						'<br>' .
-						file_upload_error_text($_FILES['mediafile' . $i]['error'])
+						Functions::fileUploadErrorText($_FILES['mediafile' . $i]['error'])
 					);
 					$filename = '';
 					break;
@@ -149,8 +152,8 @@ if ($action == "upload") {
 
 				// Now copy the (optional thumbnail)
 				if (!empty($_FILES['thumbnail' . $i]['name']) && preg_match('/^image\/(png|gif|jpeg)/', $_FILES['thumbnail' . $i]['type'], $match)) {
-					$extension = $match[1];
-					$thumbFile = preg_replace('/\.[a-z0-9]{3,5}$/', '.' . $extension, $fileName);
+					$extension      = $match[1];
+					$thumbFile      = preg_replace('/\.[a-z0-9]{3,5}$/', '.' . $extension, $fileName);
 					$serverFileName = WT_DATA_DIR . $MEDIA_DIRECTORY . 'thumbs/' . $folderName . $thumbFile;
 					if (move_uploaded_file($_FILES['thumbnail' . $i]['tmp_name'], $serverFileName)) {
 						FlashMessages::addMessage(I18N::translate('The file %s has been uploaded.', Html::filename($serverFileName)));
@@ -167,7 +170,6 @@ $controller->pageHeader();
 $mediaFolders = QueryMedia::folderListAll();
 
 // Determine file size limit
-// TODO: do we need to check post_max_size size too?
 $filesize = ini_get('upload_max_filesize');
 if (empty($filesize)) {
 	$filesize = "2M";
@@ -233,7 +235,7 @@ for ($i = 1; $i < 6; $i++) {
 		echo '</td>';
 		echo '<td>';
 
-		echo '<span dir="ltr"><select name="folder_list', $i, '" onchange="document.uploadmedia.folder', $i, '.value=this.options[this.selectedIndex].value;">';
+		echo '<select name="folder_list', $i, '" onchange="document.uploadmedia.folder', $i, '.value=this.options[this.selectedIndex].value;">';
 		echo '<option';
 		echo ' value="/"> ', I18N::translate('Choose: '), ' </option>';
 		if (Auth::isAdmin()) {
@@ -242,9 +244,9 @@ for ($i = 1; $i < 6; $i++) {
 		foreach ($mediaFolders as $f) {
 			echo '<option value="', Filter::escapeHtml($f), '">', Filter::escapeHtml($f), "</option>";
 		}
-		echo "</select></span>";
+		echo "</select>";
 		if (Auth::isAdmin()) {
-			echo '<br><span dir="ltr"><input name="folder', $i, '" type="text" size="40" value=""></span>';
+			echo '<br><input name="folder', $i, '" type="text" size="40" value="">';
 		} else {
 			echo '<input name="folder', $i, '" type="hidden" value="">';
 		}

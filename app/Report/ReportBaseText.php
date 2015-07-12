@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Report;
 
 /**
  * Class ReportBaseText
@@ -35,13 +34,13 @@ class ReportBaseText extends ReportBaseElement {
 	/**
 	 * Remaining width of a cel
 	 *
-	 * @var integer User unit (points)
+	 * @var int User unit (points)
 	 */
 	public $wrapWidthRemaining;
 	/**
 	 * Original width of a cell
 	 *
-	 * @var integer User unit (points)
+	 * @var int User unit (points)
 	 */
 	public $wrapWidthCell;
 
@@ -52,21 +51,23 @@ class ReportBaseText extends ReportBaseElement {
 	 * @param string $color HTML color code
 	 */
 	public function __construct($style, $color) {
-		$this->text = '';
-		$this->color = $color;
+		$this->text               = '';
+		$this->color              = $color;
 		$this->wrapWidthRemaining = 0;
-		$this->styleName = $style;
+		$this->styleName          = $style;
 
 		return 0;
 	}
 
 	/**
+	 * Set the width for word-wrapping.
+	 *
 	 * @param $wrapwidth
 	 * @param $cellwidth
 	 *
 	 * @return mixed
 	 */
-	function setWrapWidth($wrapwidth, $cellwidth) {
+	public function setWrapWidth($wrapwidth, $cellwidth) {
 		$this->wrapWidthCell = $cellwidth;
 		if (strpos($this->text, "\n") !== false) {
 			$this->wrapWidthRemaining = $cellwidth;
@@ -78,9 +79,11 @@ class ReportBaseText extends ReportBaseElement {
 	}
 
 	/**
+	 * Get the style name.
+	 *
 	 * @return string
 	 */
-	function getStyleName() {
+	public function getStyleName() {
 		return $this->styleName;
 	}
 }

@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,7 +13,13 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
+use Fisharebest\ExtCalendar\ArabicCalendar;
+use Fisharebest\ExtCalendar\CalendarInterface;
+use Fisharebest\ExtCalendar\GregorianCalendar;
+use Fisharebest\ExtCalendar\JewishCalendar;
+use Fisharebest\ExtCalendar\PersianCalendar;
 use Fisharebest\Localization\Locale;
 use Fisharebest\Localization\Locale\LocaleEnUs;
 use Fisharebest\Localization\Locale\LocaleInterface;
@@ -24,13 +28,13 @@ use Fisharebest\Localization\Translator;
 use Patchwork\TurkishUtf8;
 
 /**
- * Class I18N - Functions to support internationalization (i18n) functionality.
+ * Internationalization (i18n) and localization (l10n).
  */
 class I18N {
 	/** @var LocaleInterface The current locale (e.g. LocaleEnGb) */
 	private static $locale;
 
-	/** @var Translator */
+	/** @var Translator An object that performs translation*/
 	private static $translator;
 
 	// Digits are always rendered LTR, even in RTL text.
@@ -42,13 +46,13 @@ class I18N {
 	const ALPHABET_LOWER = 'aàáâãäåāăąǎǟǡǻȁȃȧḁạảấầẩẫậắằẳẵặⓐａæǣǽbḃḅḇⓑｂƀɓƃcçćĉċčḉⅽⓒｃƈdďḋḍḏḑḓⅾⓓｄǆǳđɖɗƌðeèéêëēĕėęěȅȇȩḕḗḙḛḝẹẻẽếềểễệⓔｅǝəɛfḟⓕｆƒgĝğġģǧǵḡⓖｇǥɠɣƣhĥȟḣḥḧḩḫⓗｈƕħiìíîïĩīĭįǐȉȋḭḯỉịⅰⓘｉⅱⅲĳⅳⅸɨɩjĵⓙｊkķǩḱḳḵⓚｋƙlĺļľḷḹḻḽⅼⓛｌŀǉłƚmḿṁṃⅿⓜｍnñńņňǹṅṇṉṋⓝｎǌɲƞŋoòóôõöōŏőơǒǫǭȍȏȫȭȯȱṍṏṑṓọỏốồổỗộớờởỡợⓞｏœøǿɔɵȣpṕṗⓟｐƥqⓠｑrŕŗřȑȓṙṛṝṟⓡｒʀsśŝşšșṡṣṥṧṩⓢｓʃtţťțṫṭṯṱⓣｔŧƭʈuùúûüũūŭůűųưǔǖǘǚǜȕȗṳṵṷṹṻụủứừửữựⓤｕʉɯʊvṽṿⅴⓥｖⅵⅶⅷʋʌwŵẁẃẅẇẉⓦｗxẋẍⅹⓧｘⅺⅻyýÿŷȳẏỳỵỷỹⓨｙƴzźżžẑẓẕⓩｚƶȥǯʒƹȝþƿƨƽƅάαἀἁἂἃἄἅἆἇὰάᾀᾁᾂᾃᾄᾅᾆᾇᾰᾱᾳβγδέεἐἑἒἓἔἕὲέϝϛζήηἠἡἢἣἤἥἦἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῃθϊἰἱἲἳἴἵἶἷὶίῐῑκϗλμνξοόὀὁὂὃὄὅὸόπϟϙρῥσϲτυϋύὑὓὕὗὺύῠῡφχψωώὠὡὢὣὤὥὦὧὼώᾠᾡᾢᾣᾤᾥᾦᾧῳϡϸϻϣϥϧϩϫϭϯаӑӓәӛӕбвгґғҕдԁђԃѓҙеѐёӗєжӂӝҗзԅӟѕӡԇиѝӣҋӥіїйјкқӄҡҟҝлӆљԉмӎнӊңӈҥњԋоӧөӫпҧҁрҏсԍҫтԏҭћќуӯўӱӳүұѹфхҳһѡѿѽѻцҵчӵҷӌҹҽҿџшщъыӹьҍѣэӭюяѥѧѫѩѭѯѱѳѵѷҩաբգդեզէըթժիլխծկհձղճմյնշոչպջռսվտրցւփքօֆȼɂɇɉɋɍɏͱͳͷͻͼͽӏӷӻӽӿԑԓԕԗԙԛԝԟԡԣԥᵹᵽỻỽỿⅎↄⰰⰱⰲⰳⰴⰵⰶⰷⰸⰹⰺⰻⰼⰽⰾⰿⱀⱁⱂⱃⱄⱅⱆⱇⱈⱉⱊⱋⱌⱍⱎⱏⱐⱑⱒⱓⱔⱕⱖⱗⱘⱙⱚⱛⱜⱝⱞⱡⱨⱪⱬⱳⱶⲁⲃⲅⲇⲉⲋⲍⲏⲑⲓⲕⲗⲙⲛⲝⲟⲡⲣⲥⲧⲩⲫⲭⲯⲱⲳⲵⲷⲹⲻⲽⲿⳁⳃⳅⳇⳉⳋⳍⳏⳑⳓⳕⳗⳙⳛⳝⳟⳡⳣⳬⳮⴀⴁⴂⴃⴄⴅⴆⴇⴈⴉⴊⴋⴌⴍⴎⴏⴐⴑⴒⴓⴔⴕⴖⴗⴘⴙⴚⴛⴜⴝⴞⴟⴠⴡⴢⴣⴤⴥꙁꙃꙅꙇꙉꙋꙍꙏꙑꙓꙕꙗꙙꙛꙝꙟꙣꙥꙧꙩꙫꙭꚁꚃꚅꚇꚉꚋꚍꚏꚑꚓꚕꚗꜣꜥꜧꜩꜫꜭꜯꜳꜵꜷꜹꜻꜽꜿꝁꝃꝅꝇꝉꝋꝍꝏꝑꝓꝕꝗꝙꝛꝝꝟꝡꝣꝥꝧꝩꝫꝭꝯꝺꝼꝿꞁꞃꞅꞇꞌ';
 	const ALPHABET_UPPER = 'AÀÁÂÃÄÅĀĂĄǍǞǠǺȀȂȦḀẠẢẤẦẨẪẬẮẰẲẴẶⒶＡÆǢǼBḂḄḆⒷＢɃƁƂCÇĆĈĊČḈⅭⒸＣƇDĎḊḌḎḐḒⅮⒹＤǄǱĐƉƊƋÐEÈÉÊËĒĔĖĘĚȄȆȨḔḖḘḚḜẸẺẼẾỀỂỄỆⒺＥƎƏƐFḞⒻＦƑGĜĞĠĢǦǴḠⒼＧǤƓƔƢHĤȞḢḤḦḨḪⒽＨǶĦIÌÍÎÏĨĪĬĮǏȈȊḬḮỈỊⅠⒾＩⅡⅢĲⅣⅨƗƖJĴⒿＪKĶǨḰḲḴⓀＫƘLĹĻĽḶḸḺḼⅬⓁＬĿǇŁȽMḾṀṂⅯⓂＭNÑŃŅŇǸṄṆṈṊⓃＮǊƝȠŊOÒÓÔÕÖŌŎŐƠǑǪǬȌȎȪȬȮȰṌṎṐṒỌỎỐỒỔỖỘỚỜỞỠỢⓄＯŒØǾƆƟȢPṔṖⓅＰƤQⓆＱRŔŖŘȐȒṘṚṜṞⓇＲƦSŚŜŞŠȘṠṢṤṦṨⓈＳƩTŢŤȚṪṬṮṰⓉＴŦƬƮUÙÚÛÜŨŪŬŮŰŲƯǓǕǗǙǛȔȖṲṴṶṸṺỤỦỨỪỬỮỰⓊＵɄƜƱVṼṾⅤⓋＶⅥⅦⅧƲɅWŴẀẂẄẆẈⓌＷXẊẌⅩⓍＸⅪⅫYÝŸŶȲẎỲỴỶỸⓎＹƳZŹŻŽẐẒẔⓏＺƵȤǮƷƸȜÞǷƧƼƄΆΑἈἉἊἋἌἍἎἏᾺΆᾈᾉᾊᾋᾌᾍᾎᾏᾸᾹᾼΒΓΔΈΕἘἙἚἛἜἝῈΈϜϚΖΉΗἨἩἪἫἬἭἮἯῊΉᾘᾙᾚᾛᾜᾝᾞᾟῌΘΪἸἹἺἻἼἽἾἿῚΊῘῙΚϏΛΜΝΞΟΌὈὉὊὋὌὍῸΌΠϞϘΡῬΣϹΤΥΫΎὙὛὝὟῪΎῨῩΦΧΨΩΏὨὩὪὫὬὭὮὯῺΏᾨᾩᾪᾫᾬᾭᾮᾯῼϠϷϺϢϤϦϨϪϬϮАӐӒӘӚӔБВГҐҒҔДԀЂԂЃҘЕЀЁӖЄЖӁӜҖЗԄӞЅӠԆИЍӢҊӤІЇЙЈКҚӃҠҞҜЛӅЉԈМӍНӉҢӇҤЊԊОӦӨӪПҦҀРҎСԌҪТԎҬЋЌУӮЎӰӲҮҰѸФХҲҺѠѾѼѺЦҴЧӴҶӋҸҼҾЏШЩЪЫӸЬҌѢЭӬЮЯѤѦѪѨѬѮѰѲѴѶҨԱԲԳԴԵԶԷԸԹԺԻԼԽԾԿՀՁՂՃՄՅՆՇՈՉՊՋՌՍՎՏՐՑՒՓՔՕՖȻɁɆɈɊɌɎͰͲͶϽϾϿӀӶӺӼӾԐԒԔԖԘԚԜԞԠԢԤꝽⱣỺỼỾℲↃⰀⰁⰂⰃⰄⰅⰆⰇⰈⰉⰊⰋⰌⰍⰎⰏⰐⰑⰒⰓⰔⰕⰖⰗⰘⰙⰚⰛⰜⰝⰞⰟⰠⰡⰢⰣⰤⰥⰦⰧⰨⰩⰪⰫⰬⰭⰮⱠⱧⱩⱫⱲⱵⲀⲂⲄⲆⲈⲊⲌⲎⲐⲒⲔⲖⲘⲚⲜⲞⲠⲢⲤⲦⲨⲪⲬⲮⲰⲲⲴⲶⲸⲺⲼⲾⳀⳂⳄⳆⳈⳊⳌⳎⳐⳒⳔⳖⳘⳚⳜⳞⳠⳢⳫⳭႠႡႢႣႤႥႦႧႨႩႪႫႬႭႮႯႰႱႲႳႴႵႶႷႸႹႺႻႼႽႾႿჀჁჂჃჄჅꙀꙂꙄꙆꙈꙊꙌꙎꙐꙒꙔꙖꙘꙚꙜꙞꙢꙤꙦꙨꙪꙬꚀꚂꚄꚆꚈꚊꚌꚎꚐꚒꚔꚖꜢꜤꜦꜨꜪꜬꜮꜲꜴꜶꜸꜺꜼꜾꝀꝂꝄꝆꝈꝊꝌꝎꝐꝒꝔꝖꝘꝚꝜꝞꝠꝢꝤꝦꝨꝪꝬꝮꝹꝻꝾꞀꞂꞄꞆꞋ';
 
-	// Alphabet for the currently selected locale
+	/** @var string Alphabet, in lower case, for the current locale. */
 	private static $alphabet_lower = 'abcdefghijklmnopqrstuvwxyz';
+
+	/** @var string Alphabet, in upper case, for the current locale. */
 	private static $alphabet_upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-	// Lookup table to convert unicode code-points into scripts.
-	// See https://en.wikipedia.org/wiki/Unicode_block
-	// Note: we only need details for scripts of languages into which webtrees is translated.
+	/** @var int[][] Character ranges used by each script. */
 	private static $scripts = array(
 		array('Latn', 0x0041, 0x005A), // a-z
 		array('Latn', 0x0061, 0x007A), // A-Z
@@ -71,20 +75,20 @@ class I18N {
 		array('Hans', 0x20000, 0x2FA1F), // Mixed CJK, not just Hans
 	);
 
-	// Characters that are displayed in mirror form in RTL text.
+	/** @var string[] Characters that are displayed in mirror form in RTL text. */
 	private static $mirror_characters = array(
-		'(' => ')',
-		')' => '(',
-		'[' => ']',
-		']' => '[',
-		'{' => '}',
-		'}' => '{',
-		'<' => '>',
-		'>' => '<',
+		'('   => ')',
+		')'   => '(',
+		'['   => ']',
+		']'   => '[',
+		'{'   => '}',
+		'}'   => '{',
+		'<'   => '>',
+		'>'   => '<',
 		'‹' => '›',
 		'›' => '‹',
-		'«' => '»',
-		'»' => '«',
+		'«'  => '»',
+		'»'  => '«',
 		'﴾' => '﴿',
 		'﴿' => '﴾',
 		'“' => '”',
@@ -240,7 +244,7 @@ class I18N {
 	 *
 	 * Used for years, etc., where we do not want thousands-separators, decimals, etc.
 	 *
-	 * @param integer $n
+	 * @param int $n
 	 *
 	 * @return string
 	 */
@@ -258,11 +262,20 @@ class I18N {
 	}
 
 	/**
+	 * What is the first day of the week.
+	 *
+	 * @return int Sunday=0, Monday=1, etc.
+	 */
+	public static function firstDay() {
+		return self::$locale->territory()->firstDay();
+	}
+
+	/**
 	 * Convert a GEDCOM age string into translated_text
 	 *
 	 * NB: The import function will have normalised this, so we don't need
 	 * to worry about badly formatted strings
-	 * NOTE: this function is not yet complete - eventually it will replace get_age_at_event()
+	 * NOTE: this function is not yet complete - eventually it will replace FunctionsDate::get_age_at_event()
 	 *
 	 * @param $string
 	 *
@@ -338,7 +351,7 @@ class I18N {
 	 * @return string $string
 	 */
 	public static function init($code = null) {
-		global $WT_SESSION, $WT_TREE;
+		global $WT_TREE;
 
 		if ($code !== null) {
 			// Create the specified locale
@@ -346,18 +359,9 @@ class I18N {
 		} else {
 			// Negotiate a locale, but if we can't then use a failsafe
 			self::$locale = new LocaleEnUs;
-			if (Filter::get('lang')) {
-				// A request in the URL
-				try {
-					$locale = Locale::create(Filter::get('lang'));
-					if (file_exists(WT_ROOT . 'language/' . $locale->languageTag() . '.mo')) {
-						self::$locale = $locale;
-					}
-				} catch (\Exception $ex) {
-				}
-			} elseif ($WT_SESSION->locale) {
+			if (Session::has('locale')) {
 				// Previously used
-				self::$locale = Locale::create($WT_SESSION->locale);
+				self::$locale = Locale::create(Session::get('locale'));
 			} else {
 				// Browser negotiation
 				$default_locale = new LocaleEnUs;
@@ -367,7 +371,7 @@ class I18N {
 					}
 				} catch (\Exception $ex) {
 				}
-				self::$locale = Locale::httpAcceptLanguage($_SESSION, self::installedLocales(), $default_locale);
+				self::$locale = Locale::httpAcceptLanguage($_SERVER, self::installedLocales(), $default_locale);
 			}
 		}
 
@@ -382,14 +386,26 @@ class I18N {
 		// Load the translation file(s)
 		// Note that glob() returns false instead of an empty array when open_basedir_restriction
 		// is in force and no files are found.  See PHP bug #47358.
-		$translation_files = array_merge(
-			array(WT_ROOT . 'language/' . self::$locale->languageTag() . '.mo'),
-			glob(WT_MODULES_DIR . '*/language/' . self::$locale->languageTag() . '.{csv,php,mo}', GLOB_BRACE) ?: array(),
-			glob(WT_DATA_DIR . 'language/' . self::$locale->languageTag() . '.{csv,php,mo}', GLOB_BRACE) ?: array()
-		);
-
-		// Rebuild files after 2 hours
-		$rebuild_cache = time() > $filemtime + 7200;
+		if (defined('GLOB_BRACE')) {
+			$translation_files = array_merge(
+				array(WT_ROOT . 'language/' . self::$locale->languageTag() . '.mo'),
+				glob(WT_MODULES_DIR . '*/language/' . self::$locale->languageTag() . '.{csv,php,mo}', GLOB_BRACE) ? : array(),
+				glob(WT_DATA_DIR . 'language/' . self::$locale->languageTag() . '.{csv,php,mo}', GLOB_BRACE) ? : array()
+			);
+		} else {
+			// Some servers do not have GLOB_BRACE - see http://php.net/manual/en/function.glob.php
+			$translation_files = array_merge(
+				array(WT_ROOT . 'language/' . self::$locale->languageTag() . '.mo'),
+				glob(WT_MODULES_DIR . '*/language/' . self::$locale->languageTag() . '.csv') ? : array(),
+				glob(WT_MODULES_DIR . '*/language/' . self::$locale->languageTag() . '.php') ? : array(),
+				glob(WT_MODULES_DIR . '*/language/' . self::$locale->languageTag() . '.mo') ? : array(),
+				glob(WT_DATA_DIR . 'language/' . self::$locale->languageTag() . '.csv') ? : array(),
+				glob(WT_DATA_DIR . 'language/' . self::$locale->languageTag() . '.php') ? : array(),
+				glob(WT_DATA_DIR . 'language/' . self::$locale->languageTag() . '.mo') ? : array()
+			);
+		}
+		// Rebuild files after one hour
+		$rebuild_cache = time() > $filemtime + 3600;
 		// Rebuild files if any translation file has been updated
 		foreach ($translation_files as $translation_file) {
 			if (filemtime($translation_file) > $filemtime) {
@@ -401,7 +417,7 @@ class I18N {
 		if ($rebuild_cache) {
 			$translations = array();
 			foreach ($translation_files as $translation_file) {
-				$translation = new Translation($translation_file);
+				$translation  = new Translation($translation_file);
 				$translations = array_merge($translations, $translation->asArray());
 			}
 			file_put_contents($cache_file, '<' . '?php return ' . var_export($translations, true) . ';');
@@ -416,9 +432,6 @@ class I18N {
 		list(, self::$alphabet_upper) = explode('=', self::$translator->translate('ALPHABET_upper=ABCDEFGHIJKLMNOPQRSTUVWXYZ'));
 		// Alphabetic sorting sequence (lower-case letters), used by webtrees to sort strings
 		list(, self::$alphabet_lower) = explode('=', self::$translator->translate('ALPHABET_lower=abcdefghijklmnopqrstuvwxyz'));
-
-		global $WEEK_START;
-		$WEEK_START = self::$locale->territory()->firstDay();
 
 		self::$list_separator = /* I18N: This punctuation is used to separate lists of items */ self::translate(', ');
 
@@ -467,15 +480,6 @@ class I18N {
 	}
 
 	/**
-	 * Return the current locale object
-	 *
-	 * @return LocaleInterface
-	 */
-	public static function locale() {
-		return self::$locale;
-	}
-
-	/**
 	 * Translate a number into the local representation.
 	 *
 	 * e.g. 12345.67 becomes
@@ -483,8 +487,8 @@ class I18N {
 	 * fr: 12 345,67
 	 * de: 12.345,67
 	 *
-	 * @param float   $n
-	 * @param integer $precision
+	 * @param float $n
+	 * @param int   $precision
 	 *
 	 * @return string
 	 */
@@ -500,8 +504,8 @@ class I18N {
 	 * fr: 12,3 %
 	 * de: 12,3%
 	 *
-	 * @param float   $n
-	 * @param integer $precision
+	 * @param float $n
+	 * @param int   $precision
 	 *
 	 * @return string
 	 */
@@ -520,7 +524,7 @@ class I18N {
 	 */
 	public static function plural(/* var_args */) {
 		$args    = func_get_args();
-		$args[0] = self::$translator->translatePlural($args[0], $args[1], $args[2]);
+		$args[0] = self::$translator->translatePlural($args[0], $args[1], (int) $args[2]);
 		unset($args[1], $args[2]);
 
 		return self::substitutePlaceholders($args);
@@ -553,15 +557,15 @@ class I18N {
 		$text = strtr($text, self::$mirror_characters);
 
 		$reversed = '';
-		$digits = '';
+		$digits   = '';
 		while ($text != '') {
 			$letter = mb_substr($text, 0, 1);
-			$text = mb_substr($text, 1);
+			$text   = mb_substr($text, 1);
 			if (strpos(self::DIGITS, $letter) !== false) {
 				$digits .= $letter;
 			} else {
 				$reversed = $letter . $digits . $reversed;
-				$digits = '';
+				$digits   = '';
 			}
 		}
 
@@ -598,7 +602,7 @@ class I18N {
 	 * @param string $string1
 	 * @param string $string2
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public static function strcasecmp($string1, $string2) {
 		$strpos1 = 0;
@@ -726,26 +730,26 @@ class I18N {
 		$string = strip_tags($string); // otherwise HTML tags show up as latin
 		$string = html_entity_decode($string, ENT_QUOTES, 'UTF-8'); // otherwise HTML entities show up as latin
 		$string = str_replace(array('@N.N.', '@P.N.'), '', $string); // otherwise unknown names show up as latin
-		$pos = 0;
+		$pos    = 0;
 		$strlen = strlen($string);
 		while ($pos < $strlen) {
 			// get the Unicode Code Point for the character at position $pos
 			$byte1 = ord($string[$pos]);
 			if ($byte1 < 0x80) {
 				$code_point = $byte1;
-				$chrlen = 1;
+				$chrlen     = 1;
 			} elseif ($byte1 < 0xC0) {
 				// Invalid continuation character
 				return 'Latn';
 			} elseif ($byte1 < 0xE0) {
 				$code_point = (($byte1 & 0x1F) << 6) + (ord($string[$pos + 1]) & 0x3F);
-				$chrlen = 2;
+				$chrlen     = 2;
 			} elseif ($byte1 < 0xF0) {
 				$code_point = (($byte1 & 0x0F) << 12) + ((ord($string[$pos + 1]) & 0x3F) << 6) + (ord($string[$pos + 2]) & 0x3F);
-				$chrlen = 3;
+				$chrlen     = 3;
 			} elseif ($byte1 < 0xF8) {
 				$code_point = (($byte1 & 0x07) << 24) + ((ord($string[$pos + 1]) & 0x3F) << 12) + ((ord($string[$pos + 2]) & 0x3F) << 6) + (ord($string[$pos + 3]) & 0x3F);
-				$chrlen = 3;
+				$chrlen     = 3;
 			} else {
 				// Invalid UTF
 				return 'Latn';
@@ -766,7 +770,7 @@ class I18N {
 	/**
 	 * Convert a number of seconds into a relative time.  For example, 630 => "10 hours, 30 minutes ago"
 	 *
-	 * @param integer $seconds
+	 * @param int $seconds
 	 *
 	 * @return string
 	 */
@@ -779,18 +783,23 @@ class I18N {
 
 		if ($seconds > $year) {
 			$years = (int) ($seconds / $year);
+
 			return self::plural('%s year ago', '%s years ago', $years, self::number($years));
 		} elseif ($seconds > $month) {
 			$months = (int) ($seconds / $month);
+
 			return self::plural('%s month ago', '%s months ago', $months, self::number($months));
 		} elseif ($seconds > $day) {
 			$days = (int) ($seconds / $day);
+
 			return self::plural('%s day ago', '%s days ago', $days, self::number($days));
 		} elseif ($seconds > $hour) {
 			$hours = (int) ($seconds / $hour);
+
 			return self::plural('%s hour ago', '%s hours ago', $hours, self::number($hours));
 		} elseif ($seconds > $minute) {
 			$minutes = (int) ($seconds / $minute);
+
 			return self::plural('%s minute ago', '%s minutes ago', $minutes, self::number($minutes));
 		} else {
 			return self::plural('%s second ago', '%s seconds ago', $seconds, self::number($seconds));
@@ -824,8 +833,8 @@ class I18N {
 	/**
 	 * Context sensitive version of translate.
 	 *
-	 * echo I18N::translate_c('NOMINATIVE', 'January');
-	 * echo I18N::translate_c('GENITIVE',   'January');
+	 * echo I18N::translateContext('NOMINATIVE', 'January');
+	 * echo I18N::translateContext('GENITIVE',   'January');
 	 *
 	 * @return string
 	 */
@@ -835,5 +844,42 @@ class I18N {
 		unset($args[1]);
 
 		return self::substitutePlaceholders($args);
+	}
+
+	/**
+	 * What is the last day of the weekend.
+	 *
+	 * @return int Sunday=0, Monday=1, etc.
+	 */
+	public static function weekendEnd() {
+		return self::$locale->territory()->weekendEnd();
+	}
+
+	/**
+	 * What is the first day of the weekend.
+	 *
+	 * @return int Sunday=0, Monday=1, etc.
+	 */
+	public static function weekendStart() {
+		return self::$locale->territory()->weekendStart();
+	}
+
+	/**
+	 * Which calendar prefered in this locale?
+	 *
+	 * @return CalendarInterface
+	 */
+	public static function defaultCalendar() {
+		switch (self::$locale->languageTag()) {
+			case 'ar':
+				return new ArabicCalendar;
+			case 'fa':
+				return new PersianCalendar;
+			case 'he':
+			case 'yi':
+				return new JewishCalendar;
+			default:
+				return new GregorianCalendar;
+		}
 	}
 }

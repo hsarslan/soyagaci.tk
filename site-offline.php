@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 define('WT_SCRIPT_NAME', 'site-offline.php');
 
@@ -32,10 +31,7 @@ define('WT_BASE_URL', '');
 define('WT_ROOT', '');
 define('WT_DATA_DIR', realpath('data') . DIRECTORY_SEPARATOR);
 define('WT_MODULES_DIR', 'modules_v3/');
-
-$WT_SESSION         = new \stdClass;
-$WT_SESSION->locale = '';
-
+Session::start();
 define('WT_LOCALE', I18N::init());
 
 if (file_exists(WT_DATA_DIR . 'offline.txt')) {
@@ -43,7 +39,7 @@ if (file_exists(WT_DATA_DIR . 'offline.txt')) {
 } else {
 	// offline.txt has gone - we're back online!
 	header('Location: index.php');
-	
+
 	return;
 }
 

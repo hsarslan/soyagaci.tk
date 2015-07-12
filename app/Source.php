@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,36 +13,22 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
- * Class Source - A GEDCOM source (SOUR) object
+ * A GEDCOM source (SOUR) object.
  */
 class Source extends GedcomRecord {
 	const RECORD_TYPE = 'SOUR';
-	const URL_PREFIX = 'source.php?sid=';
+	const URL_PREFIX  = 'source.php?sid=';
 
 	/**
-	 * Get an instance of a source object.  For single records,
-	 * we just receive the XREF.  For bulk records (such as lists
-	 * and search results) we can receive the GEDCOM data as well.
+	 * Each object type may have its own special rules, and re-implement this function.
 	 *
-	 * @param string      $xref
-	 * @param Tree        $tree
-	 * @param string|null $gedcom
+	 * @param int $access_level
 	 *
-	 * @return Source|null
+	 * @return bool
 	 */
-	public static function getInstance($xref, Tree $tree, $gedcom = null) {
-		$record = parent::getInstance($xref, $tree, $gedcom);
-
-		if ($record instanceof Source) {
-			return $record;
-		} else {
-			return null;
-		}
-	}
-
-	/** {@inheritdoc} */
 	protected function canShowByType($access_level) {
 		// Hide sources if they are attached to private repositories ...
 		preg_match_all('/\n1 REPO @(.+)@/', $this->gedcom, $matches);
@@ -59,23 +43,37 @@ class Source extends GedcomRecord {
 		return parent::canShowByType($access_level);
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Generate a private version of this record
+	 *
+	 * @param int $access_level
+	 *
+	 * @return string
+	 */
 	protected function createPrivateGedcomRecord($access_level) {
 		return '0 @' . $this->xref . "@ SOUR\n1 TITL " . I18N::translate('Private');
 	}
 
-	/** {@inheritdoc} */
-	protected static function fetchGedcomRecord($xref, $gedcom_id) {
-		static $statement = null;
-
-		if ($statement === null) {
-			$statement = Database::prepare("SELECT s_gedcom FROM `##sources` WHERE s_id=? AND s_file=?");
-		}
-
-		return $statement->execute(array($xref, $gedcom_id))->fetchOne();
+	/**
+	 * Fetch data from the database
+	 *
+	 * @param string $xref
+	 * @param int    $tree_id
+	 *
+	 * @return null|string
+	 */
+	protected static function fetchGedcomRecord($xref, $tree_id) {
+		return Database::prepare(
+			"SELECT s_gedcom FROM `##sources` WHERE s_id = :xref AND s_file = :tree_id"
+		)->execute(array(
+			'xref'    => $xref,
+			'tree_id' => $tree_id,
+		))->fetchOne();
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Extract names from the GEDCOM record.
+	 */
 	public function extractNames() {
 		parent::extractNamesFromFacts(1, 'TITL', $this->getFacts('TITL'));
 	}

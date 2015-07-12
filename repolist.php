@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
  * Defined in session.php
@@ -22,6 +21,10 @@ namespace Fisharebest\Webtrees;
  * @global Tree $WT_TREE
  */
 global $WT_TREE;
+
+use Fisharebest\Webtrees\Controller\PageController;
+use Fisharebest\Webtrees\Functions\FunctionsDb;
+use Fisharebest\Webtrees\Functions\FunctionsPrintLists;
 
 define('WT_SCRIPT_NAME', 'repolist.php');
 require './includes/session.php';
@@ -32,5 +35,5 @@ $controller->pageHeader();
 
 echo '<div id="repolist-page">',
 	'<h2>', I18N::translate('Repositories'), '</h2>';
-	echo format_repo_table(get_repo_list($WT_TREE));
+	echo FunctionsPrintLists::repositoryTable(FunctionsDb::getRepositoryList($WT_TREE));
 echo '</div>';

@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
  * Defined in session.php
@@ -23,8 +22,9 @@ namespace Fisharebest\Webtrees;
  */
 global $WT_TREE;
 
+use Fisharebest\Webtrees\Controller\PageController;
+use Fisharebest\Webtrees\Functions\FunctionsExport;
 use PclZip;
-use Zend_Session;
 
 define('WT_SCRIPT_NAME', 'admin_trees_download.php');
 require './includes/session.php';
@@ -66,13 +66,13 @@ if ($action === 'download') {
 
 		// Create the unzipped GEDCOM on disk, so we can ZIP it.
 		$stream = fopen($temp_dir . $download_filename, "w");
-		export_gedcom($WT_TREE, $stream, $exportOptions);
+		FunctionsExport::exportGedcom($WT_TREE, $stream, $exportOptions);
 		fclose($stream);
 
 		// Create a ZIP file containing the GEDCOM file.
 		$comment = "Created by " . WT_WEBTREES . " " . WT_VERSION . " on " . date("r") . ".";
 		$archive = new PclZip($temp_dir . $zip_file);
-		$v_list = $archive->add($temp_dir . $download_filename, \PCLZIP_OPT_COMMENT, $comment, \PCLZIP_OPT_REMOVE_PATH, $temp_dir);
+		$v_list  = $archive->add($temp_dir . $download_filename, \PCLZIP_OPT_COMMENT, $comment, \PCLZIP_OPT_REMOVE_PATH, $temp_dir);
 		if ($v_list == 0) {
 			echo "Error : " . $archive->errorInfo(true);
 		} else {
@@ -83,13 +83,12 @@ if ($action === 'download') {
 			File::delete($temp_dir);
 		}
 	} else {
-		Zend_Session::writeClose();
 		header('Content-Type: text/plain; charset=UTF-8');
 		header('Content-Disposition: attachment; filename="' . $download_filename . '"');
 		// Stream the GEDCOM file straight to the browser.
 		// We could open "php://compress.zlib" to create a .gz file or "php://compress.bzip2" to create a .bz2 file
 		$stream = fopen('php://output', 'w');
-		export_gedcom($WT_TREE, $stream, $exportOptions);
+		FunctionsExport::exportGedcom($WT_TREE, $stream, $exportOptions);
 		fclose($stream);
 	}
 

@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
  * Defined in session.php
@@ -22,6 +21,10 @@ namespace Fisharebest\Webtrees;
  * @global Tree   $WT_TREE
  */
 global $WT_TREE;
+
+use Fisharebest\Webtrees\Controller\IndividualController;
+use Fisharebest\Webtrees\Functions\FunctionsDate;
+use Fisharebest\Webtrees\Functions\FunctionsPrint;
 
 define('WT_SCRIPT_NAME', 'individual.php');
 require './includes/session.php';
@@ -32,7 +35,7 @@ $controller
 if ($controller->record && $controller->record->canShow()) {
 	if (Filter::get('action') == 'ajax') {
 		$controller->ajaxRequest();
-		
+
 		return;
 	}
 	// Generate the sidebar content *before* we display the page header,
@@ -49,13 +52,13 @@ if ($controller->record && $controller->record->canShow()) {
 					'<a href="#" onclick="accept_changes(\'' . $controller->record->getXref() . '\');">' . I18N::translateContext('You should review the deletion and then accept or reject it.', 'accept') . '</a>',
 					'<a href="#" onclick="reject_changes(\'' . $controller->record->getXref() . '\');">' . I18N::translateContext('You should review the deletion and then accept or reject it.', 'reject') . '</a>'
 				),
-				' ', help_link('pending_changes'),
+				' ', FunctionsPrint::helpLink('pending_changes'),
 				'</p>';
 		} elseif (Auth::isEditor($controller->record->getTree())) {
 			echo
 				'<p class="ui-state-highlight">',
 				I18N::translate('This individual has been deleted.  The deletion will need to be reviewed by a moderator.'),
-				' ', help_link('pending_changes'),
+				' ', FunctionsPrint::helpLink('pending_changes'),
 				'</p>';
 		}
 	} elseif ($controller->record->isPendingAddtion()) {
@@ -67,13 +70,13 @@ if ($controller->record && $controller->record->canShow()) {
 					'<a href="#" onclick="accept_changes(\'' . $controller->record->getXref() . '\');">' . I18N::translateContext('You should review the changes and then accept or reject them.', 'accept') . '</a>',
 					'<a href="#" onclick="reject_changes(\'' . $controller->record->getXref() . '\');">' . I18N::translateContext('You should review the changes and then accept or reject them.', 'reject') . '</a>'
 				),
-				' ', help_link('pending_changes'),
+				' ', FunctionsPrint::helpLink('pending_changes'),
 				'</p>';
 		} elseif (Auth::isEditor($controller->record->getTree())) {
 			echo
 				'<p class="ui-state-highlight">',
 				I18N::translate('This individual has been edited.  The changes need to be reviewed by a moderator.'),
-				' ', help_link('pending_changes'),
+				' ', FunctionsPrint::helpLink('pending_changes'),
 				'</p>';
 		}
 	}
@@ -82,13 +85,13 @@ if ($controller->record && $controller->record->canShow()) {
 	$controller->pageHeader();
 	echo '<h2>', $controller->record->getFullName(), '</h2>';
 	echo '<p class="ui-state-highlight">', I18N::translate('The details of this individual are private.'), '</p>';
-	
+
 	return;
 } else {
 	http_response_code(404);
 	$controller->pageHeader();
 	echo '<p class="ui-state-error">', I18N::translate('This individual does not exist or you do not have permission to view it.'), '</p>';
-	
+
 	return;
 }
 
@@ -177,10 +180,10 @@ if ($controller->record->canShow()) {
 	echo '<span class="header_age">';
 	if ($bdate->isOK() && !$controller->record->isDead()) {
 		// If living display age
-		echo GedcomTag::getLabelValue('AGE', get_age_at_event(Date::getAgeGedcom($bdate), true), $controller->record, 'span');
+		echo GedcomTag::getLabelValue('AGE', FunctionsDate::getAgeAtEvent(Date::getAgeGedcom($bdate), true), $controller->record, 'span');
 	} elseif ($bdate->isOK() && $ddate->isOK()) {
 		// If dead, show age at death
-		echo GedcomTag::getLabelValue('AGE', get_age_at_event(Date::getAgeGedcom($bdate, $ddate), false), $controller->record, 'span');
+		echo GedcomTag::getLabelValue('AGE', FunctionsDate::getAgeAtEvent(Date::getAgeGedcom($bdate, $ddate), false), $controller->record, 'span');
 	}
 	echo '</span>';
 	// Display summary birth/death info.
@@ -244,3 +247,4 @@ echo
 		$sidebar_html;
 	}
 	echo '</div>'; // close #main
+

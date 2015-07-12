@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
  * Defined in session.php
@@ -22,6 +21,8 @@ namespace Fisharebest\Webtrees;
  * @global Tree $WT_TREE
  */
 global $WT_TREE;
+
+use Fisharebest\Webtrees\Controller\PageController;
 
 define('WT_SCRIPT_NAME', 'admin_trees_manage.php');
 require './includes/session.php';
@@ -32,8 +33,20 @@ $controller
 	->restrictAccess(Auth::isAdmin() || Auth::isManager($WT_TREE))
 	->setPageTitle(I18N::translate('Manage family trees'));
 
-$gedcom_files = glob(WT_DATA_DIR . '*.{ged,Ged,GED}', GLOB_NOSORT | GLOB_BRACE);
+// Show a reduced page when there are more than a certain number of trees
+$multiple_tree_threshold = Site::getPreference('MULTIPLE_TREE_THRESHOLD') ?: 500;
 
+// Note that glob() returns false instead of an empty array when open_basedir_restriction
+// is in force and no files are found.  See PHP bug #47358.
+if (defined('GLOB_BRACE')) {
+	$gedcom_files = glob(WT_DATA_DIR . '*.{ged,Ged,GED}', GLOB_NOSORT | GLOB_BRACE) ? : array();
+} else {
+	$gedcom_files = array_merge(
+		glob(WT_DATA_DIR . '*.ged', GLOB_NOSORT) ?: array(),
+		glob(WT_DATA_DIR . '*.Ged', GLOB_NOSORT) ?: array(),
+		glob(WT_DATA_DIR . '*.GED', GLOB_NOSORT) ?: array()
+	);
+}
 // Process POST actions
 switch (Filter::post('action')) {
 case 'delete':
@@ -214,11 +227,11 @@ case 'importform':
 								<?php echo WT_DATA_DIR; ?>
 							</span>
 							<?php
-							$d = opendir(WT_DATA_DIR);
+							$d     = opendir(WT_DATA_DIR);
 							$files = array();
 							while (($f = readdir($d)) !== false) {
 								if (!is_dir(WT_DATA_DIR . $f) && is_readable(WT_DATA_DIR . $f)) {
-									$fp = fopen(WT_DATA_DIR . $f, 'rb');
+									$fp     = fopen(WT_DATA_DIR . $f, 'rb');
 									$header = fread($fp, 64);
 									fclose($fp);
 									if (preg_match('/^(' . WT_UTF8_BOM . ')?0 *HEAD/', $header)) {
@@ -284,8 +297,8 @@ case 'importform':
 					<?php echo /* I18N: Help text for the “GEDCOM media path” configuration setting. A “path” is something like “C:\Documents\Genealogy\Photos\John_Smith.jpeg” */ I18N::translate('Some genealogy software creates GEDCOM files that contain media filenames with full paths.  These paths will not exist on the web-server.  To allow webtrees to find the file, the first part of the path must be removed.'); ?>
 					<?php echo /* I18N: Help text for the “GEDCOM media path” configuration setting. %s are all folder names */ I18N::translate('For example, if the GEDCOM file contains %1$s and webtrees expects to find %2$s in the media folder, then you would need to remove %3$s.', '<code>C:\\Documents\\family\\photo.jpeg</code>', '<code>family\\photo.jpeg</code>', '<code>C:\\Documents\\</code>'); ?>
 				</p>
-			</fieldset>
-		</div>
+			</div>
+		</fieldset>
 
 		<div class="form-group">
 			<div class="col-sm-offset-3 col-sm-9">
@@ -306,6 +319,15 @@ if (!Tree::getAll()) {
 
 $controller->pageHeader();
 
+$all_trees = Tree::getAll();
+// On sites with hundreds or thousands of trees, this page becomes very large.
+// Just show the current tree, the default tree, and unimported trees
+if (count($all_trees) >= $multiple_tree_threshold) {
+	$all_trees = array_filter($all_trees, function (Tree $x) use ($WT_TREE) {
+		return $x->getPreference('imported') === '0' || $WT_TREE->getTreeId() === $x->getTreeId() || $x->getName() === Site::getPreference('DEFAULT_GEDCOM');
+	});
+}
+
 // List the gedcoms available to this user
 ?>
 <ol class="breadcrumb small">
@@ -316,7 +338,7 @@ $controller->pageHeader();
 <h1><?php echo $controller->getPageTitle(); ?></h1>
 
 <div class="panel-group" id="accordion" role="tablist">
-	<?php foreach (Tree::GetAll() as $tree): ?>
+	<?php foreach ($all_trees as $tree): ?>
 	<?php if (Auth::isManager($tree)): ?>
 	<div class="panel panel-default">
 		<div class="panel-heading" role="tab" id="panel-tree-<?php echo $tree->getTreeId(); ?>">
@@ -437,6 +459,16 @@ $controller->pageHeader();
 							<?php echo /* I18N: Individuals, sources, dates, places, etc. */ I18N::translate('Genealogy data'); ?>
 						</h3>
 						<ul class="fa-ul">
+							<!-- FIND DUPLICATES -->
+							<li>
+								<i class="fa fa-li fa-copy"></i>
+								<a href="admin_trees_duplicates.php?ged=<?php echo $tree->getNameUrl(); ?>">
+									<?php echo I18N::translate('Find duplicates'); ?>
+									<span class="sr-only">
+										<?php echo $tree->getTitleHtml(); ?>
+									</span>
+								</a>
+							</li>
 							<!-- MERGE -->
 							<li>
 								<i class="fa fa-li fa-code-fork"></i>
@@ -607,7 +639,7 @@ $controller->pageHeader();
 								name="tree_title"
 								required
 								type="text"
-								value="<?php echo $default_tree_title; ?>"
+								placeholder="<?php echo $default_tree_title; ?>"
 							>
 						</div>
 					</div>
@@ -643,7 +675,7 @@ $controller->pageHeader();
 								<?php echo /* I18N: Button label */ I18N::translate('create'); ?>
 							</button>
 							<p class="small text-muted">
-								<?php echo I18N::translate('After creating the family tree, you will be able to upload or import data from a GEDCOM file.'); ?>
+								<?php echo I18N::translate('After creating the family tree, you will be able to import data from a GEDCOM file.'); ?>
 							</p>
 						</div>
 					</div>
@@ -652,7 +684,7 @@ $controller->pageHeader();
 		</div>
 	</div>
 	<?php endif; ?>
-	<!-- display link to PGV-WT transfer wizard on first visit to this page, before any GEDCOM is loaded -->
+	<!-- display link to PhpGedView-WT transfer wizard on first visit to this page, before any GEDCOM is loaded -->
 	<?php if (count(Tree::GetAll()) === 0 && count(User::all()) === 1): ?>
 	<div class="panel panel-default">
 		<div class="panel-heading">
@@ -666,20 +698,20 @@ $controller->pageHeader();
 		<div id="pgv-import-wizard" class="panel-collapse collapse">
 			<div class="panel-body">
 				<p>
-					<?php echo I18N::translate('The PGV to webtrees wizard is an automated process to assist administrators make the move from a PGV installation to a new webtrees one.  It will transfer all PGV GEDCOM and other database information directly to your new webtrees database.  The following requirements are necessary:'); ?>
+					<?php echo I18N::translate('The PhpGedView to webtrees wizard is an automated process to assist administrators make the move from a PhpGedView installation to a new webtrees one.  It will transfer all PhpGedView GEDCOM and other database information directly to your new webtrees database.  The following requirements are necessary:'); ?>
 				</p>
 				<ul>
 					<li>
-						<?php echo I18N::translate('webtrees’ database must be on the same server as PGV’s'); ?>
+						<?php echo I18N::translate('webtrees’ database must be on the same server as PhpGedView’s'); ?>
 					</li>
 					<li>
-						<?php echo /* I18N: %s is a number */ I18N::translate('PGV must be version 4.2.3, or any SVN up to #%s', I18N::digits(7101)); ?>
+						<?php echo /* I18N: %s is a number */ I18N::translate('PhpGedView must be version 4.2.3, or any SVN up to #%s', I18N::digits(7101)); ?>
 					</li>
 					<li>
-						<?php echo I18N::translate('All changes in PGV must be accepted'); ?>
+						<?php echo I18N::translate('All changes in PhpGedView must be accepted'); ?>
 					</li>
 					<li>
-						<?php echo I18N::translate('All existing PGV users must have distinct email addresses'); ?>
+						<?php echo I18N::translate('All existing PhpGedView users must have distinct email addresses'); ?>
 					</li>
 				</ul>
 				<p>
@@ -696,7 +728,7 @@ $controller->pageHeader();
 	<?php endif; ?>
 
 	<!-- BULK LOAD/SYNCHRONISE GEDCOM FILES -->
-	<?php if (count($gedcom_files) >= 25): ?>
+	<?php if (count($gedcom_files) >= $multiple_tree_threshold): ?>
 	<div class="panel panel-default">
 		<div class="panel-heading">
 			<h2 class="panel-title">

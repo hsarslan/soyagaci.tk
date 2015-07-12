@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,17 +13,18 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-
-use Zend_Session;
-use Zend_Session_Namespace;
+namespace Fisharebest\Webtrees;
 
 /**
  * Defined in session.php
  *
- * @global Zend_Session_Namespace $WT_SESSION
- * @global Tree                   $WT_TREE
+ * @global Tree $WT_TREE
  */
-global $WT_SESSION, $WT_TREE;
+global $WT_TREE;
+
+use Fisharebest\Webtrees\Functions\FunctionsDb;
+use Fisharebest\Webtrees\Functions\FunctionsEdit;
+use Fisharebest\Webtrees\Functions\FunctionsImport;
 
 define('WT_SCRIPT_NAME', 'action.php');
 require './includes/session.php';
@@ -33,7 +32,6 @@ require './includes/session.php';
 header('Content-type: text/html; charset=UTF-8');
 
 if (!Filter::checkCsrf()) {
-	Zend_Session::writeClose();
 	http_response_code(406);
 
 	return;
@@ -45,7 +43,7 @@ case 'accept-changes':
 	$record = GedcomRecord::getInstance(Filter::post('xref', WT_REGEX_XREF), $WT_TREE);
 	if ($record && Auth::isModerator($record->getTree()) && $record->canShow() && $record->canEdit()) {
 		FlashMessages::addMessage(/* I18N: %s is the name of an individual, source or other record */ I18N::translate('The changes to “%s” have been accepted.', $record->getFullName()));
-		accept_all_changes($record->getXref(), $record->getTree()->getTreeId());
+		FunctionsImport::acceptAllChanges($record->getXref(), $record->getTree()->getTreeId());
 	} else {
 		http_response_code(406);
 	}
@@ -71,18 +69,20 @@ case 'copy-fact':
 					$type = $record::RECORD_TYPE; // paste only to the same record type
 					break;
 				}
-				if (!is_array($WT_SESSION->clipboard)) {
-					$WT_SESSION->clipboard = array();
+				$clipboard = Session::get('clipboard');
+				if (!is_array($clipboard)) {
+					$clipboard = array();
 				}
-				$WT_SESSION->clipboard[$fact_id] = array(
-					'type'   =>$type,
-					'factrec'=>$fact->getGedcom(),
-					'fact'   =>$fact->getTag()
+				$clipboard[$fact_id] = array(
+					'type'    => $type,
+					'factrec' => $fact->getGedcom(),
+					'fact'    => $fact->getTag(),
 					);
 				// The clipboard only holds 10 facts
-				while (count($WT_SESSION->clipboard) > 10) {
-					array_shift($WT_SESSION->clipboard);
+				while (count($clipboard) > 10) {
+					array_shift($clipboard);
 				}
+				Session::put('clipboard', $clipboard);
 				FlashMessages::addMessage(I18N::translate('The record has been copied to the clipboard.'));
 				break 2;
 			}
@@ -92,13 +92,13 @@ case 'copy-fact':
 
 case 'paste-fact':
 	// Paste a fact from the clipboard
-	$xref    = Filter::post('xref', WT_REGEX_XREF);
-	$fact_id = Filter::post('fact_id');
+	$xref      = Filter::post('xref', WT_REGEX_XREF);
+	$fact_id   = Filter::post('fact_id');
+	$record    = GedcomRecord::getInstance($xref, $WT_TREE);
+	$clipboard = Session::get('clipboard');
 
-	$record = GedcomRecord::getInstance($xref, $WT_TREE);
-
-	if ($record && $record->canEdit() && isset($WT_SESSION->clipboard[$fact_id])) {
-		$record->createFact($WT_SESSION->clipboard[$fact_id]['factrec'], true);
+	if ($record && $record->canEdit() && isset($clipboard[$fact_id])) {
+		$record->createFact($clipboard[$fact_id]['factrec'], true);
 	}
 	break;
 
@@ -129,11 +129,11 @@ case 'delete-source':
 	$record = GedcomRecord::getInstance(Filter::post('xref', WT_REGEX_XREF), $WT_TREE);
 	if ($record && Auth::isEditor($record->getTree()) && $record->canShow() && $record->canEdit()) {
 		// Delete links to this record
-		foreach (fetch_all_links($record->getXref(), $record->getTree()->getTreeId()) as $xref) {
-			$linker = GedcomRecord::getInstance($xref, $WT_TREE);
+		foreach (FunctionsDb::fetchAllLinks($record->getXref(), $record->getTree()->getTreeId()) as $xref) {
+			$linker     = GedcomRecord::getInstance($xref, $WT_TREE);
 			$old_gedcom = $linker->getGedcom();
-			$new_gedcom = remove_links($old_gedcom, $record->getXref());
-			// fetch_all_links() does not take account of pending changes.  The links (or even the
+			$new_gedcom = FunctionsEdit::removeLinks($old_gedcom, $record->getXref());
+			// FunctionsDb::fetch_all_links() does not take account of pending changes.  The links (or even the
 			// record itself) may have already been deleted.
 			if ($old_gedcom !== $new_gedcom) {
 				// If we have removed a link from a family to an individual, and it has only one member
@@ -144,9 +144,9 @@ case 'delete-source':
 					$family->deleteRecord();
 					// Delete any remaining link to this family
 					if ($match) {
-						$relict = GedcomRecord::getInstance($match[2][0], $WT_TREE);
+						$relict     = GedcomRecord::getInstance($match[2][0], $WT_TREE);
 						$new_gedcom = $relict->getGedcom();
-						$new_gedcom = remove_links($new_gedcom, $linker->getXref());
+						$new_gedcom = FunctionsEdit::removeLinks($new_gedcom, $linker->getXref());
 						$relict->updateRecord($new_gedcom, false);
 						FlashMessages::addMessage(/* I18N: %s are names of records, such as sources, repositories or individuals */ I18N::translate('The link from “%1$s” to “%2$s” has been deleted.', $relict->getFullName(), $family->getFullName()));
 					}
@@ -173,6 +173,20 @@ case 'delete-user':
 	}
 	break;
 
+case 'language':
+	// Change the current language
+	$language = Filter::post('language');
+	try {
+		I18N::init($language);
+		Session::put('locale', $language);
+		// Remember our selection
+		Auth::user()->setPreference('language', $language);
+	} catch (\Exception $ex) {
+		// Request for a non-existant language.
+		http_response_code(406);
+	}
+	break;
+
 case 'masquerade':
 	$user = User::find(Filter::postInteger('user_id'));
 
@@ -191,7 +205,7 @@ case 'unlink-media':
 	$target = Filter::post('target', WT_REGEX_XREF);
 	if ($source && $source->canShow() && $source->canEdit() && $target) {
 		// Consider the individual and their spouse-family records
-		$sources = $source->getSpouseFamilies();
+		$sources   = $source->getSpouseFamilies();
 		$sources[] = $source;
 		foreach ($sources as $source) {
 			foreach ($source->getFacts() as $fact) {
@@ -216,7 +230,7 @@ case 'reject-changes':
 	$record = GedcomRecord::getInstance(Filter::post('xref', WT_REGEX_XREF), $WT_TREE);
 	if ($record && $record->canEdit() && Auth::isModerator($record->getTree())) {
 		FlashMessages::addMessage(/* I18N: %s is the name of an individual, source or other record */ I18N::translate('The changes to “%s” have been rejected.', $record->getFullName()));
-		reject_all_changes($record);
+		FunctionsImport::rejectAllChanges($record);
 	} else {
 		http_response_code(406);
 	}
@@ -226,7 +240,7 @@ case 'theme':
 	// Change the current theme
 	$theme = Filter::post('theme');
 	if (Site::getPreference('ALLOW_USER_THEMES') && array_key_exists($theme, Theme::themeNames())) {
-		$WT_SESSION->theme_id = $theme;
+		Session::put('theme_id', $theme);
 		// Remember our selection
 		Auth::user()->setPreference('theme', $theme);
 	} else {
@@ -235,4 +249,3 @@ case 'theme':
 	}
 	break;
 }
-Zend_Session::writeClose();

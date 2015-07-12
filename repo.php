@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,13 +13,12 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
-/**
- * Defined in session.php
- *
- * @global Tree   $WT_TREE
- */
-global $WT_TREE;
+use Fisharebest\Webtrees\Controller\RepositoryController;
+use Fisharebest\Webtrees\Functions\FunctionsPrint;
+use Fisharebest\Webtrees\Functions\FunctionsPrintFacts;
+use Fisharebest\Webtrees\Functions\FunctionsPrintLists;
 
 define('WT_SCRIPT_NAME', 'repo.php');
 require './includes/session.php';
@@ -39,13 +36,13 @@ if ($controller->record && $controller->record->canShow()) {
 					'<a href="#" onclick="accept_changes(\'' . $controller->record->getXref() . '\');">' . I18N::translateContext('You should review the deletion and then accept or reject it.', 'accept') . '</a>',
 					'<a href="#" onclick="reject_changes(\'' . $controller->record->getXref() . '\');">' . I18N::translateContext('You should review the deletion and then accept or reject it.', 'reject') . '</a>'
 				),
-				' ', help_link('pending_changes'),
+				' ', FunctionsPrint::helpLink('pending_changes'),
 				'</p>';
 		} elseif (Auth::isEditor($controller->record->getTree())) {
 			echo
 				'<p class="ui-state-highlight">',
 				I18N::translate('This repository has been deleted.  The deletion will need to be reviewed by a moderator.'),
-				' ', help_link('pending_changes'),
+				' ', FunctionsPrint::helpLink('pending_changes'),
 				'</p>';
 		}
 	} elseif ($controller->record->isPendingAddtion()) {
@@ -57,13 +54,13 @@ if ($controller->record && $controller->record->canShow()) {
 					'<a href="#" onclick="accept_changes(\'' . $controller->record->getXref() . '\');">' . I18N::translateContext('You should review the changes and then accept or reject them.', 'accept') . '</a>',
 					'<a href="#" onclick="reject_changes(\'' . $controller->record->getXref() . '\');">' . I18N::translateContext('You should review the changes and then accept or reject them.', 'reject') . '</a>'
 				),
-				' ', help_link('pending_changes'),
+				' ', FunctionsPrint::helpLink('pending_changes'),
 				'</p>';
 		} elseif (Auth::isEditor($controller->record->getTree())) {
 			echo
 				'<p class="ui-state-highlight">',
 				I18N::translate('This repository has been edited.  The changes need to be reviewed by a moderator.'),
-				' ', help_link('pending_changes'),
+				' ', FunctionsPrint::helpLink('pending_changes'),
 				'</p>';
 		}
 	}
@@ -71,7 +68,7 @@ if ($controller->record && $controller->record->canShow()) {
 	http_response_code(404);
 	$controller->pageHeader();
 	echo '<p class="ui-state-error">', I18N::translate('This repository does not exist or you do not have permission to view it.'), '</p>';
-	
+
 	return;
 }
 
@@ -104,7 +101,7 @@ echo '<div id="repo-tabs">
 		// Sort the facts
 		usort(
 			$facts,
-			function(Fact $x, Fact $y) {
+			function (Fact $x, Fact $y) {
 				static $order = array(
 					'NAME' => 0,
 					'ADDR' => 1,
@@ -115,6 +112,7 @@ echo '<div id="repo-tabs">
 					'_UID' => 6,
 					'CHAN' => 7,
 				);
+
 				return
 					(array_key_exists($x->getTag(), $order) ? $order[$x->getTag()] : PHP_INT_MAX)
 					-
@@ -124,21 +122,20 @@ echo '<div id="repo-tabs">
 
 		// Print the facts
 		foreach ($facts as $fact) {
-			print_fact($fact, $controller->record);
+			FunctionsPrintFacts::printFact($fact, $controller->record);
 		}
 
 		// new fact link
 		if ($controller->record->canEdit()) {
-			print_add_new_fact($controller->record->getXref(), $facts, 'REPO');
+			FunctionsPrint::printAddNewFact($controller->record->getXref(), $facts, 'REPO');
 		}
 		echo '</table>
 	</div>';
 
-
 	// Sources linked to this repository
 	if ($linked_sour) {
 		echo '<div id="source-repo">';
-		echo format_sour_table($linked_sour);
+		echo FunctionsPrintLists::sourceTable($linked_sour);
 		echo '</div>';
 	}
 

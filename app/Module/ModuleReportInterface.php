@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,15 +13,18 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module;
+
+use Fisharebest\Webtrees\Menu;
 
 /**
  * Interface ModuleReportInterface - Classes and libraries for module system
  */
 interface ModuleReportInterface {
 	/**
-	 * Return a list of (usually just one) menu items.
+	 * Return a menu item for this report.
 	 *
-	 * @return Menu[]
+	 * @return Menu
 	 */
-	public function getReportMenus();
+	public function getReportMenu();
 }

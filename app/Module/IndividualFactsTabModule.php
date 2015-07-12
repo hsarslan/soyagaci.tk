@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,19 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module;
+
+use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\Date;
+use Fisharebest\Webtrees\Fact;
+use Fisharebest\Webtrees\Family;
+use Fisharebest\Webtrees\Functions\Functions;
+use Fisharebest\Webtrees\Functions\FunctionsPrint;
+use Fisharebest\Webtrees\Functions\FunctionsPrintFacts;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Individual;
+use Fisharebest\Webtrees\Module;
+use Fisharebest\Webtrees\Site;
 
 /**
  * Class IndividualFactsTabModule
@@ -105,7 +116,7 @@ class IndividualFactsTabModule extends AbstractModule implements ModuleTabInterf
 			$indifacts[] = $fact;
 		}
 
-		sort_facts($indifacts);
+		Functions::sortFacts($indifacts);
 
 		ob_start();
 
@@ -126,12 +137,12 @@ class IndividualFactsTabModule extends AbstractModule implements ModuleTabInterf
 		echo '</form></td></tr>';
 
 		foreach ($indifacts as $fact) {
-			print_fact($fact, $controller->record);
+			FunctionsPrintFacts::printFact($fact, $controller->record);
 		}
 
 		//-- new fact link
 		if ($controller->record->canEdit()) {
-			print_add_new_fact($controller->record->getXref(), $indifacts, 'INDI');
+			FunctionsPrint::printAddNewFact($controller->record->getXref(), $indifacts, 'INDI');
 		}
 		echo '</tbody>';
 		echo '</table>';
@@ -142,7 +153,6 @@ class IndividualFactsTabModule extends AbstractModule implements ModuleTabInterf
 		if (!$EXPAND_HISTO_EVENTS) {
 			echo '<script>jQuery("tr.histo").toggle();</script>';
 		}
-
 
 		return '<div id="' . $this->getName() . '_content">' . ob_get_clean() . '</div>';
 	}
@@ -333,7 +343,7 @@ class IndividualFactsTabModule extends AbstractModule implements ModuleTabInterf
 	 * Get the events of parents and grandparents.
 	 *
 	 * @param Individual $person
-	 * @param integer    $sosa
+	 * @param int        $sosa
 	 *
 	 * @return Fact[]
 	 */
@@ -455,7 +465,7 @@ class IndividualFactsTabModule extends AbstractModule implements ModuleTabInterf
 					// rather than UTF8 encoding.
 					$hist = html_entity_decode($hist, ENT_QUOTES, 'UTF-8');
 
-					$fact = new Fact($hist, $person, 'histo');
+					$fact  = new Fact($hist, $person, 'histo');
 					$sdate = $fact->getDate();
 					if ($sdate->isOK() && Date::compare($birt_date, $sdate) <= 0 && Date::compare($sdate, $deat_date) <= 0) {
 						$facts[] = $fact;
@@ -504,20 +514,6 @@ class IndividualFactsTabModule extends AbstractModule implements ModuleTabInterf
 						}
 					} else {
 						$factrec .= "\n2 _ASSO @" . $associate->getXref() . '@';
-						// CHR/BAPM events are commonly used.  Generate the reverse relationship
-						if (preg_match('/^(?:BAPM|CHR)$/', $fact->getTag()) && preg_match('/2 _?ASSO @(' . $person->getXref() . ')@\n3 RELA god(?:parent|mother|father)/', $fact->getGedcom())) {
-							switch ($associate->getSex()) {
-							case 'M':
-								$factrec .= "\n3 RELA godson";
-								break;
-							case 'F':
-								$factrec .= "\n3 RELA goddaughter";
-								break;
-							default:
-								$factrec .= "\n3 RELA godchild";
-								break;
-							}
-						}
 					}
 					$facts[] = new Fact($factrec, $associate, 'asso');
 				}

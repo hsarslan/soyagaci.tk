@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,9 +13,10 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
- * Class HitCounter - measure page popularity
+ * Measure page popularity.
  */
 class HitCounter {
 	/**
@@ -27,18 +26,16 @@ class HitCounter {
 	 * @param string $page
 	 * @param string $parameter
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public static function countHit(Tree $tree, $page, $parameter) {
-		global $WT_SESSION;
-
 		// Don't increment the counter while we stay on the same page.
 		if (
-			$WT_SESSION->last_tree_id === $tree->getTreeId() &&
-			$WT_SESSION->last_page === $page &&
-			$WT_SESSION->last_parameter === $parameter
+			Session::get('last_tree_id') === $tree->getTreeId() &&
+			Session::get('last_page') === $page &&
+			Session::get('last_parameter') === $parameter
 		) {
-			return $WT_SESSION->last_count;
+			return Session::get('last_count');
 		}
 
 		$page_count = self::getCount($tree, $page, $parameter);
@@ -65,10 +62,10 @@ class HitCounter {
 
 		$page_count++;
 
-		$WT_SESSION->last_tree_id   = $tree->getTreeId();
-		$WT_SESSION->last_page      = $page;
-		$WT_SESSION->last_parameter = $parameter;
-		$WT_SESSION->last_count     = $page_count;
+		Session::put('last_tree_id', $tree->getTreeId());
+		Session::put('last_page', $page);
+		Session::put('last_parameter', $parameter);
+		Session::put('last_count', $page_count);
 
 		return $page_count;
 	}
@@ -80,7 +77,7 @@ class HitCounter {
 	 * @param string $page
 	 * @param string $parameter
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public static function getCount(Tree $tree, $page, $parameter) {
 		return (int) Database::prepare(

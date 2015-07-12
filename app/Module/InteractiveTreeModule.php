@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,17 +13,20 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module;
 
-use Zend_Session;
+use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\Controller\ChartController;
+use Fisharebest\Webtrees\Filter;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Individual;
+use Fisharebest\Webtrees\Module\InteractiveTree\TreeView;
 
 /**
  * Class InteractiveTreeModule
  * Tip : you could change the number of generations loaded before ajax calls both in individual page and in treeview page to optimize speed and server load
  */
 class InteractiveTreeModule extends AbstractModule implements ModuleTabInterface {
-	var $headers; // CSS and script to include in the top of <head> section, before theme’s CSS
-	var $js; // the TreeViewHandler javascript
-
 	/** {@inheritdoc} */
 	public function getTitle() {
 		return /* I18N: Name of a module */ I18N::translate('Interactive tree');
@@ -45,8 +46,9 @@ class InteractiveTreeModule extends AbstractModule implements ModuleTabInterface
 	public function getTabContent() {
 		global $controller;
 
-		$tv = new TreeView('tvTab');
+		$tv              = new TreeView('tvTab');
 		list($html, $js) = $tv->drawViewport($controller->record, 3);
+
 		return
 			'<script src="' . $this->js() . '"></script>' .
 			'<script src="' . WT_JQUERYUI_TOUCH_PUNCH_URL . '"></script>' .
@@ -86,14 +88,19 @@ class InteractiveTreeModule extends AbstractModule implements ModuleTabInterface
 			</script>';
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * This is a general purpose hook, allowing modules to respond to routes
+	 * of the form module.php?mod=FOO&mod_action=BAR
+	 *
+	 * @param string $mod_action
+	 */
 	public function modAction($mod_action) {
 		global $controller, $WT_TREE;
 
 		switch ($mod_action) {
 		case 'treeview':
 			$controller = new ChartController;
-			$tv = new TreeView('tv');
+			$tv         = new TreeView('tv');
 			ob_start();
 
 			$person = $controller->getSignificantIndividual();
@@ -117,11 +124,10 @@ class InteractiveTreeModule extends AbstractModule implements ModuleTabInterface
 			break;
 
 		case 'getDetails':
-			Zend_Session::writeClose();
 			header('Content-Type: text/html; charset=UTF-8');
-			$pid = Filter::get('pid', WT_REGEX_XREF);
-			$i = Filter::get('instance');
-			$tv = new TreeView($i);
+			$pid        = Filter::get('pid', WT_REGEX_XREF);
+			$i          = Filter::get('instance');
+			$tv         = new TreeView($i);
 			$individual = Individual::getInstance($pid, $WT_TREE);
 			if ($individual) {
 				echo $tv->getDetails($individual);
@@ -129,10 +135,9 @@ class InteractiveTreeModule extends AbstractModule implements ModuleTabInterface
 			break;
 
 		case 'getPersons':
-			Zend_Session::writeClose();
 			header('Content-Type: text/html; charset=UTF-8');
-			$q = Filter::get('q');
-			$i = Filter::get('instance');
+			$q  = Filter::get('q');
+			$i  = Filter::get('instance');
 			$tv = new TreeView($i);
 			echo $tv->getPersons($q);
 			break;
@@ -144,6 +149,8 @@ class InteractiveTreeModule extends AbstractModule implements ModuleTabInterface
 	}
 
 	/**
+	 * URL for our style sheet.
+ *
 	 * @return string
 	 */
 	public function css() {
@@ -151,6 +158,8 @@ class InteractiveTreeModule extends AbstractModule implements ModuleTabInterface
 	}
 
 	/**
+	 * URL for our JavaScript.
+	 *
 	 * @return string
 	 */
 	public function js() {

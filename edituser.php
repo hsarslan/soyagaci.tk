@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
  * Defined in session.php
@@ -22,6 +21,10 @@ namespace Fisharebest\Webtrees;
  * @global Tree $WT_TREE
  */
 global $WT_TREE;
+
+use Fisharebest\Webtrees\Controller\PageController;
+use Fisharebest\Webtrees\Functions\FunctionsEdit;
+use Fisharebest\Webtrees\Functions\FunctionsPrint;
 
 define('WT_SCRIPT_NAME', 'edituser.php');
 require './includes/session.php';
@@ -43,6 +46,7 @@ $form_email          = Filter::postEmail('form_email');
 $form_rootid         = Filter::post('form_rootid', WT_REGEX_XREF);
 $form_theme          = Filter::post('form_theme');
 $form_language       = Filter::post('form_language');
+$form_timezone       = Filter::post('form_timezone');
 $form_contact_method = Filter::post('form_contact_method');
 $form_visible_online = Filter::postBool('form_visible_online');
 
@@ -71,6 +75,7 @@ if ($form_action && Filter::checkCsrf()) {
 				->setRealName($form_realname)
 				->setEmail($form_email)
 				->setPreference('language', $form_language)
+				->setPreference('TIMEZONE', $form_timezone)
 				->setPreference('contactmethod', $form_contact_method)
 				->setPreference('visibleonline', $form_visible_online ? '1' : '0');
 
@@ -156,6 +161,7 @@ function checkform(frm) {
 					<?php echo I18N::translate('Usernames are case-insensitive and ignore accented letters, so that “chloe”, “chloë”, and “Chloe” are considered to be the same.'); ?>
 				</p>
 			</div>
+
 			<div class="label">
 				<label for="form_realname">
 					<?php echo I18N::translate('Real name'); ?>
@@ -167,6 +173,7 @@ function checkform(frm) {
 					<?php echo I18N::translate('This is your real name, as you would like it displayed on screen.'); ?>
 				</p>
 			</div>
+
 			<div class="label">
 				<?php echo I18N::translate('Individual record'); ?>
 			</div>
@@ -180,6 +187,7 @@ function checkform(frm) {
 					<?php echo I18N::translate('This is a link to your own record in the family tree.  If this is the wrong individual, contact an administrator.'); ?>
 				</p>
 			</div>
+
 			<div class="label">
 				<label for="form_rootid">
 					<?php echo I18N::translate('Default individual'); ?>
@@ -187,7 +195,7 @@ function checkform(frm) {
 			</div>
 			<div class="value">
 				<input data-autocomplete-type="INDI" type="text" name="form_rootid" id="form_rootid" value="<?php echo $WT_TREE->getUserPreference(Auth::user(), 'rootid'); ?>">
-				<?php echo print_findindi_link('form_rootid'); ?>
+				<?php echo FunctionsPrint::printFindIndividualLink('form_rootid'); ?>
 				<br>
 				<?php if ($default_individual): ?>
 				<?php echo $default_individual->formatList('span'); ?>
@@ -196,6 +204,7 @@ function checkform(frm) {
 					<?php echo I18N::translate('This individual will be selected by default when viewing charts and reports.'); ?>
 				</p>
 			</div>
+
 			<div class="label">
 				<label for="form_pass1">
 					<?php echo I18N::translate('Password'); ?>
@@ -208,6 +217,7 @@ function checkform(frm) {
 					<?php echo I18N::translate('Leave the password blank if you want to keep the current password.'); ?>
 				</p>
 			</div>
+
 			<div class="label">
 				<label for="form_pass2">
 					<?php echo I18N::translate('Confirm password'); ?>
@@ -219,14 +229,28 @@ function checkform(frm) {
 					<?php echo I18N::translate('Type your password again, to make sure you have typed it correctly.'); ?>
 				</p>
 			</div>
+
 			<div class="label">
 				<label for="form_language">
 					<?php echo I18N::translate('Language'); ?>
 				</label>
 			</div>
 			<div class="value">
-				<?php echo edit_field_language('form_language', Auth::user()->getPreference('language')); ?>
+				<?php echo FunctionsEdit::editFieldLanguage('form_language', Auth::user()->getPreference('language')); ?>
 			</div>
+
+			<div class="label">
+				<label for="form_timezone">
+					<?php echo I18N::translate('Time zone'); ?>
+				</label>
+			</div>
+			<div class="value">
+				<?php echo FunctionsEdit::selectEditControl('form_timezone', array_combine(\DateTimeZone::listIdentifiers(), \DateTimeZone::listIdentifiers()), null, Auth::user()->getPreference('TIMEZONE') ?: 'UTC', 'class="form-control"'); ?>
+				<p class="small text-muted">
+					<?php echo I18N::translate('The time zone is required for date calculations, such as knowing today’s date.'); ?>
+				</p>
+			</div>
+
 			<div class="label">
 				<label for="form_email">
 					<?php echo I18N::translate('Email address'); ?>
@@ -239,6 +263,7 @@ function checkform(frm) {
 				</p>
 			</div>
 			<?php if (Site::getPreference('ALLOW_USER_THEMES')): ?>
+
 			<div class="label">
 				<label for="form_theme">
 					<?php echo I18N::translate('Theme'); ?>
@@ -260,24 +285,26 @@ function checkform(frm) {
 				</p>
 			</div>
 			<?php endif; ?>
+
 			<div class="label">
 				<label for="form_contact_method">
 					<?php echo I18N::translate('Contact method'); ?>
 				</label>
 			</div>
 			<div class="value">
-				<?php echo edit_field_contact('form_contact_method', Auth::user()->getPreference('contactmethod')); ?>
+				<?php echo FunctionsEdit::editFieldContact('form_contact_method', Auth::user()->getPreference('contactmethod')); ?>
 				<p class="small text-muted">
 					<?php echo I18N::translate('Site members can send each other messages.  You can choose to how these messages are sent to you, or choose not receive them at all.'); ?>
 				</p>
 			</div>
+
 			<div class="label">
 				<label for="form_visible_online">
 					<?php echo I18N::translate('Visible to other users when online'); ?>
 				</label>
 			</div>
 			<div class="value">
-				<?php echo checkbox('form_visible_online', Auth::user()->getPreference('visibleonline')); ?>
+				<?php echo FunctionsEdit::checkbox('form_visible_online', Auth::user()->getPreference('visibleonline')); ?>
 				<p class="small text-muted">
 					<?php echo I18N::translate('This checkbox controls your visibility to other users while you’re online.  It also controls your ability to see other online users who are configured to be visible.<br><br>When this box is unchecked, you will be completely invisible to others, and you will also not be able to see other online users.  When this box is checked, exactly the opposite is true.  You will be visible to others, and you will also be able to see others who are configured to be visible.'); ?>
 				</p>

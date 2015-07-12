@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Report;
 
 /**
  * Class ReportBaseLine
@@ -63,20 +62,24 @@ class ReportBaseLine extends ReportBaseElement {
 	}
 
 	/**
+	 * Get the height of the line.
+	 *
 	 * @param $renderer
 	 *
 	 * @return number
 	 */
-	function getHeight($renderer) {
+	public function getHeight($renderer) {
 		return abs($this->y2 - $this->y1);
 	}
 
 	/**
+	 * Get the width of the line.
+	 *
 	 * @param $renderer
 	 *
 	 * @return number
 	 */
-	function getWidth($renderer) {
+	public function getWidth($renderer) {
 		return abs($this->x2 - $this->x1);
 	}
 }

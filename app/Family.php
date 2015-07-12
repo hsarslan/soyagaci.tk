@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,13 +13,14 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
- * Class Family - Class file for a Family
+ * A GEDCOM family (FAM) object.
  */
 class Family extends GedcomRecord {
 	const RECORD_TYPE = 'FAM';
-	const URL_PREFIX = 'family.php?famid=';
+	const URL_PREFIX  = 'family.php?famid=';
 
 	/** @var Individual|null The husband (or first spouse for same-sex couples) */
 	private $husb;
@@ -29,7 +28,15 @@ class Family extends GedcomRecord {
 	/** @var Individual|null The wife (or second spouse for same-sex couples) */
 	private $wife;
 
-	/** {@inheritdoc} */
+	/**
+	 * Create a GedcomRecord object from raw GEDCOM data.
+	 *
+	 * @param string      $xref
+	 * @param string      $gedcom  an empty string for new/pending records
+	 * @param string|null $pending null for a record with no pending edits,
+	 *                             empty string for records with pending deletions
+	 * @param Tree        $tree
+	 */
 	public function __construct($xref, $gedcom, $pending, $tree) {
 		parent::__construct($xref, $gedcom, $pending, $tree);
 
@@ -52,27 +59,12 @@ class Family extends GedcomRecord {
 	}
 
 	/**
-	 * Get an instance of a family object.  For single records,
-	 * we just receive the XREF.  For bulk records (such as lists
-	 * and search results) we can receive the GEDCOM data as well.
+	 * Generate a private version of this record
 	 *
-	 * @param string      $xref
-	 * @param Tree        $tree
-	 * @param string|null $gedcom
+	 * @param int $access_level
 	 *
-	 * @return Family|null
+	 * @return string
 	 */
-	public static function getInstance($xref, Tree $tree, $gedcom = null) {
-		$record = parent::getInstance($xref, $tree, $gedcom);
-
-		if ($record instanceof Family) {
-			return $record;
-		} else {
-			return null;
-		}
-	}
-
-	/** {@inheritdoc} */
 	protected function createPrivateGedcomRecord($access_level) {
 		$SHOW_PRIVATE_RELATIONSHIPS = $this->tree->getPreference('SHOW_PRIVATE_RELATIONSHIPS');
 
@@ -89,15 +81,21 @@ class Family extends GedcomRecord {
 		return $rec;
 	}
 
-	/** {@inheritdoc} */
-	protected static function fetchGedcomRecord($xref, $gedcom_id) {
-		static $statement = null;
-
-		if ($statement === null) {
-			$statement = Database::prepare("SELECT f_gedcom FROM `##families` WHERE f_id=? AND f_file=?");
-		}
-
-		return $statement->execute(array($xref, $gedcom_id))->fetchOne();
+	/**
+	 * Fetch data from the database
+	 *
+	 * @param string $xref
+	 * @param int    $tree_id
+	 *
+	 * @return null|string
+	 */
+	protected static function fetchGedcomRecord($xref, $tree_id) {
+		return Database::prepare(
+			"SELECT f_gedcom FROM `##families` WHERE f_id = :xref AND f_file = :tree_id"
+		)->execute(array(
+			'xref'    => $xref,
+			'tree_id' => $tree_id,
+		))->fetchOne();
 	}
 
 	/**
@@ -105,7 +103,7 @@ class Family extends GedcomRecord {
 	 *
 	 * @return Individual|null
 	 */
-	function getHusband() {
+	public function getHusband() {
 		if ($this->husb && $this->husb->canShowName()) {
 			return $this->husb;
 		} else {
@@ -118,7 +116,7 @@ class Family extends GedcomRecord {
 	 *
 	 * @return Individual|null
 	 */
-	function getWife() {
+	public function getWife() {
 		if ($this->wife && $this->wife->canShowName()) {
 			return $this->wife;
 		} else {
@@ -126,7 +124,13 @@ class Family extends GedcomRecord {
 		}
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Each object type may have its own special rules, and re-implement this function.
+	 *
+	 * @param int $access_level
+	 *
+	 * @return bool
+	 */
 	protected function canShowByType($access_level) {
 		// Hide a family if any member is private
 		preg_match_all('/\n1 (?:CHIL|HUSB|WIFE) @(' . WT_REGEX_XREF . ')@/', $this->gedcom, $matches);
@@ -140,7 +144,13 @@ class Family extends GedcomRecord {
 		return true;
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Can the name of this record be shown?
+	 *
+	 * @param int|null $access_level
+	 *
+	 * @return bool
+	 */
 	public function canShowName($access_level = null) {
 		// We can always see the name (Husband-name + Wife-name), however,
 		// the name will often be "private + private"
@@ -154,7 +164,7 @@ class Family extends GedcomRecord {
 	 *
 	 * @return Individual|null
 	 */
-	function getSpouse(Individual $person) {
+	public function getSpouse(Individual $person) {
 		if ($person === $this->wife) {
 			return $this->husb;
 		} else {
@@ -165,11 +175,11 @@ class Family extends GedcomRecord {
 	/**
 	 * Get the (zero, one or two) spouses from this family.
 	 *
-	 * @param integer|null $access_level
+	 * @param int|null $access_level
 	 *
 	 * @return Individual[]
 	 */
-	function getSpouses($access_level = null) {
+	public function getSpouses($access_level = null) {
 		if ($access_level === null) {
 			$access_level = Auth::accessLevel($this->tree);
 		}
@@ -188,11 +198,11 @@ class Family extends GedcomRecord {
 	/**
 	 * Get a list of this family’s children.
 	 *
-	 * @param integer|null $access_level
+	 * @param int|null $access_level
 	 *
 	 * @return Individual[]
 	 */
-	function getChildren($access_level = null) {
+	public function getChildren($access_level = null) {
 		if ($access_level === null) {
 			$access_level = Auth::accessLevel($this->tree);
 		}
@@ -216,7 +226,7 @@ class Family extends GedcomRecord {
 	 * @param Family $x
 	 * @param Family $y
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public static function compareMarrDate(Family $x, Family $y) {
 		return Date::compare($x->getMarriageDate(), $y->getMarriageDate());
@@ -225,7 +235,7 @@ class Family extends GedcomRecord {
 	/**
 	 * Number of children - for the individual list
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public function getNumberOfChildren() {
 		$nchi = count($this->getChildren());
@@ -262,7 +272,7 @@ class Family extends GedcomRecord {
 	/**
 	 * Get the marriage year - displayed on lists of families
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public function getMarriageYear() {
 		return $this->getMarriageDate()->minimumDate()->y;
@@ -323,10 +333,12 @@ class Family extends GedcomRecord {
 		return array();
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Derived classes should redefine this function, otherwise the object will have no name
+	 *
+	 * @return string[][]
+	 */
 	public function getAllNames() {
-		global $UNKNOWN_NN, $UNKNOWN_PN;
-
 		if (is_null($this->_getAllNames)) {
 			// Check the script used by each name, so we can match cyrillic with cyrillic, greek with greek, etc.
 			if ($this->husb) {
@@ -336,7 +348,7 @@ class Family extends GedcomRecord {
 					0 => array(
 						'type' => 'BIRT',
 						'sort' => '@N.N.',
-						'full' => $UNKNOWN_PN, ' ', $UNKNOWN_NN,
+						'full' => I18N::translateContext('Unknown given name', '…') . ' ' . I18N::translateContext('Unknown surname', '…'),
 					),
 				);
 			}
@@ -350,7 +362,7 @@ class Family extends GedcomRecord {
 					0 => array(
 						'type' => 'BIRT',
 						'sort' => '@N.N.',
-						'full' => $UNKNOWN_PN, ' ', $UNKNOWN_NN,
+						'full' => I18N::translateContext('Unknown given name', '…') . ' ' . I18N::translateContext('Unknown surname', '…'),
 					),
 				);
 			}
@@ -388,8 +400,13 @@ class Family extends GedcomRecord {
 		return $this->_getAllNames;
 	}
 
-	/** {@inheritdoc} */
-	function formatListDetails() {
+	/**
+	 * This function should be redefined in derived classes to show any major
+	 * identifying characteristics of this record.
+	 *
+	 * @return string
+	 */
+	public function formatListDetails() {
 		return
 			$this->formatFirstMajorFact(WT_EVENTS_MARR, 1) .
 			$this->formatFirstMajorFact(WT_EVENTS_DIV, 1);

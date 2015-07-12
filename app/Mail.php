@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 use Zend_Mail;
 use Zend_Mail_Transport_File;
@@ -22,7 +21,7 @@ use Zend_Mail_Transport_Sendmail;
 use Zend_Mail_Transport_Smtp;
 
 /**
- * Class Mail - Send mail messages
+ * Send mail messages.
  */
 class Mail {
 	const EOL = "<br>\r\n"; // End-of-line that works for both TEXT and HTML messages
@@ -33,12 +32,10 @@ class Mail {
 	 * @return string
 	 */
 	public static function auditFooter() {
-		global $WT_REQUEST;
-
 		return
 			self::EOL .
 			'---------------------------------------' . self::EOL .
-			'IP ADDRESS: ' . $WT_REQUEST->getClientIp() . self::EOL .
+			'IP ADDRESS: ' . WT_CLIENT_IP . self::EOL .
 			'LANGUAGE: ' . WT_LOCALE . self::EOL;
 	}
 
@@ -54,7 +51,7 @@ class Mail {
 	 * @param string $subject
 	 * @param string $message
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public static function send(Tree $tree, $to_email, $to_name, $replyto_email, $replyto_name, $subject, $message) {
 		try {
@@ -79,12 +76,12 @@ class Mail {
 	/**
 	 * Send an automated system message (such as a password reminder) from a tree to a user.
 	 *
-	 * @param Tree $tree
-	 * @param User    $user
-	 * @param string  $subject
-	 * @param string  $message
+	 * @param Tree   $tree
+	 * @param User   $user
+	 * @param string $subject
+	 * @param string $message
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public static function systemMessage(Tree $tree, User $user, $subject, $message) {
 		return self::send(

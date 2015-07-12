@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Report;
 
 /**
  * Class ReportHtmlImage
@@ -24,10 +23,8 @@ class ReportHtmlImage extends ReportBaseImage {
 	 * Image renderer
 	 *
 	 * @param ReportHtml $renderer
-	 *
-	 * @return void
 	 */
-	function render($renderer) {
+	public function render($renderer) {
 		global $lastpicbottom, $lastpicpage, $lastpicleft, $lastpicright;
 
 		// Get the current positions
@@ -62,9 +59,9 @@ class ReportHtmlImage extends ReportBaseImage {
 			echo "<img src=\"", $this->file, "\" style=\"position:absolute;", $renderer->alignRTL, ":", $this->x, "pt;top:", $this->y, "pt;width:", $this->width, "pt;height:", $this->height, "pt;\" alt=\"\">\n";
 		}
 
-		$lastpicpage = $renderer->pageNo();
-		$lastpicleft = $this->x;
-		$lastpicright = $this->x + $this->width;
+		$lastpicpage   = $renderer->pageNo();
+		$lastpicleft   = $this->x;
+		$lastpicright  = $this->x + $this->width;
 		$lastpicbottom = $this->y + $this->height;
 		// Setup for the next line
 		if ($this->line == "N") {
@@ -83,7 +80,7 @@ class ReportHtmlImage extends ReportBaseImage {
 	 *
 	 * @return float
 	 */
-	function getHeight($html) {
+	public function getHeight($html) {
 		return $this->height + ($html->cPadding * 2);
 	}
 

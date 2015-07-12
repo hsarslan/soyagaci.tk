@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,8 +13,9 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
-use Zend_Session;
+use Fisharebest\Webtrees\Controller\HourglassController;
 
 define('WT_SCRIPT_NAME', 'hourglass_ajax.php');
 require './includes/session.php';
@@ -24,8 +23,6 @@ require './includes/session.php';
 $controller = new HourglassController;
 
 header('Content-type: text/html; charset=UTF-8');
-
-Zend_Session::writeClose();
 
 if (Filter::get('type') === 'desc') {
 	$controller->printDescendency($controller->root, 1, false);

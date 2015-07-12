@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,14 +13,17 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
+use Fisharebest\Webtrees\Functions\FunctionsExport;
+use Fisharebest\Webtrees\Functions\FunctionsImport;
 use PDOException;
 
 /**
- * Class Tree - Provide an interface to the wt_gedcom table
+ * Provide an interface to the wt_gedcom table.
  */
 class Tree {
-	/** @var integer The tree's ID number */
+	/** @var int The tree's ID number */
 	private $tree_id;
 
 	/** @var string The tree's name */
@@ -53,9 +54,9 @@ class Tree {
 	 * Create a tree object.  This is a private constructor - it can only
 	 * be called from Tree::getAll() to ensure proper initialisation.
 	 *
-	 * @param integer $tree_id
-	 * @param string  $tree_name
-	 * @param string  $tree_title
+	 * @param int    $tree_id
+	 * @param string $tree_name
+	 * @param string $tree_title
 	 */
 	private function __construct($tree_id, $tree_name, $tree_title) {
 		$this->tree_id                 = $tree_id;
@@ -74,7 +75,7 @@ class Tree {
 			'priv_user'   => Auth::PRIV_USER,
 			'priv_none'   => Auth::PRIV_NONE,
 			'priv_hide'   => Auth::PRIV_HIDE,
-			'tree_id'     => $this->tree_id
+			'tree_id'     => $this->tree_id,
 		))->fetchAll();
 
 		foreach ($rows as $row) {
@@ -89,13 +90,12 @@ class Tree {
 			}
 		}
 
-
 	}
 
 	/**
 	 * The ID of this tree
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public function getTreeId() {
 		return $this->tree_id;
@@ -143,7 +143,7 @@ class Tree {
 	 * @return string
 	 */
 	public function getTitleHtml() {
-		return Filter::escapeHtml($this->title);
+		return '<span dir="auto">' . Filter::escapeHtml($this->title) . '</span>';
 	}
 
 	/**
@@ -284,7 +284,7 @@ class Tree {
 					'user_id'       => $user->getUserId(),
 					'tree_id'       => $this->tree_id,
 					'setting_name'  => $setting_name,
-					'setting_value' => $setting_value
+					'setting_value' => $setting_value,
 				));
 			}
 			// Update our cache
@@ -301,7 +301,7 @@ class Tree {
 	 *
 	 * @param User $user
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public function canAcceptChanges(User $user) {
 		return Auth::isModerator($this, $user);
@@ -315,7 +315,7 @@ class Tree {
 	public static function getAll() {
 		if (self::$trees === null) {
 			self::$trees = array();
-			$rows = Database::prepare(
+			$rows        = Database::prepare(
 				"SELECT SQL_CACHE g.gedcom_id AS tree_id, g.gedcom_name AS tree_name, gs1.setting_value AS tree_title" .
 				" FROM `##gedcom` g" .
 				" LEFT JOIN `##gedcom_setting`      gs1 ON (g.gedcom_id=gs1.gedcom_id AND gs1.setting_name='title')" .
@@ -344,10 +344,11 @@ class Tree {
 	/**
 	 * Find the tree with a specific ID.
 	 *
-	 * @param integer $tree_id
+	 * @param int $tree_id
+	 *
+	 * @throws \DomainException
 	 *
 	 * @return Tree
-	 * @throws \DomainException
 	 */
 	public static function findById($tree_id) {
 		foreach (self::getAll() as $tree) {
@@ -435,86 +436,38 @@ class Tree {
 		// Module privacy
 		Module::setDefaultAccess($tree_id);
 
+		// Set preferences from default tree
+		Database::prepare(
+			"INSERT INTO `##gedcom_setting` (gedcom_id, setting_name, setting_value)" .
+			" SELECT :tree_id, setting_name, setting_value" .
+			" FROM `##gedcom_setting` WHERE gedcom_id = -1"
+		)->execute(array(
+			'tree_id' => $tree_id,
+		));
+
+		Database::prepare(
+			"INSERT INTO `##default_resn` (gedcom_id, tag_type, resn)" .
+			" SELECT :tree_id, tag_type, resn" .
+			" FROM `##default_resn` WHERE gedcom_id = -1"
+		)->execute(array(
+			'tree_id' => $tree_id,
+		));
+
+		Database::prepare(
+			"INSERT INTO `##block` (gedcom_id, location, block_order, module_name)" .
+			" SELECT :tree_id, location, block_order, module_name" .
+			" FROM `##block` WHERE gedcom_id = -1"
+		)->execute(array(
+			'tree_id' => $tree_id,
+		));
+
+
+
+
 		// Gedcom and privacy settings
-		$tree->setPreference('ADVANCED_NAME_FACTS', 'NICK,_AKA');
-		$tree->setPreference('ADVANCED_PLAC_FACTS', '');
-		$tree->setPreference('ALLOW_THEME_DROPDOWN', '1');
-		$tree->setPreference('CALENDAR_FORMAT', 'gregorian');
-		$tree->setPreference('CHART_BOX_TAGS', '');
-		$tree->setPreference('COMMON_NAMES_ADD', '');
-		$tree->setPreference('COMMON_NAMES_REMOVE', '');
-		$tree->setPreference('COMMON_NAMES_THRESHOLD', '40');
 		$tree->setPreference('CONTACT_USER_ID', Auth::id());
-		$tree->setPreference('DEFAULT_PEDIGREE_GENERATIONS', '4');
-		$tree->setPreference('EXPAND_RELATIVES_EVENTS', '0');
-		$tree->setPreference('EXPAND_SOURCES', '0');
-		$tree->setPreference('FAM_FACTS_ADD', 'CENS,MARR,RESI,SLGS,MARR_CIVIL,MARR_RELIGIOUS,MARR_PARTNERS,RESN');
-		$tree->setPreference('FAM_FACTS_QUICK', 'MARR,DIV,_NMR');
-		$tree->setPreference('FAM_FACTS_UNIQUE', 'NCHI,MARL,DIV,ANUL,DIVF,ENGA,MARB,MARC,MARS');
-		$tree->setPreference('FAM_ID_PREFIX', 'F');
-		$tree->setPreference('FORMAT_TEXT', 'markdown');
-		$tree->setPreference('FULL_SOURCES', '0');
-		$tree->setPreference('GEDCOM_ID_PREFIX', 'I');
-		$tree->setPreference('GEDCOM_MEDIA_PATH', '');
-		$tree->setPreference('GENERATE_UIDS', '0');
-		$tree->setPreference('HIDE_GEDCOM_ERRORS', '1');
-		$tree->setPreference('HIDE_LIVE_PEOPLE', '1');
-		$tree->setPreference('INDI_FACTS_ADD', 'AFN,BIRT,DEAT,BURI,CREM,ADOP,BAPM,BARM,BASM,BLES,CHRA,CONF,FCOM,ORDN,NATU,EMIG,IMMI,CENS,PROB,WILL,GRAD,RETI,DSCR,EDUC,IDNO,NATI,NCHI,NMR,OCCU,PROP,RELI,RESI,SSN,TITL,BAPL,CONL,ENDL,SLGC,_MILI,ASSO,RESN');
-		$tree->setPreference('INDI_FACTS_QUICK', 'BIRT,BURI,BAPM,CENS,DEAT,OCCU,RESI');
-		$tree->setPreference('INDI_FACTS_UNIQUE', '');
-		$tree->setPreference('KEEP_ALIVE_YEARS_BIRTH', '');
-		$tree->setPreference('KEEP_ALIVE_YEARS_DEATH', '');
+		$tree->setPreference('WEBMASTER_USER_ID', Auth::id());
 		$tree->setPreference('LANGUAGE', WT_LOCALE); // Default to the current admin’s language
-		$tree->setPreference('MAX_ALIVE_AGE', 120);
-		$tree->setPreference('MAX_DESCENDANCY_GENERATIONS', '15');
-		$tree->setPreference('MAX_PEDIGREE_GENERATIONS', '10');
-		$tree->setPreference('MEDIA_DIRECTORY', 'media/');
-		$tree->setPreference('MEDIA_ID_PREFIX', 'M');
-		$tree->setPreference('MEDIA_UPLOAD', Auth::PRIV_USER);
-		$tree->setPreference('META_DESCRIPTION', '');
-		$tree->setPreference('META_TITLE', WT_WEBTREES);
-		$tree->setPreference('NOTE_FACTS_ADD', 'SOUR,RESN');
-		$tree->setPreference('NOTE_FACTS_QUICK', '');
-		$tree->setPreference('NOTE_FACTS_UNIQUE', '');
-		$tree->setPreference('NOTE_ID_PREFIX', 'N');
-		$tree->setPreference('NO_UPDATE_CHAN', '0');
-		$tree->setPreference('PEDIGREE_FULL_DETAILS', '1');
-		$tree->setPreference('PEDIGREE_LAYOUT', '1');
-		$tree->setPreference('PEDIGREE_ROOT_ID', '');
-		$tree->setPreference('PEDIGREE_SHOW_GENDER', '0');
-		$tree->setPreference('PREFER_LEVEL2_SOURCES', '1');
-		$tree->setPreference('QUICK_REQUIRED_FACTS', 'BIRT,DEAT');
-		$tree->setPreference('QUICK_REQUIRED_FAMFACTS', 'MARR');
-		$tree->setPreference('REPO_FACTS_ADD', 'PHON,EMAIL,FAX,WWW,RESN');
-		$tree->setPreference('REPO_FACTS_QUICK', '');
-		$tree->setPreference('REPO_FACTS_UNIQUE', 'NAME,ADDR');
-		$tree->setPreference('REPO_ID_PREFIX', 'R');
-		$tree->setPreference('REQUIRE_AUTHENTICATION', '0');
-		$tree->setPreference('SAVE_WATERMARK_IMAGE', '0');
-		$tree->setPreference('SAVE_WATERMARK_THUMB', '0');
-		$tree->setPreference('SHOW_AGE_DIFF', '0');
-		$tree->setPreference('SHOW_COUNTER', '1');
-		$tree->setPreference('SHOW_DEAD_PEOPLE', Auth::PRIV_PRIVATE);
-		$tree->setPreference('SHOW_EST_LIST_DATES', '0');
-		$tree->setPreference('SHOW_FACT_ICONS', '1');
-		$tree->setPreference('SHOW_GEDCOM_RECORD', '0');
-		$tree->setPreference('SHOW_HIGHLIGHT_IMAGES', '1');
-		$tree->setPreference('SHOW_LDS_AT_GLANCE', '0');
-		$tree->setPreference('SHOW_LEVEL2_NOTES', '1');
-		$tree->setPreference('SHOW_LIVING_NAMES', Auth::PRIV_USER);
-		$tree->setPreference('SHOW_MEDIA_DOWNLOAD', '0');
-		$tree->setPreference('SHOW_NO_WATERMARK', Auth::PRIV_USER);
-		$tree->setPreference('SHOW_PARENTS_AGE', '1');
-		$tree->setPreference('SHOW_PEDIGREE_PLACES', '9');
-		$tree->setPreference('SHOW_PEDIGREE_PLACES_SUFFIX', '0');
-		$tree->setPreference('SHOW_PRIVATE_RELATIONSHIPS', '1');
-		$tree->setPreference('SHOW_RELATIVES_EVENTS', '_BIRT_CHIL,_BIRT_SIBL,_MARR_CHIL,_MARR_PARE,_DEAT_CHIL,_DEAT_PARE,_DEAT_GPAR,_DEAT_SIBL,_DEAT_SPOU');
-		$tree->setPreference('SOURCE_ID_PREFIX', 'S');
-		$tree->setPreference('SOUR_FACTS_ADD', 'NOTE,REPO,SHARED_NOTE,RESN');
-		$tree->setPreference('SOUR_FACTS_QUICK', 'TEXT,NOTE,REPO');
-		$tree->setPreference('SOUR_FACTS_UNIQUE', 'AUTH,ABBR,TITL,PUBL,TEXT');
-		$tree->setPreference('SUBLIST_TRIGGER_I', '200');
-		$tree->setPreference('SURNAME_LIST_STYLE', 'style2');
 		switch (WT_LOCALE) {
 		case 'es':
 			$tree->setPreference('SURNAME_TRADITION', 'spanish');
@@ -536,23 +489,6 @@ class Tree {
 			$tree->setPreference('SURNAME_TRADITION', 'paternal');
 			break;
 		}
-		$tree->setPreference('THUMBNAIL_WIDTH', '100');
-		$tree->setPreference('USE_RIN', '0');
-		$tree->setPreference('USE_SILHOUETTE', '1');
-		$tree->setPreference('WATERMARK_THUMB', '0');
-		$tree->setPreference('WEBMASTER_USER_ID', Auth::id());
-		$tree->setPreference('WEBTREES_EMAIL', '');
-		$tree->setPreference('WORD_WRAPPED_NOTES', '0');
-
-		// Default restriction settings
-		$statement = Database::prepare(
-			"INSERT INTO `##default_resn` (gedcom_id, xref, tag_type, resn) VALUES (?, NULL, ?, ?)"
-		);
-		$statement->execute(array($tree_id, 'SSN', 'confidential'));
-		$statement->execute(array($tree_id, 'SOUR', 'privacy'));
-		$statement->execute(array($tree_id, 'REPO', 'privacy'));
-		$statement->execute(array($tree_id, 'SUBM', 'confidential'));
-		$statement->execute(array($tree_id, 'SUBN', 'confidential'));
 
 		// Genealogy data
 		// It is simpler to create a temporary/unimported GEDCOM than to populate all the tables...
@@ -561,16 +497,8 @@ class Tree {
 		$note     = I18N::translate('Edit this individual and replace their details with your own.');
 		Database::prepare("INSERT INTO `##gedcom_chunk` (gedcom_id, chunk_data) VALUES (?, ?)")->execute(array(
 			$tree_id,
-			"0 HEAD\n1 CHAR UTF-8\n0 @I1@ INDI\n1 NAME {$john_doe}\n1 SEX M\n1 BIRT\n2 DATE 01 JAN 1850\n2 NOTE {$note}\n0 TRLR\n"
+			"0 HEAD\n1 CHAR UTF-8\n0 @I1@ INDI\n1 NAME {$john_doe}\n1 SEX M\n1 BIRT\n2 DATE 01 JAN 1850\n2 NOTE {$note}\n0 TRLR\n",
 		));
-
-		// Set the initial blocks
-		Database::prepare(
-			"INSERT INTO `##block` (gedcom_id, location, block_order, module_name)" .
-			" SELECT ?, location, block_order, module_name" .
-			" FROM `##block`" .
-			" WHERE gedcom_id = -1"
-		)->execute(array($tree_id));
 
 		// Update our cache
 		self::$trees[$tree->tree_id] = $tree;
@@ -587,10 +515,9 @@ class Tree {
 		return (bool) Database::prepare(
 			"SELECT 1 FROM `##change` WHERE status = 'pending' AND gedcom_id = :tree_id"
 		)->execute(array(
-			'tree_id' => $this->tree_id
+			'tree_id' => $this->tree_id,
 		))->fetchOne();
 	}
-
 
 	/**
 	 * Delete all the genealogy data from a tree - in preparation for importing
@@ -668,12 +595,12 @@ class Tree {
 			'tree_id_2' => $this->tree_id,
 			'tree_id_3' => $this->tree_id,
 			'tree_id_4' => $this->tree_id,
-			'tree_id_5' => $this->tree_id
+			'tree_id_5' => $this->tree_id,
 		));
 
-		$buffer = reformat_record_export(gedcom_header($this));
+		$buffer = FunctionsExport::reformatRecord(FunctionsExport::gedcomHeader($this));
 		while ($row = $stmt->fetch()) {
-			$buffer .= reformat_record_export($row->gedcom);
+			$buffer .= FunctionsExport::reformatRecord($row->gedcom);
 			if (strlen($buffer) > 65535) {
 				fwrite($stream, $buffer);
 				$buffer = '';
@@ -811,8 +738,9 @@ class Tree {
 	 *
 	 * @param string $gedcom
 	 *
-	 * @return GedcomRecord
 	 * @throws \Exception
+	 *
+	 * @return GedcomRecord
 	 */
 	public function createRecord($gedcom) {
 		if (preg_match('/^0 @(' . WT_REGEX_XREF . ')@ (' . WT_REGEX_TAG . ')/', $gedcom, $match)) {
@@ -844,14 +772,14 @@ class Tree {
 			$this->tree_id,
 			$xref,
 			$gedcom,
-			Auth::id()
+			Auth::id(),
 		));
 
 		Log::addEditLog('Create: ' . $type . ' ' . $xref);
 
 		// Accept this pending change
 		if (Auth::user()->getPreference('auto_accept')) {
-			accept_all_changes($xref, $this->tree_id);
+			FunctionsImport::acceptAllChanges($xref, $this->tree_id);
 		}
 		// Return the newly created record.  Note that since GedcomRecord
 		// has a cache of pending changes, we cannot use it to create a

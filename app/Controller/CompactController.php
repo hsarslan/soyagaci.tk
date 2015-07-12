@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,15 +13,19 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Controller;
+
+use Fisharebest\Webtrees\Filter;
+use Fisharebest\Webtrees\I18N;
 
 /**
- * Class CompactController - Controller for the compact chart
+ * Controller for the compact chart
  */
 class CompactController extends ChartController {
-	// Data for the view
+	/** @var bool Data for the view .*/
 	public $show_thumbs = false;
 
-	// Date for the controller
+	/** int[] Data for the controller. */
 	private $treeid = array();
 
 	/**
@@ -47,7 +49,9 @@ class CompactController extends ChartController {
 	}
 
 	/**
-	 * @param integer $n
+	 * Get an individual by their SOSA number.
+	 *
+	 * @param int $n
 	 *
 	 * @return string
 	 */
@@ -55,7 +59,7 @@ class CompactController extends ChartController {
 		$indi = $this->treeid[$n];
 
 		if ($indi && $indi->canShowName()) {
-			$name = $indi->getFullName();
+			$name    = $indi->getFullName();
 			$addname = $indi->getAddName();
 
 			if ($this->show_thumbs && $indi->getTree()->getPreference('SHOW_HIGHLIGHT_IMAGES')) {
@@ -98,8 +102,10 @@ class CompactController extends ChartController {
 	}
 
 	/**
-	 * @param integer $n
-	 * @param string  $arrow_dir
+	 * Get an arrow, pointing to other generations.
+	 *
+	 * @param int    $n
+	 * @param string $arrow_dir
 	 *
 	 * @return string
 	 */
@@ -117,7 +123,7 @@ class CompactController extends ChartController {
 
 		if ($indi) {
 			$title = I18N::translate('Compact tree of %s', $indi->getFullName());
-			$text = '<a class="icon-' . $arrow_dir . 'arrow" title="' . strip_tags($title) . '" href="?rootid=' . $indi->getXref();
+			$text  = '<a class="icon-' . $arrow_dir . 'arrow" title="' . strip_tags($title) . '" href="?rootid=' . $indi->getXref();
 			if ($this->show_thumbs) {
 				$text .= "&amp;show_thumbs=" . $this->show_thumbs;
 			}

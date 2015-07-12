@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,110 +13,109 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Report;
 
 /**
  * Class ReportBaseElement
  */
 class ReportBaseElement {
-	/**
-	 * @var string
-	 */
-	public $text = "";
+	/** @var string Text*/
+	public $text = '';
 
 	/**
 	 * Element renderer
 	 *
-	 * @param ReportHtml|ReportPdf $renderer
-	 *
-	 * @return void
+	 * @param ReportHtml|ReportTcpdf $renderer
 	 */
-	function render($renderer) {
+	public function render($renderer) {
 		//-- to be implemented in inherited classes
 	}
 
 	/**
-	 * @param ReportHtml|ReportPdf $renderer
+	 * Get the height.
+	 *
+	 * @param ReportHtml|ReportTcpdf $renderer
 	 *
 	 * @return float
 	 */
-	function getHeight($renderer) {
+	public function getHeight($renderer) {
 		return 0.0;
 	}
 
 	/**
-	 * @param ReportHtml|ReportPdf $renderer
+	 * Get the width.
+	 *
+	 * @param ReportHtml|ReportTcpdf $renderer
 	 *
 	 * @return float
 	 */
-	function getWidth($renderer) {
+	public function getWidth($renderer) {
 		return 0.0;
 	}
 
 	/**
+	 * Add text.
+	 *
 	 * @param string $t
 	 *
-	 * @return integer
+	 * @return int
 	 */
-	function addText($t) {
-		global $wt_report, $reportTitle, $reportDescription;
-
+	public function addText($t) {
 		$t = trim($t, "\r\n\t");
 		$t = str_replace(array("<br>", "&nbsp;"), array("\n", " "), $t);
 		$t = strip_tags($t);
 		$t = htmlspecialchars_decode($t);
 		$this->text .= $t;
 
-		// Adding the title and description to the Document Properties
-		if ($reportTitle) {
-			$wt_report->addTitle($t);
-		} elseif ($reportDescription) {
-			$wt_report->addDescription($t);
-		}
-
 		return 0;
 	}
 
 	/**
-	 * @return integer
+	 * Add an end-of-line.
+	 *
+	 * @return int
 	 */
-	function addNewline() {
+	public function addNewline() {
 		$this->text .= "\n";
 
 		return 0;
 	}
 
 	/**
+	 * Get the current text.
+	 *
 	 * @return string
 	 */
-	function getValue() {
+	public function getValue() {
 		return $this->text;
 	}
 
 	/**
+	 * Set the width to wrap text.
+	 *
 	 * @param $wrapwidth
 	 * @param $cellwidth
 	 *
-	 * @return integer
+	 * @return int
 	 */
-	function setWrapWidth($wrapwidth, $cellwidth) {
+	public function setWrapWidth($wrapwidth, $cellwidth) {
 		return 0;
 	}
 
 	/**
-	 * @param $renderer
+	 * Render the footnotes.
 	 *
-	 * @return void
+	 * @param $renderer
 	 */
-	function renderFootnote($renderer) {
-		// To be implemented in inherited classes
+	public function renderFootnote($renderer) {
 	}
 
 	/**
-	 * @param $text
+	 * Set the text.
 	 *
-	 * @return void
+	 * @param $text
 	 */
-	function setText($text) {
+	public function setText($text) {
 		$this->text = $text;
 	}
 }

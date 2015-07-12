@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,19 +13,20 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Report;
 
 /**
  * Class ReportHtmlText
  */
 class ReportHtmlText extends ReportBaseText {
 	/**
-	 * @param ReportHtml $renderer
-	 * @param integer        $curx
-	 * @param boolean        $attrib Is is called from a different element?
+	 * Render the elements.
 	 *
-	 * @return void
+	 * @param ReportHtml $renderer
+	 * @param int        $curx
+	 * @param bool       $attrib Is is called from a different element?
 	 */
-	function render($renderer, $curx = 0, $attrib = true) {
+	public function render($renderer, $curx = 0, $attrib = true) {
 
 		// Setup the style name
 		if ($renderer->getCurrentStyle() != $this->styleName) {
@@ -46,7 +45,7 @@ class ReportHtmlText extends ReportBaseText {
 				// Save the start positions
 				$startX = $renderer->getX();
 				$startY = $renderer->getY();
-				$width = $renderer->getRemainingWidth();
+				$width  = $renderer->getRemainingWidth();
 				// If text is wider then page width then wrap it
 				if ($renderer->GetStringWidth($temptext) > $width) {
 					$lines = explode("\n", $temptext);
@@ -79,12 +78,13 @@ class ReportHtmlText extends ReportBaseText {
 	 *
 	 * @return float
 	 */
-	function getHeight($html) {
+	public function getHeight($html) {
 		$ct = substr_count($this->text, "\n");
 		if ($ct > 0) {
 			$ct += 1;
 		}
 		$style = $html->getStyle($this->styleName);
+
 		return ($style["size"] * $ct) * $html->cellHeightRatio;
 	}
 
@@ -95,7 +95,7 @@ class ReportHtmlText extends ReportBaseText {
 	 *
 	 * @return array
 	 */
-	function getWidth($html) {
+	public function getWidth($html) {
 		// Setup the style name
 		if ($html->getCurrentStyle() != $this->styleName) {
 			$html->setCurrentStyle($this->styleName);
@@ -114,19 +114,19 @@ class ReportHtmlText extends ReportBaseText {
 		// If there is still remaining wrap width...
 		if ($this->wrapWidthRemaining > 0) {
 			// Check with line counter too!
-			if (($lw >= $this->wrapWidthRemaining) or ($lfct > 1)) {
-				$newtext = "";
+			if ($lw >= $this->wrapWidthRemaining || $lfct > 1) {
+				$newtext            = "";
 				$wrapWidthRemaining = $this->wrapWidthRemaining;
-				$lines = explode("\n", $this->text);
+				$lines              = explode("\n", $this->text);
 				// Go throught the text line by line
 				foreach ($lines as $line) {
 					// Line width in points + a little margin
 					$lw = $html->GetStringWidth($line);
 					// If the line has to be wraped
 					if ($lw > $wrapWidthRemaining) {
-						$words = explode(" ", $line);
+						$words    = explode(" ", $line);
 						$addspace = count($words);
-						$lw = 0;
+						$lw       = 0;
 						foreach ($words as $word) {
 							$addspace--;
 							$lw += $html->GetStringWidth($word . " ");
@@ -160,15 +160,17 @@ class ReportHtmlText extends ReportBaseText {
 					$lfct--;
 				}
 				$this->text = $newtext;
-				$lfct = substr_count($this->text, "\n");
+				$lfct       = substr_count($this->text, "\n");
+
 				return array($lw, 1, $lfct);
 			}
 		}
-		$l = 0;
+		$l    = 0;
 		$lfct = substr_count($this->text, "\n");
 		if ($lfct > 0) {
 			$l = 2;
 		}
+
 		return array($lw, $l, $lfct);
 	}
 }

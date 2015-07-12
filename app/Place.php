@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,24 +13,23 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
- * Class Place - Gedcom Place functionality.
+ * A GEDCOM place (PLAC) object.
  */
 class Place {
 	const GEDCOM_SEPARATOR = ', ';
 
-	/**
-	 * @var string[] e.g. array('Westminster', 'London', 'England')
-	 */
+	/** @var string[] e.g. array('Westminster', 'London', 'England') */
 	private $gedcom_place;
 
-	/**
-	 * @var Tree We may have the same place name in different trees
-	 */
+	/** @var Tree We may have the same place name in different trees. */
 	private $tree;
 
 	/**
+	 * Create a place.
+	 *
 	 * @param string $gedcom_place
 	 * @param Tree   $tree
 	 */
@@ -47,7 +44,9 @@ class Place {
 	}
 
 	/**
-	 * @return integer
+	 * Get the identifier for a place.
+	 *
+	 * @return int
 	 */
 	public function getPlaceId() {
 		$place_id = 0;
@@ -65,13 +64,17 @@ class Place {
 	}
 
 	/**
+	 * Get the higher level place.
+	 *
 	 * @return Place
 	 */
 	public function getParentPlace() {
-		return new Place(implode(self::GEDCOM_SEPARATOR, array_slice($this->gedcom_place, 1)), $this->tree);
+		return new self(implode(self::GEDCOM_SEPARATOR, array_slice($this->gedcom_place, 1)), $this->tree);
 	}
 
 	/**
+	 * Get the lower level places.
+	 *
 	 * @return Place[]
 	 */
 	public function getChildPlaces() {
@@ -92,13 +95,15 @@ class Place {
 			'collation' => I18N::collation(),
 		))->fetchOneColumn();
 		foreach ($rows as $row) {
-			$children[] = new Place($row . $parent_text, $this->tree);
+			$children[] = new self($row . $parent_text, $this->tree);
 		}
 
 		return $children;
 	}
 
 	/**
+	 * Create a URL to the place-hierarchy page.
+	 *
 	 * @return string
 	 */
 	public function getURL() {
@@ -117,6 +122,8 @@ class Place {
 	}
 
 	/**
+	 * Format this name for GEDCOM data.
+	 *
 	 * @return string
 	 */
 	public function getGedcomName() {
@@ -124,6 +131,8 @@ class Place {
 	}
 
 	/**
+	 * Format this place for display on screen.
+	 *
 	 * @return string
 	 */
 	public function getPlaceName() {
@@ -133,6 +142,8 @@ class Place {
 	}
 
 	/**
+	 * Is this a null/empty/missing/invalid place?
+	 *
 	 * @return bool
 	 */
 	public function isEmpty() {
@@ -140,6 +151,8 @@ class Place {
 	}
 
 	/**
+	 * Generate the place name for display, including the full hierarchy.
+	 *
 	 * @return string
 	 */
 	public function getFullName() {
@@ -197,13 +210,15 @@ class Place {
 	}
 
 	/**
+	 * Fetch all places from the database.
+	 *
 	 * @param Tree $tree
 	 *
 	 * @return string[]
 	 */
 	public static function allPlaces(Tree $tree) {
 		$places = array();
-		$rows =
+		$rows   =
 			Database::prepare(
 				"SELECT SQL_CACHE CONCAT_WS(', ', p1.p_place, p2.p_place, p3.p_place, p4.p_place, p5.p_place, p6.p_place, p7.p_place, p8.p_place, p9.p_place)" .
 				" FROM      `##places` AS p1" .
@@ -223,12 +238,15 @@ class Place {
 				'collate' => I18N::collation(),
 			))->fetchOneColumn();
 		foreach ($rows as $row) {
-			$places[] = new Place($row, $tree);
+			$places[] = new self($row, $tree);
 		}
+
 		return $places;
 	}
 
 	/**
+	 * Search for a place name.
+	 *
 	 * @param string  $filter
 	 * @param Tree    $tree
 	 *
@@ -236,7 +254,7 @@ class Place {
 	 */
 	public static function findPlaces($filter, Tree $tree) {
 		$places = array();
-		$rows =
+		$rows   =
 			Database::prepare(
 				"SELECT SQL_CACHE CONCAT_WS(', ', p1.p_place, p2.p_place, p3.p_place, p4.p_place, p5.p_place, p6.p_place, p7.p_place, p8.p_place, p9.p_place)" .
 				" FROM      `##places` AS p1" .
@@ -251,14 +269,15 @@ class Place {
 				" WHERE CONCAT_WS(', ', p1.p_place, p2.p_place, p3.p_place, p4.p_place, p5.p_place, p6.p_place, p7.p_place, p8.p_place, p9.p_place) LIKE CONCAT('%', :filter_1, '%') AND CONCAT_WS(', ', p1.p_place, p2.p_place, p3.p_place, p4.p_place, p5.p_place, p6.p_place, p7.p_place, p8.p_place, p9.p_place) NOT LIKE CONCAT('%,%', :filter_2, '%') AND p1.p_file = :tree_id" .
 				" ORDER BY  CONCAT_WS(', ', p1.p_place, p2.p_place, p3.p_place, p4.p_place, p5.p_place, p6.p_place, p7.p_place, p8.p_place, p9.p_place) COLLATE :collation"
 			)->execute(array(
-				'filter_1' => preg_quote($filter),
-				'filter_2' => preg_quote($filter),
-				'tree_id'  => $tree->getTreeId(),
+				'filter_1'  => preg_quote($filter),
+				'filter_2'  => preg_quote($filter),
+				'tree_id'   => $tree->getTreeId(),
 				'collation' => I18N::collation(),
 			))->fetchOneColumn();
 		foreach ($rows as $row) {
-			$places[] = new Place($row, $tree);
+			$places[] = new self($row, $tree);
 		}
+
 		return $places;
 	}
 }

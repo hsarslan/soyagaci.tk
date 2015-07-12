@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module;
 
 /**
  * Interface ModuleTabInterface - Classes and libraries for module system
@@ -24,7 +23,7 @@ interface ModuleTabInterface {
 	 * The user can re-arrange the tab order, but until they do, this
 	 * is the order in which tabs are shown.
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public function defaultTabOrder();
 
@@ -37,14 +36,15 @@ interface ModuleTabInterface {
 
 	/**
 	 * Is this tab empty?  If so, we don't always need to display it.
-	 * @return boolean
+	 *
+	 * @return bool
 	 */
 	public function hasTabContent();
 
 	/**
 	 * Can this tab load asynchronously?
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public function canLoadAjax();
 
@@ -61,7 +61,7 @@ interface ModuleTabInterface {
 	 * A greyed out tab has no actual content, but may perhaps have
 	 * options to create content.
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public function isGrayedOut();
 }

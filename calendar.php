@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
  * Defined in session.php
@@ -22,6 +21,16 @@ namespace Fisharebest\Webtrees;
  * @global Tree $WT_TREE
  */
 global $WT_TREE;
+
+use Fisharebest\Webtrees\Controller\PageController;
+use Fisharebest\Webtrees\Date\FrenchDate;
+use Fisharebest\Webtrees\Date\GregorianDate;
+use Fisharebest\Webtrees\Date\HijriDate;
+use Fisharebest\Webtrees\Date\JalaliDate;
+use Fisharebest\Webtrees\Date\JewishDate;
+use Fisharebest\Webtrees\Date\JulianDate;
+use Fisharebest\Webtrees\Functions\FunctionsDb;
+use Fisharebest\Webtrees\Functions\FunctionsPrint;
 
 define('WT_SCRIPT_NAME', 'calendar.php');
 require './includes/session.php';
@@ -43,20 +52,7 @@ $filtersx = Filter::get('filtersx', '[MF]');
 
 if ($cal . $day . $month . $year === '') {
 	// No date specified?  Use the most likely calendar
-	switch (WT_LOCALE) {
-	case 'fa':
-		$cal = '@#DJALALI@';
-		break;
-	case 'ar':
-		$cal = '@#DHIJRI@';
-		break;
-	case 'he':
-		$cal = '@#DHEBREW@';
-		break;
-	default:
-		$cal = '@#DGREGORIAN@';
-		break;
-	}
+	$cal = I18N::defaultCalendar()->gedcomCalendarEscape();
 }
 
 // Create a CalendarDate from the parameters
@@ -196,7 +192,7 @@ echo '<a href="?cal=', $cal, '&amp;day=', $cal_date->d, '&amp;month=', $cal_mont
 echo ' <input type="text" name="year" value="', $year, '" size="4"> ';
 echo '<a href="?cal=', $cal, '&amp;day=', $cal_date->d, '&amp;month=', $cal_month, '&amp;year=', $cal_date->y === -1 ? 1 : $cal_date->y + 1, '&amp;filterev=', $filterev, '&amp;filterof=', $filterof, '&amp;filtersx=', $filtersx, '&amp;view=', $view, '">+1</a>';
 echo ' | <a href="?cal=', $cal, '&amp;day=', $cal_date->d, '&amp;month=', $cal_month, '&amp;year=', $today->y, '&amp;filterev=', $filterev, '&amp;filterof=', $filterof, '&amp;filtersx=', $filtersx, '&amp;view=', $view, '"><b>' . $today->format('%Y') . '</b></a>';
-echo help_link('annivers_year_select');
+echo FunctionsPrint::helpLink('annivers_year_select');
 echo '</td> ';
 
 // Filtering options
@@ -350,14 +346,7 @@ if ($view === 'year') {
 }
 echo '</td><td class="topbottombar width50">';
 $n = 0;
-foreach (array(
-	'gregorian' => GregorianDate::calendarName(),
-	'julian'    => JulianDate::calendarName(),
-	'jewish'    => JewishDate::calendarName(),
-	'french'    => FrenchDate::calendarName(),
-	'hijri'     => HijriDate::calendarName(),
-	'jalali'    => JalaliDate::calendarName(),
-) as $newcal => $cal_name) {
+foreach (Date::calendarNames() as $newcal => $cal_name) {
 	$tmp = $cal_date->convertToCalendar($newcal);
 	if ($tmp->inValidRange()) {
 		if ($n++) {
@@ -389,7 +378,7 @@ if ($filterev === 'all') {
 // Fetch data for day/month/year views
 switch ($view) {
 case 'day':
-	$found_facts = apply_filter(get_anniversary_events($cal_date->minJD, $events, $WT_TREE), $filterof, $filtersx);
+	$found_facts = apply_filter(FunctionsDb::getAnniversaryEvents($cal_date->minJD, $events, $WT_TREE), $filterof, $filtersx);
 	break;
 case 'month':
 	$cal_date->d = 0;
@@ -401,7 +390,7 @@ case 'month':
 	}
 	// Fetch events for each day
 	for ($jd = $cal_date->minJD; $jd <= $cal_date->maxJD; ++$jd) {
-		foreach (apply_filter(get_anniversary_events($jd, $events, $WT_TREE), $filterof, $filtersx) as $fact) {
+		foreach (apply_filter(FunctionsDb::getAnniversaryEvents($jd, $events, $WT_TREE), $filterof, $filtersx) as $fact) {
 			$tmp = $fact->getDate()->minimumDate();
 			if ($tmp->d >= 1 && $tmp->d <= $tmp->daysInMonth()) {
 				// If the day is valid (for its own calendar), display it in the
@@ -417,7 +406,7 @@ case 'month':
 case 'year':
 	$cal_date->m = 0;
 	$cal_date->setJdFromYmd();
-	$found_facts = apply_filter(get_calendar_events($ged_date->minimumJulianDay(), $ged_date->maximumJulianDay(), $events, $WT_TREE), $filterof, $filtersx);
+	$found_facts = apply_filter(FunctionsDb::getCalendarEvents($ged_date->minimumJulianDay(), $ged_date->maximumJulianDay(), $events, $WT_TREE), $filterof, $filtersx);
 	// Eliminate duplicates (e.g. BET JUL 1900 AND SEP 1900 will appear twice in 1900)
 	$found_facts = array_unique($found_facts);
 	break;
@@ -509,9 +498,9 @@ case 'day':
 	break;
 case 'month':
 // We use JD%7 = 0/Mon...6/Sun.  Standard definitions use 0/Sun...6/Sat.
-	$week_start    = (I18N::locale()->territory()->firstDay() + 6) % 7;
-	$weekend_start = (I18N::locale()->territory()->weekendStart() + 6) % 7;
-	$weekend_end   = (I18N::locale()->territory()->weekendEnd() + 6) % 7;
+	$week_start    = (I18N::firstDay() + 6) % 7;
+	$weekend_start = (I18N::weekendStart() + 6) % 7;
+	$weekend_end   = (I18N::weekendEnd() + 6) % 7;
 	// The french  calendar has a 10-day week, which starts on primidi
 	if ($days_in_week === 10) {
 		$week_start    = 0;
@@ -655,8 +644,8 @@ function apply_filter($facts, $filterof, $filtersx) {
 /**
  * Format an anniversary display.
  *
- * @param Fact    $fact
- * @param boolean $show_places
+ * @param Fact $fact
+ * @param bool $show_places
  *
  * @return string
  */
@@ -676,9 +665,9 @@ function calendar_fact_text(Fact $fact, $show_places) {
  * Format a list of facts for display
  *
  * @param Fact[] $list
- * @param string    $tag1
- * @param string    $tag2
- * @param boolean   $show_sex_symbols
+ * @param string $tag1
+ * @param string $tag2
+ * @param bool   $show_sex_symbols
  *
  * @return string
  */

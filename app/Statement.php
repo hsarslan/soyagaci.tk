@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,22 +13,19 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 use PDO;
 use PDOStatement;
 
 /**
- * Class Statement.  Extend PHP's native PDOStatement class to provide:
- *
- * Additional options for fetching data.
- * Logging
- * Automatic calling of execute() and closeCursor()
+ * Extend PHP's native PDOStatement class.
  */
 class Statement {
-	/** @var PDOStatement */
+	/** @var PDOStatement A prepared statement. */
 	private $pdo_statement;
 
-	/** @var boolean Keep track of calls to execute(), so we can do it automatically */
+	/** @var bool Keep track of calls to execute(), so we can do it automatically. */
 	private $executed = false;
 
 	/**
@@ -47,8 +42,9 @@ class Statement {
 	 *
 	 * @param array $bind_variables
 	 *
-	 * @return Statement
 	 * @throws \Exception
+	 *
+	 * @return Statement
 	 */
 	public function execute($bind_variables = array()) {
 		if ($this->executed) {
@@ -96,8 +92,6 @@ class Statement {
 	/**
 	 * Close the cursor, and mark it as not-executed, so we can execute
 	 * it again (perhaps with different parameters).
-	 *
-	 * @return void
 	 */
 	public function closeCursor() {
 		$this->pdo_statement->closeCursor();
@@ -109,7 +103,7 @@ class Statement {
 	 *
 	 * Execute the query, if necessary.  Typically when there are no parameters.
 	 *
-	 * @param integer $fetch_style
+	 * @param int $fetch_style
 	 *
 	 * @return \stdClass|array|false
 	 */
@@ -126,7 +120,7 @@ class Statement {
 	 *
 	 * Execute the query, if necessary.  Typically when there are no parameters.
 	 *
-	 * @param integer $fetch_style
+	 * @param int $fetch_style
 	 *
 	 * @return \stdClass[]|string[][]
 	 */
@@ -146,7 +140,7 @@ class Statement {
 	 *
 	 * Execute the query, if necessary.  Typically when there are no parameters.
 	 *
-	 * @param integer $fetch_style
+	 * @param int $fetch_style
 	 *
 	 * @return \stdClass|array|null
 	 */
@@ -224,7 +218,7 @@ class Statement {
 	/**
 	 * How many rows were affected by this statement.
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public function rowCount() {
 		return $this->pdo_statement->rowCount();

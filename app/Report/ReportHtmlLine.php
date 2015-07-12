@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Report;
 
 /**
  * Class ReportHtmlLine
@@ -24,10 +23,8 @@ class ReportHtmlLine extends ReportBaseLine {
 	 * HTML line renderer
 	 *
 	 * @param ReportHtml $renderer
-	 *
-	 * @return void
 	 */
-	function render($renderer) {
+	public function render($renderer) {
 		if ($this->x1 == '.') {
 			$this->x1 = $renderer->getX();
 		}

@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,9 +13,10 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Controller;
 
 /**
- * Class SimpleController - Controller for all popup pages
+ * Controller for all popup pages
  */
 class SimpleController extends PageController {
 	/**
@@ -32,18 +31,18 @@ class SimpleController extends PageController {
 	/**
 	 * Simple (i.e. popup) windows are deprecated.
 	 *
-	 * @param string $view
+	 * @param bool $popup
 	 *
 	 * @return $this
 	 */
-	public function pageHeader($view = 'simple') {
-		return parent::pageHeader($view);
+	public function pageHeader($popup = true) {
+		return parent::pageHeader($popup);
 	}
 
 	/**
 	 * Restrict access
 	 *
-	 * @param boolean $condition
+	 * @param bool $condition
 	 *
 	 * @return $this
 	 */

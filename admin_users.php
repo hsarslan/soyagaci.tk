@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,7 +13,12 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
+use Fisharebest\Webtrees\Controller\PageController;
+use Fisharebest\Webtrees\Functions\FunctionsDate;
+use Fisharebest\Webtrees\Functions\FunctionsEdit;
+use Fisharebest\Webtrees\Functions\FunctionsPrint;
 use PDO;
 
 /**
@@ -33,11 +36,11 @@ $controller->restrictAccess(Auth::isAdmin());
 
 // Valid values for form variables
 $ALL_EDIT_OPTIONS = array(
-	'none'  => /* I18N: Listbox entry; name of a role */ I18N::translate('Visitor'),
-	'access'=> /* I18N: Listbox entry; name of a role */ I18N::translate('Member'),
-	'edit'  => /* I18N: Listbox entry; name of a role */ I18N::translate('Editor'),
-	'accept'=> /* I18N: Listbox entry; name of a role */ I18N::translate('Moderator'),
-	'admin' => /* I18N: Listbox entry; name of a role */ I18N::translate('Manager')
+	'none'   => /* I18N: Listbox entry; name of a role */ I18N::translate('Visitor'),
+	'access' => /* I18N: Listbox entry; name of a role */ I18N::translate('Member'),
+	'edit'   => /* I18N: Listbox entry; name of a role */ I18N::translate('Editor'),
+	'accept' => /* I18N: Listbox entry; name of a role */ I18N::translate('Moderator'),
+	'admin'  => /* I18N: Listbox entry; name of a role */ I18N::translate('Manager'),
 );
 
 // Form actions
@@ -53,6 +56,7 @@ case 'save':
 		$pass2          = Filter::post('pass2', WT_REGEX_PASSWORD);
 		$theme          = Filter::post('theme', implode('|', array_keys(Theme::installedThemes())), '');
 		$language       = Filter::post('language');
+		$timezone       = Filter::post('timezone');
 		$contact_method = Filter::post('contact_method');
 		$comment        = Filter::post('comment');
 		$auto_accept    = Filter::postBool('auto_accept');
@@ -101,6 +105,7 @@ case 'save':
 			$user
 				->setPreference('theme', $theme)
 				->setPreference('language', $language)
+				->setPreference('TIMEZONE', $timezone)
 				->setPreference('contactmethod', $contact_method)
 				->setPreference('comment', $comment)
 				->setPreference('auto_accept', $auto_accept ? '1' : '0')
@@ -224,13 +229,13 @@ case 'load_json':
 			$datum[5] = $installed_languages[$datum[5]];
 		}
 		// $datum[6] is the sortable registration timestamp
-		$datum[7] = $datum[7] ? format_timestamp($datum[7]) : '';
+		$datum[7] = $datum[7] ? FunctionsDate::formatTimestamp($datum[7]) : '';
 		if (date("U") - $datum[6] > 604800 && !$datum[10]) {
 			$datum[7] = '<span class="red">' . $datum[7] . '</span>';
 		}
 		// $datum[8] is the sortable last-login timestamp
 		if ($datum[8]) {
-			$datum[9] = format_timestamp($datum[8]) . '<br>' . I18N::timeAgo(WT_TIMESTAMP - $datum[8]);
+			$datum[9] = FunctionsDate::formatTimestamp($datum[8]) . '<br>' . I18N::timeAgo(WT_TIMESTAMP - $datum[8]);
 		} else {
 			$datum[9] = I18N::translate('Never');
 		}
@@ -248,7 +253,7 @@ case 'load_json':
 		'draw'            => Filter::getInteger('draw'),
 		'recordsTotal'    => $recordsTotal,
 		'recordsFiltered' => $recordsFiltered,
-		'data'            => $data
+		'data'            => $data,
 	));
 
 	return;
@@ -258,12 +263,12 @@ case 'edit':
 
 	if ($user_id === 0) {
 		$controller->setPageTitle(I18N::translate('Add a new user'));
-		$tmp = new \stdClass;
+		$tmp            = new \stdClass;
 		$tmp->user_id   = '';
 		$tmp->user_name = '';
 		$tmp->real_name = '';
 		$tmp->email     = '';
-		$user = new User($tmp);
+		$user           = new User($tmp);
 	} else {
 		$controller->setPageTitle(I18N::translate('Edit user'));
 		$user = User::find($user_id);
@@ -279,7 +284,7 @@ case 'edit':
 				var idNum = fieldIDx.replace("RELATIONSHIP_PATH_LENGTH","");
 				var newIDx = "gedcomid"+idNum;
 				if (jQuery("#"+newIDx).val()=="") {
-					alert("'. I18N::translate('You must specify an individual record before you can restrict the user to their immediate family.') . '");
+					alert("' . I18N::translate('You must specify an individual record before you can restrict the user to their immediate family.') . '");
 					jQuery(this).val("");
 				}
 			});
@@ -412,9 +417,23 @@ case 'edit':
 			</div>
 		</div>
 
+		<!-- TIMEZONE -->
+		<div class="form-group">
+			<label class="control-label col-sm-3" for="timezone">
+				<?php echo /* I18N: A configuration setting */ I18N::translate('Time zone'); ?>
+			</label>
+			<div class="col-sm-9">
+				<?php echo FunctionsEdit::selectEditControl('timezone', array_combine(\DateTimeZone::listIdentifiers(), \DateTimeZone::listIdentifiers()), null, $user->getPreference('TIMEZONE') ?: 'UTC', 'class="form-control"'); ?>
+				<p class="small text-muted">
+					<?php echo I18N::translate('The time zone is required for date calculations, such as knowing today’s date.'); ?>
+				</p>
+			</div>
+		</div>
+
 		<!-- AUTO ACCEPT -->
 		<div class="form-group">
 			<label class="control-label col-sm-3" for="auto_accept">
+				<?php echo I18N::translate('Changes'); ?>
 			</label>
 			<div class="col-sm-9">
 				<div class="checkbox">
@@ -453,7 +472,7 @@ case 'edit':
 				<?php echo /* I18N: A configuration setting */ I18N::translate('Preferred contact method'); ?>
 			</label>
 			<div class="col-sm-9">
-				<?php echo edit_field_contact('contact_method', $user->getPreference('contactmethod')); ?>
+				<?php echo FunctionsEdit::editFieldContact('contact_method', $user->getPreference('contactmethod')); ?>
 				<p class="small text-muted">
 					<?php echo /* I18N: Help text for the “Preferred contact method” configuration setting */
 					I18N::translate('Site members can send each other messages.  You can choose to how these messages are sent to you, or choose not receive them at all.'); ?>
@@ -467,7 +486,7 @@ case 'edit':
 				<?php echo I18N::translate('Theme'); ?>
 			</label>
 			<div class="col-sm-9">
-				<?php echo select_edit_control('theme', Theme::themeNames(), I18N::translate('<default theme>'), $user->getPreference('theme'), 'class="form-control"'); ?>
+				<?php echo FunctionsEdit::selectEditControl('theme', Theme::themeNames(), I18N::translate('<default theme>'), $user->getPreference('theme'), 'class="form-control"'); ?>
 			</div>
 		</div>
 
@@ -620,7 +639,7 @@ case 'edit':
 							id="rootid<?php echo $tree->getTreeId(); ?>"
 							value="<?php echo Filter::escapeHtml($tree->getUserPreference($user, 'rootid')); ?>"
 						>
-						<?php echo print_findindi_link('rootid' . $tree->getTreeId(), '', $tree); ?>
+						<?php echo FunctionsPrint::printFindIndividualLink('rootid' . $tree->getTreeId(), '', $tree); ?>
 					</td>
 					<td>
 						<input
@@ -632,7 +651,7 @@ case 'edit':
 							id="gedcomid<?php echo $tree->getTreeId(); ?>"
 							value="<?php echo Filter::escapeHtml($tree->getUserPreference($user, 'gedcomid')); ?>"
 						>
-						<?php echo print_findindi_link('gedcomid' . $tree->getTreeId(), '', $tree); ?>
+						<?php echo FunctionsPrint::printFindIndividualLink('gedcomid' . $tree->getTreeId(), '', $tree); ?>
 					</td>
 					<td>
 						<select name="RELATIONSHIP_PATH_LENGTH<?php echo $tree->getTreeId(); ?>" id="RELATIONSHIP_PATH_LENGTH<?php echo $tree->getTreeId(); ?>" class="relpath">
@@ -710,7 +729,7 @@ case 'cleanup':
 					</a>
 				</td>
 				<td>
-					<?php echo I18N::translate('User’s account has been inactive too long: ') . timestamp_to_gedcom_date($datelogin)->display(); ?>
+					<?php echo I18N::translate('User’s account has been inactive too long: ') . FunctionsDate::timestampToGedcomDate($datelogin)->display(); ?>
 				</td>
 				<td>
 					<input type="checkbox" name="del_<?php echo $user->getUserId(); ?>" value="1">
@@ -810,7 +829,7 @@ default:
 				},
 				autoWidth: false,
 				pageLength: ' . Auth::user()->getPreference('admin_users_page_size', 10) . ',
-				sorting: [[2,"asc"]],
+				sorting: [[2, "asc"]],
 				columns: [
 					/* details           */ { sortable: false },
 					/* user-id           */ { visible: false },
@@ -822,8 +841,8 @@ default:
 					/* registered        */ { dataSort: 7 },
 					/* last_login (sort) */ { visible: false },
 					/* last_login        */ { dataSort: 9 },
-					/* verified          */ { class: "center" },
-					/* approved          */ { class: "center" }
+					/* verified          */ null,
+					/* approved          */ null
 				]
 			})
 			.fnFilter("' . Filter::get('filter') . '"); // View details of a newly created user

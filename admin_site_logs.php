@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,9 +13,11 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
+use Fisharebest\Webtrees\Controller\PageController;
+use Fisharebest\Webtrees\Functions\FunctionsEdit;
 use PDO;
-use Zend_Session;
 
 /**
  * Defined in session.php
@@ -108,7 +108,6 @@ case 'delete':
 	break;
 
 case 'export':
-	Zend_Session::writeClose();
 	header('Content-Type: text/csv');
 	header('Content-Disposition: attachment; filename="webtrees-logs.csv"');
 	$rows = Database::prepare($sql_select . $where . ' ORDER BY log_id')->execute($args)->fetchAll();
@@ -125,7 +124,6 @@ case 'export':
 
 	return;
 case 'load_json':
-	Zend_Session::writeClose();
 	$start  = Filter::getInteger('start');
 	$length = Filter::getInteger('length');
 	$order  = Filter::getArray('order');
@@ -153,7 +151,7 @@ case 'load_json':
 
 	if ($length) {
 		Auth::user()->setPreference('admin_site_log_page_size', $length);
-		$limit = " LIMIT :limit OFFSET :offset";
+		$limit          = " LIMIT :limit OFFSET :offset";
 		$args['limit']  = $length;
 		$args['offset'] = $start;
 	} else {
@@ -164,8 +162,10 @@ case 'load_json':
 	$data = Database::prepare($sql_select . $where . $order_by . $limit)->execute($args)->fetchAll(PDO::FETCH_NUM);
 	foreach ($data as &$datum) {
 		$datum[2] = Filter::escapeHtml($datum[2]);
-		$datum[4] = Filter::escapeHtml($datum[4]);
-		$datum[5] = Filter::escapeHtml($datum[5]);
+		$datum[3] = '<span dir="auto">' . Filter::escapeHtml($datum[3]) . '</span>';
+		$datum[4] = '<span dir="auto">' . Filter::escapeHtml($datum[4]) . '</span>';
+		$datum[5] = '<span dir="auto">' . Filter::escapeHtml($datum[5]) . '</span>';
+		$datum[6] = '<span dir="auto">' . Filter::escapeHtml($datum[6]) . '</span>';
 	}
 
 	// Total filtered/unfiltered rows
@@ -178,7 +178,7 @@ case 'load_json':
 		'draw'            => Filter::getInteger('draw'),
 		'recordsTotal'    => $recordsTotal,
 		'recordsFiltered' => $recordsFiltered,
-		'data'            => $data
+		'data'            => $data,
 	));
 
 	return;
@@ -194,7 +194,7 @@ $controller
 		jQuery(".table-site-logs").dataTable( {
 			processing: true,
 			serverSide: true,
-			ajax: "'.WT_BASE_URL . WT_SCRIPT_NAME . '?action=load_json&from=' . $from . '&to=' . $to . '&type=' . $type . '&text=' . rawurlencode($text) . '&ip=' . rawurlencode($ip) . '&user=' . rawurlencode($user) . '&gedc=' . rawurlencode($gedc) . '",
+			ajax: "' . WT_BASE_URL . WT_SCRIPT_NAME . '?action=load_json&from=' . $from . '&to=' . $to . '&type=' . $type . '&text=' . rawurlencode($text) . '&ip=' . rawurlencode($ip) . '&user=' . rawurlencode($user) . '&gedc=' . rawurlencode($gedc) . '",
 			' . I18N::datatablesI18N(array(10, 20, 50, 100, 500, 1000, -1)) . ',
 			sorting: [[ 0, "desc" ]],
 			pageLength: ' . Auth::user()->getPreference('admin_site_log_page_size', 10) . ',
@@ -267,7 +267,7 @@ foreach (User::all() as $tmp_user) {
 			<label for="type">
 				<?php echo I18N::translate('Type'); ?>
 			</label>
-			<?php echo select_edit_control('type', array(''=>'', 'auth'=>'auth', 'config'=>'config', 'debug'=>'debug', 'edit'=>'edit', 'error'=>'error', 'media'=>'media', 'search'=>'search'), null, $type, 'class="form-control"'); ?>
+			<?php echo FunctionsEdit::selectEditControl('type', array('' => '', 'auth' => 'auth', 'config' => 'config', 'debug' => 'debug', 'edit' => 'edit', 'error' => 'error', 'media' => 'media', 'search' => 'search'), null, $type, 'class="form-control"'); ?>
 		</div>
 
 		<div class="form-group col-xs-6 col-sm-4">
@@ -290,14 +290,14 @@ foreach (User::all() as $tmp_user) {
 			<label for="user">
 				<?php echo I18N::translate('User'); ?>
 			</label>
-			<?php echo select_edit_control('user', $users_array, '', $user, 'class="form-control"'); ?>
+			<?php echo FunctionsEdit::selectEditControl('user', $users_array, '', $user, 'class="form-control"'); ?>
 		</div>
 
 		<div class="form-group col-sm-4">
 			<label for="gedc">
 				<?php echo I18N::translate('Family tree'); ?>
 			</label>
-			<?php echo select_edit_control('gedc', Tree::getNameList(), '', $gedc, Auth::isAdmin() ? 'class="form-control"' : 'disabled class="form-control"'); ?>
+			<?php echo FunctionsEdit::selectEditControl('gedc', Tree::getNameList(), '', $gedc, Auth::isAdmin() ? 'class="form-control"' : 'disabled class="form-control"'); ?>
 		</div>
 	</div>
 

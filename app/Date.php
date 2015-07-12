@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,48 +13,38 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-
-// Classes for Gedcom Date/Calendar functionality.
-//
-//
-// webtrees: online genealogy
-// Copyright (C) 2014 Greg Roach
-//
-// This program is free software; you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation; either version 2 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+namespace Fisharebest\Webtrees;
 
 use Fisharebest\ExtCalendar\GregorianCalendar;
+use Fisharebest\Webtrees\Date\CalendarDate;
+use Fisharebest\Webtrees\Date\FrenchDate;
+use Fisharebest\Webtrees\Date\GregorianDate;
+use Fisharebest\Webtrees\Date\HijriDate;
+use Fisharebest\Webtrees\Date\JalaliDate;
+use Fisharebest\Webtrees\Date\JewishDate;
+use Fisharebest\Webtrees\Date\JulianDate;
+use Fisharebest\Webtrees\Date\RomanDate;
 
 /**
- * Class Date - a representation of GEDCOM dates and date ranges
- * NOTE: Since different calendars start their days at different times, (civil
+ * A representation of GEDCOM dates and date ranges.
+ *
+ * Since different calendars start their days at different times, (civil
  * midnight, solar midnight, sunset, sunrise, etc.), we convert on the basis of
  * midday.
  *
- * NOTE: We assume that years start on the first day of the first month.  Where
+ * We assume that years start on the first day of the first month.  Where
  * this is not the case (e.g. England prior to 1752), we need to use modified
  * years or the OS/NS notation "4 FEB 1750/51".
  */
 class Date {
 	/** @var string Optional qualifier, such as BEF, FROM, ABT */
-	private $qual1;
+	public $qual1;
 
 	/** @var CalendarDate  The first (or only) date */
 	private $date1;
 
 	/** @var string  Optional qualifier, such as TO, AND*/
-	private $qual2;
+	public $qual2;
 
 	/** @var CalendarDate Optional second date */
 	private $date2;
@@ -80,7 +68,7 @@ class Date {
 			$this->date1 = $this->parseDate($match[2]);
 			$this->qual2 = $match[3];
 			$this->date2 = $this->parseDate($match[4]);
-		} elseif (preg_match('/^(FROM|BET|TO|AND|BEF|AFT|CAL|EST|INT|ABT) (.+)/', $date, $match)) {
+		} elseif (preg_match('/^(TO|FROM|BEF|AFT|CAL|EST|INT|ABT) (.+)/', $date, $match)) {
 			$this->qual1 = $match[1];
 			$this->date1 = $this->parseDate($match[2]);
 		} else {
@@ -106,12 +94,13 @@ class Date {
 	 *
 	 * @param string $date
 	 *
-	 * @return CalendarDate
 	 * @throws \DomainException
+	 *
+	 * @return CalendarDate
 	 */
 	private function parseDate($date) {
 		// Valid calendar escape specified? - use it
-		if (preg_match('/^(@#D(?:GREGORIAN|JULIAN|HEBREW|HIJRI|JALALI|FRENCH R|ROMAN|JALALI)+@) ?(.*)/', $date, $match)) {
+		if (preg_match('/^(@#D(?:GREGORIAN|JULIAN|HEBREW|HIJRI|JALALI|FRENCH R|ROMAN)+@) ?(.*)/', $date, $match)) {
 			$cal  = $match[1];
 			$date = $match[2];
 		} else {
@@ -200,21 +189,32 @@ class Date {
 	}
 
 	/**
+	 * A list of supported calendars and their names.
+	 *
+	 * @return string[]
+	 */
+	public static function calendarNames() {
+		return array(
+			'gregorian' => /* I18N: The gregorian calendar */ I18N::translate('Gregorian'),
+			'julian'    => /* I18N: The julian calendar */ I18N::translate('Julian'),
+			'french'    => /* I18N: The French calendar */ I18N::translate('French'),
+			'jewish'    => /* I18N: The Hebrew/Jewish calendar */ I18N::translate('Jewish'),
+			'hijri'     => /* I18N: The Arabic/Hijri calendar */ I18N::translate('Hijri'),
+			'jalali'    => /* I18N: The Persian/Jalali calendar */ I18N::translate('Jalali'),
+		);
+	}
+
+	/**
 	 * Convert a date to the preferred format and calendar(s) display.
 	 *
-	 * @param boolean|null $url               Wrap the date in a link to calendar.php
-	 * @param string|null  $date_format       Override the default date format
-	 * @param boolean|null $convert_calendars Convert the date into other calendars
+	 * @param bool|null   $url               Wrap the date in a link to calendar.php
+	 * @param string|null $date_format       Override the default date format
+	 * @param bool|null   $convert_calendars Convert the date into other calendars
 	 *
 	 * @return string
 	 */
 	public function display($url = false, $date_format = null, $convert_calendars = true) {
 		global $WT_TREE;
-
-		// Search engines do not get links to the calendar pages
-		if (Auth::isSearchEngine()) {
-			$url = false;
-		}
 
 		$CALENDAR_FORMAT = $WT_TREE->getPreference('CALENDAR_FORMAT');
 
@@ -263,9 +263,9 @@ class Date {
 				if ($d1 != $d1tmp && $d1tmp !== '') {
 					if ($url) {
 						if ($CALENDAR_FORMAT !== 'none') {
-							$conv1 .= ' <span dir="' . I18N::direction() . '">(<a href="' . $d1conv->calendarUrl($date_format) . '">' . $d1tmp . '</a>)</span>';
+							$conv1 .= ' <span dir="' . I18N::direction() . '">(<a href="' . $d1conv->calendarUrl($date_format) . '" rel="nofollow">' . $d1tmp . '</a>)</span>';
 						} else {
-							$conv1 .= ' <span dir="' . I18N::direction() . '"><br><a href="' . $d1conv->calendarUrl($date_format) . '">' . $d1tmp . '</a></span>';
+							$conv1 .= ' <span dir="' . I18N::direction() . '"><br><a href="' . $d1conv->calendarUrl($date_format) . '" rel="nofollow">' . $d1tmp . '</a></span>';
 						}
 					} else {
 						$conv1 .= ' <span dir="' . I18N::direction() . '">(' . $d1tmp . ')</span>';
@@ -273,7 +273,7 @@ class Date {
 				}
 				if (!is_null($this->date2) && $d2 != $d2tmp && $d1tmp != '') {
 					if ($url) {
-						$conv2 .= ' <span dir="' . I18N::direction() . '">(<a href="' . $d2conv->calendarUrl($date_format) . '">' . $d2tmp . '</a>)</span>';
+						$conv2 .= ' <span dir="' . I18N::direction() . '">(<a href="' . $d2conv->calendarUrl($date_format) . '" rel="nofollow">' . $d2tmp . '</a>)</span>';
 					} else {
 						$conv2 .= ' <span dir="' . I18N::direction() . '">(' . $d2tmp . ')</span>';
 					}
@@ -283,9 +283,9 @@ class Date {
 
 		// Add URLs, if requested
 		if ($url) {
-			$d1 = '<a href="' . $this->date1->calendarUrl($date_format) . '">' . $d1 . '</a>';
+			$d1 = '<a href="' . $this->date1->calendarUrl($date_format) . '" rel="nofollow">' . $d1 . '</a>';
 			if (!is_null($this->date2)) {
-				$d2 = '<a href="' . $this->date2->calendarUrl($date_format) . '">' . $d2 . '</a>';
+				$d2 = '<a href="' . $this->date2->calendarUrl($date_format) . '" rel="nofollow">' . $d2 . '</a>';
 			}
 		}
 
@@ -368,7 +368,7 @@ class Date {
 	/**
 	 * Get the earliest Julian day number from this GEDCOM date.
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public function minimumJulianDay() {
 		return $this->minimumDate()->minJD;
@@ -377,7 +377,7 @@ class Date {
 	/**
 	 * Get the latest Julian day number from this GEDCOM date.
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public function maximumJulianDay() {
 		return $this->maximumDate()->maxJD;
@@ -389,7 +389,7 @@ class Date {
 	 * For a month-only date, this would be somewhere around the 16th day.
 	 * For a year-only date, this would be somewhere around 1st July.
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public function julianDay() {
 		return (int) (($this->minimumJulianDay() + $this->maximumJulianDay()) / 2);
@@ -401,8 +401,8 @@ class Date {
 	 * This is typically used to create an estimated death date,
 	 * which is before a certain number of years after the birth date.
 	 *
-	 * @param integer $years     - a number of years, positive or negative
-	 * @param string  $qualifier - typically “BEF” or “AFT”
+	 * @param int     $years     a number of years, positive or negative
+	 * @param string  $qualifier typically “BEF” or “AFT”
 	 *
 	 * @return Date
 	 */
@@ -422,12 +422,13 @@ class Date {
 	/**
 	 * Calculate the the age of a person, on a date.
 	 *
-	 * @param Date    $d1
-	 * @param Date    $d2
-	 * @param integer $format
+	 * @param Date $d1
+	 * @param Date $d2
+	 * @param int  $format
+	 *
+	 * @throws \InvalidArgumentException
 	 *
 	 * @return int|string
-	 * @throws \InvalidArgumentException
 	 */
 	public static function getAge(Date $d1, Date $d2 = null, $format = 0) {
 		if ($d2) {
@@ -480,7 +481,7 @@ class Date {
 	 *
 	 * @param Date      $d1
 	 * @param Date|null $d2
-	 * @param boolean      $warn_on_negative
+	 * @param bool      $warn_on_negative
 	 *
 	 * @return string
 	 */
@@ -510,7 +511,7 @@ class Date {
 	 * @param Date $a
 	 * @param Date $b
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public static function compare(Date $a, Date $b) {
 		// Get min/max JD for each date.
@@ -561,7 +562,7 @@ class Date {
 	 * An incomplete date such as "12 AUG" would be invalid, as
 	 * we cannot sort it.
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public function isOK() {
 		return $this->minimumJulianDay() && $this->maximumJulianDay();
@@ -573,12 +574,12 @@ class Date {
 	 * jewish/arabic users.  This is only for interfacing with external entities,
 	 * such as the ancestry.com search interface or the dated fact icons.
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public function gregorianYear() {
 		if ($this->isOK()) {
 			$gregorian_calendar = new GregorianCalendar;
-			list($year) = $gregorian_calendar->jdToYmd($this->julianDay());
+			list($year)         = $gregorian_calendar->jdToYmd($this->julianDay());
 
 			return $year;
 		} else {

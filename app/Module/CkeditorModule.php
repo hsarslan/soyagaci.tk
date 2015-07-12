@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,10 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module;
+
+use Fisharebest\Webtrees\Controller\BaseController;
+use Fisharebest\Webtrees\I18N;
 
 /**
  * Class CkeditorModule
@@ -37,8 +39,6 @@ class CkeditorModule extends AbstractModule {
 	 * before we have sent the page footer.
 	 *
 	 * @param BaseController $controller
-	 *
-	 * @return void
 	 */
 	public static function enableEditor($controller) {
 		$controller

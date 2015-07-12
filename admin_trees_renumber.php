@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
  * Defined in session.php
@@ -22,6 +21,8 @@ namespace Fisharebest\Webtrees;
  * @global Tree $WT_TREE
  */
 global $WT_TREE;
+
+use Fisharebest\Webtrees\Controller\PageController;
 
 define('WT_SCRIPT_NAME', 'admin_trees_renumber.php');
 require './includes/session.php';
@@ -59,13 +60,13 @@ $xrefs = Database::prepare(
 	") AS other_trees USING (xref)"
 )->execute(array(
 	$WT_TREE->getTreeId(), $WT_TREE->getTreeId(), $WT_TREE->getTreeId(), $WT_TREE->getTreeId(), $WT_TREE->getTreeId(),
-	$WT_TREE->getTreeId(), $WT_TREE->getTreeId(), $WT_TREE->getTreeId(), $WT_TREE->getTreeId(), $WT_TREE->getTreeId(), $WT_TREE->getTreeId()
+	$WT_TREE->getTreeId(), $WT_TREE->getTreeId(), $WT_TREE->getTreeId(), $WT_TREE->getTreeId(), $WT_TREE->getTreeId(), $WT_TREE->getTreeId(),
 ))->fetchAssoc();
 
 echo '<h1>', $controller->getPageTitle(), '</h1>';
 
-if (Filter::get('go')) {
-	foreach ($xrefs as $old_xref=>$type) {
+if (Filter::get('action') === 'renumber') {
+	foreach ($xrefs as $old_xref => $type) {
 		Database::beginTransaction();
 		Database::exec(
 			"LOCK TABLE `##individuals` WRITE," .
@@ -279,7 +280,7 @@ if ($xrefs) {
 	echo '<button type="submit" class="btn btn-primary">';
 	echo '<i class="fa fa-check"></i> ', /* I18N: Button label */ I18N::translate('continue');
 	echo '</button>';
-	//echo '<input type="submit" name="go" value="', /* I18N: button label */ I18N::translate('go'), '"></p>';
+	echo '<input type="hidden" name="action" value="renumber">';
 	echo '<input type="hidden" name="ged" value="', $WT_TREE->getNameHtml(), '">';
 	echo '</form>';
 	echo '<p>', I18N::translate('Caution!  This may take a long time.  Be patient.'), '</p>';

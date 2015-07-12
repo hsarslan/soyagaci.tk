@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
  * Defined in session.php
@@ -22,6 +21,9 @@ namespace Fisharebest\Webtrees;
  * @global Tree $WT_TREE
  */
 global $WT_TREE;
+
+use Fisharebest\Webtrees\Controller\PageController;
+use Fisharebest\Webtrees\Functions\FunctionsEdit;
 
 define('WT_SCRIPT_NAME', 'admin_trees_merge.php');
 require './includes/session.php';
@@ -74,7 +76,7 @@ if ($tree1_id && $tree2_id != $tree1_id) {
 		") AS other_trees USING (xref)"
 	)->execute(array(
 		$tree1_id, $tree1_id, $tree1_id, $tree1_id, $tree1_id,
-		$tree2_id, $tree2_id, $tree2_id, $tree2_id, $tree2_id, $tree2_id
+		$tree2_id, $tree2_id, $tree2_id, $tree2_id, $tree2_id, $tree2_id,
 	))->fetchAssoc();
 
 	if ($xrefs) {
@@ -191,8 +193,8 @@ if ($tree1_id && $tree2_id != $tree1_id) {
 	echo '<input type="hidden" name="go" value="1">';
 	echo '<p>', I18N::translate(/* I18N:  Copy all the records from [family tree 1] into [family tree 2] */
 		'Copy all the records from %1$s into %2$s.',
-		select_edit_control('tree1_id', Tree::getIdList(), '', null),
-		select_edit_control('tree2_id', Tree::getIdList(), '', null)
+		FunctionsEdit::selectEditControl('tree1_id', Tree::getIdList(), '', null),
+		FunctionsEdit::selectEditControl('tree2_id', Tree::getIdList(), '', null)
 	),
 	'</p>';
 

@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module;
 
 /**
  * Interface ModuleSidebarInterface - Classes and libraries for module system
@@ -23,12 +22,13 @@ interface ModuleSidebarInterface {
 	/**
 	 * The user can change the order of sidebars.  Until they do this, they are shown in this order.
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public function defaultSidebarOrder();
 
 	/**
 	 * Load this sidebar synchronously.
+	 *
 	 * @return string
 	 */
 	public function getSidebarContent();
@@ -43,7 +43,7 @@ interface ModuleSidebarInterface {
 	/**
 	 * Does this sidebar have anything to display for this individual?
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public function hasSidebarContent();
 }

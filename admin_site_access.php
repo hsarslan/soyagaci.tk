@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,17 +13,11 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
+use Fisharebest\Webtrees\Controller\PageController;
+use Fisharebest\Webtrees\Functions\FunctionsEdit;
 use PDO;
-use Zend_Controller_Request_Http;
-use Zend_Session;
-
-/**
- * Defined in session.php
- *
- * @global Zend_Controller_Request_Http $WT_REQUEST
- */
-global $WT_REQUEST;
 
 define('WT_SCRIPT_NAME', 'admin_site_access.php');
 require './includes/session.php';
@@ -55,7 +47,7 @@ case 'save':
 		$rule                = Filter::post('rule', 'allow|deny|robot');
 		$comment             = Filter::post('comment');
 		$user_agent_string   = Filter::server('HTTP_USER_AGENT');
-		$ip_address          = $WT_REQUEST->getClientIp();
+		$ip_address          = WT_CLIENT_IP;
 
 		if ($ip_address_start !== null && $ip_address_end !== null && $user_agent_pattern !== null && $rule !== null) {
 			// This doesn't work with named placeholders.  The :user_agent_string parameter is not recognised...
@@ -137,7 +129,6 @@ $controller
 $action = Filter::get('action');
 switch ($action) {
 case 'load':
-	Zend_Session::writeClose();
 	// AJAX callback for datatables
 	$search = Filter::get('search');
 	$search = $search['value'];
@@ -200,8 +191,9 @@ case 'load':
 		$site_access_rule_id = $datum[8];
 
 		$datum[0] = '<div class="btn-group"><button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><i class="fa fa-pencil"></i> <span class="caret"></span></button><ul class="dropdown-menu" role="menu"><li><a href="?action=edit&amp;site_access_rule_id=' . $site_access_rule_id . '"><i class="fa fa-fw fa-pencil"></i> ' . I18N::translate('Edit') . '</a></li><li class="divider"><li><a href="#" onclick="if (confirm(\'' . I18N::translate('Are you sure you want to delete “%s”?', Filter::escapeJs($datum[5])) . '\')) delete_site_access_rule(' . $site_access_rule_id . '); return false;"><i class="fa fa-fw fa-trash-o"></i> ' . I18N::translate('Delete') . '</a></li></ul></div>';
-
+		$datum[5] = '<span dir="ltr">' . $datum[5] . '</span>';
 		$datum[6] = $rules_display[$datum[6]];
+		$datum[7] = '<span dir="auto">' . $datum[7] . '</span>';
 	}
 
 	// Total filtered/unfiltered rows
@@ -214,7 +206,7 @@ case 'load':
 		'draw'            => Filter::getInteger('draw'),
 		'recordsTotal'    => $recordsTotal,
 		'recordsFiltered' => $recordsFiltered,
-		'data'            => $data
+		'data'            => $data,
 	));
 	break;
 
@@ -282,7 +274,7 @@ case 'create':
 				<?php echo I18N::translate('User-agent string'); ?>
 			</label>
 			<div class="col-sm-9">
-				<input class="form-control" type="text" id="user_agent_pattern" name="user_agent_pattern" required value="<?php echo Filter::escapeHtml($user_agent_pattern); ?>" maxlength="255">
+				<input class="form-control" type="text" id="user_agent_pattern" name="user_agent_pattern" required value="<?php echo Filter::escapeHtml($user_agent_pattern); ?>" maxlength="255" dir="ltr">
 				<p class="small text-muted">
 					<?php echo I18N::translate('The “%” character is a wildcard, and will match zero or more other characters.'); ?>
 				</p>
@@ -295,17 +287,17 @@ case 'create':
 				<?php echo /* I18N: A configuration setting */ I18N::translate('Rule'); ?>
 			</label>
 			<div class="col-sm-9">
-				<?php echo select_edit_control('rule', $rules_edit, null, $rule, 'class="form-control"'); ?>
+				<?php echo FunctionsEdit::selectEditControl('rule', $rules_edit, null, $rule, 'class="form-control"'); ?>
 			</div>
 		</div>
 
-		<!-- COMMET -->
+		<!-- COMMENT -->
 		<div class="form-group">
 			<label class="control-label col-sm-3" for="comment">
 				<?php echo I18N::translate('Comment'); ?>
 			</label>
 			<div class="col-sm-9">
-				<input class="form-control" type="text" id="comment" name="comment" value="<?php echo Filter::escapeHtml($comment); ?>" maxlength="255">
+				<input class="form-control" type="text" id="comment" name="comment" value="<?php echo Filter::escapeHtml($comment); ?>" maxlength="255" dir="auto">
 			</div>
 		</div>
 
@@ -334,8 +326,9 @@ default:
 				processing: true,
 				stateSave: true,
 				stateDuration: 180,
+				sorting: [[1, "asc"]],
 				columns: [
-					/* 0 <edit>                  */ { sortable: false, class: "center" },
+					/* 0 <edit>                  */ { sortable: false },
 					/* 1 ip_address_start        */ { dataSort: 2, class: "ip_address" },
 					/* 2 ip_address_start (sort) */ { type: "num", visible: false },
 					/* 3 ip_address_end          */ { dataSort: 4, class: "ip_address" },

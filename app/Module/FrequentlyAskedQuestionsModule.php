@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,17 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module;
+
+use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\Controller\PageController;
+use Fisharebest\Webtrees\Database;
+use Fisharebest\Webtrees\Filter;
+use Fisharebest\Webtrees\Functions\FunctionsEdit;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Menu;
+use Fisharebest\Webtrees\Module;
+use Fisharebest\Webtrees\Tree;
 
 /**
  * Class FrequentlyAskedQuestionsModule
@@ -30,7 +39,12 @@ class FrequentlyAskedQuestionsModule extends AbstractModule implements ModuleMen
 		return /* I18N: Description of the “FAQ” module */ I18N::translate('A list of frequently asked questions and answers.');
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * This is a general purpose hook, allowing modules to respond to routes
+	 * of the form module.php?mod=FOO&mod_action=BAR
+	 *
+	 * @param string $mod_action
+	 */
 	public function modAction($mod_action) {
 		switch ($mod_action) {
 		case 'admin_config':
@@ -78,7 +92,7 @@ class FrequentlyAskedQuestionsModule extends AbstractModule implements ModuleMen
 				)->execute(array(
 					'tree_id'     => Filter::postInteger('gedcom_id'),
 					'block_order' => Filter::postInteger('block_order'),
-					'block_id'    => $block_id
+					'block_id'    => $block_id,
 				));
 			} else {
 				Database::prepare(
@@ -127,43 +141,84 @@ class FrequentlyAskedQuestionsModule extends AbstractModule implements ModuleMen
 			<ol class="breadcrumb small">
 				<li><a href="admin.php"><?php echo I18N::translate('Control panel'); ?></a></li>
 				<li><a href="admin_modules.php"><?php echo I18N::translate('Module administration'); ?></a></li>
-				<li><a href="module.php?mod=<?php echo $this->getName(); ?>&mod_action=admin_config"><?php echo I18N::translate('Frequently asked questions'); ?></a></li>
+				<li><a
+						href="module.php?mod=<?php echo $this->getName(); ?>&mod_action=admin_config"><?php echo I18N::translate('Frequently asked questions'); ?></a>
+				</li>
 				<li class="active"><?php echo $controller->getPageTitle(); ?></li>
 			</ol>
-			<h2><?php echo $controller->getPageTitle(); ?></h2>
-			<?php
+			<h1><?php echo $controller->getPageTitle(); ?></h1>
 
-			echo '<form name="faq" method="post" action="module.php?mod=', $this->getName(), '&amp;mod_action=admin_edit">';
-			echo Filter::getCsrf();
-			echo '<input type="hidden" name="save" value="1">';
-			echo '<input type="hidden" name="block_id" value="', $block_id, '">';
-			echo '<table id="faq_module">';
-			echo '<tr><th>';
-			echo I18N::translate('Question');
-			echo '</th></tr><tr><td><input type="text" name="header" size="90" tabindex="1" value="' . Filter::escapeHtml($header) . '"></td></tr>';
-			echo '<tr><th>';
-			echo I18N::translate('Answer');
-			echo '</th></tr><tr><td>';
-			echo '<textarea name="faqbody" class="html-edit" rows="10" cols="90" tabindex="2">', Filter::escapeHtml($faqbody), '</textarea>';
-			echo '</td></tr>';
-			echo '</table><table id="faq_module2">';
-			echo '<tr>';
-			echo '<th>', I18N::translate('Show this block for which languages?'), '</th>';
-			echo '<th>', I18N::translate('FAQ position'), '</th>';
-			echo '<th>', I18N::translate('FAQ visibility'), '<br><small>', I18N::translate('A FAQ item can be displayed on just one of the family trees, or on all the family trees.'), '</small></th>';
-			echo '</tr><tr>';
-			echo '<td>';
-			$languages = explode(',', $this->getBlockSetting($block_id, 'languages'));
-			echo edit_language_checkboxes('lang', $languages);
-			echo '</td><td>';
-			echo '<input type="text" name="block_order" size="3" tabindex="3" value="', $block_order, '"></td>';
-			echo '</td><td>';
-			echo select_edit_control('gedcom_id', Tree::getIdList(), I18N::translate('All'), $gedcom_id, 'tabindex="4"');
-			echo '</td></tr>';
-			echo '</table>';
+			<form name="faq" class="form-horizontal" method="post" action="module.php?mod=<?php echo $this->getName(); ?>&amp;mod_action=admin_edit">
+			<?php echo Filter::getCsrf(); ?>
+			<input type="hidden" name="save" value="1">
+			<input type="hidden" name="block_id" value="<?php echo $block_id; ?>">
 
-			echo '<p><input type="submit" value="', I18N::translate('save'), '" tabindex="5">';
-			echo '</form>';
+			<div class="form-group">
+				<label for="header" class="col-sm-3 control-label">
+					<?php echo I18N::translate('Question'); ?>
+				</label>
+
+				<div class="col-sm-9">
+					<input type="text" class="form-control" name="header" id="header"
+					       value="<?php echo Filter::escapeHtml($header); ?>">
+				</div>
+			</div>
+
+			<div class="form-group">
+				<label for="faqbody" class="col-sm-3 control-label">
+					<?php echo I18N::translate('Answer'); ?>
+				</label>
+
+				<div class="col-sm-9">
+					<textarea name="faqbody" id="faqbody" class="form-control"
+					          rows="10"><?php echo Filter::escapeHtml($faqbody); ?></textarea>
+				</div>
+			</div>
+
+			<div class="form-group">
+				<label for="xref" class="col-sm-3 control-label">
+					<?php echo I18N::translate('Show this block for which languages?'); ?>
+				</label>
+
+				<div class="col-sm-9">
+					<?php echo FunctionsEdit::editLanguageCheckboxes('lang', explode(',', $this->getBlockSetting($block_id, 'languages'))); ?>
+				</div>
+			</div>
+
+			<div class="form-group">
+				<label for="block_order" class="col-sm-3 control-label">
+					<?php echo I18N::translate('FAQ position'); ?>
+				</label>
+
+				<div class="col-sm-9">
+					<input type="text" name="block_order" id="block_order" class="form-control" value="<?php echo $block_order; ?>">
+				</div>
+			</div>
+
+			<div class="form-group">
+				<label for="gedcom_id" class="col-sm-3 control-label">
+					<?php echo I18N::translate('FAQ visibility'); ?>
+				</label>
+
+				<div class="col-sm-9">
+					<?php echo FunctionsEdit::selectEditControl('gedcom_id', Tree::getIdList(), I18N::translate('All'), $gedcom_id, 'class="form-control"'); ?>
+					<p class="small text-muted">
+						<?php echo I18N::translate('A FAQ item can be displayed on just one of the family trees, or on all the family trees.'); ?>
+					</p>
+				</div>
+			</div>
+
+			<div class="form-group">
+				<div class="col-sm-offset-3 col-sm-9">
+					<button type="submit" class="btn btn-primary">
+						<i class="fa fa-check"></i>
+						<?php echo I18N::translate('save'); ?>
+					</button>
+				</div>
+			</div>
+
+		</form>
+		<?php
 		}
 	}
 
@@ -202,7 +257,7 @@ class FrequentlyAskedQuestionsModule extends AbstractModule implements ModuleMen
 		)->execute(array(
 			'block_order'   => $block_order,
 			'module_name_1' => $this->getName(),
-			'module_name_2' => $this->getName()
+			'module_name_2' => $this->getName(),
 		))->fetchOneRow();
 		if ($swap_block) {
 			Database::prepare(
@@ -353,12 +408,16 @@ class FrequentlyAskedQuestionsModule extends AbstractModule implements ModuleMen
 			))->fetchAll();
 
 		$min_block_order = Database::prepare(
-			"SELECT MIN(block_order) FROM `##block` WHERE module_name=?"
-		)->execute(array($this->getName()))->fetchOne();
+			"SELECT MIN(block_order) FROM `##block` WHERE module_name = 'faq' AND (gedcom_id = :tree_id OR gedcom_id IS NULL)"
+		)->execute(array(
+			'tree_id' => $WT_TREE->getTreeId(),
+		))->fetchOne();
 
 		$max_block_order = Database::prepare(
-			"SELECT MAX(block_order) FROM `##block` WHERE module_name=?"
-		)->execute(array($this->getName()))->fetchOne();
+			"SELECT MAX(block_order) FROM `##block` WHERE module_name = 'faq' AND (gedcom_id = :tree_id OR gedcom_id IS NULL)"
+		)->execute(array(
+			'tree_id' => $WT_TREE->getTreeId(),
+		))->fetchOne();
 
 		?>
 		<ol class="breadcrumb small">
@@ -371,28 +430,33 @@ class FrequentlyAskedQuestionsModule extends AbstractModule implements ModuleMen
 			<?php echo I18N::translate('FAQs are lists of questions and answers, which allow you to explain the site’s rules, policies, and procedures to your visitors.  Questions are typically concerned with privacy, copyright, user-accounts, unsuitable content, requirement for source-citations, etc.'); ?>
 			<?php echo I18N::translate('You may use HTML to format the answer and to add links to other websites.'); ?>
 		</p>
+		<form class="form form-inline">
+			<label for="ged" class="sr-only">
+				<?php echo I18N::translate('Family tree'); ?>
+			</label>
+			<input type="hidden" name="mod" value="<?php echo  $this->getName(); ?>">
+			<input type="hidden" name="mod_action" value="admin_config">
+			<?php echo FunctionsEdit::selectEditControl('ged', Tree::getNameList(), null, $WT_TREE->getName(), 'class="form-control"'); ?>
+			<input type="submit" class="btn btn-primary" value="<?php echo I18N::translate('show'); ?>">
+		</form>
+
+		<p>
+			<a href="module.php?mod=<?php echo $this->getName(); ?>&amp;mod_action=admin_edit" class="btn btn-default">
+				<i class="fa fa-plus"></i>
+				<?php echo I18N::translate('Add an FAQ item'); ?>
+			</a>
+		</p>
+
 		<?php
-
-		echo
-			'<p><form>',
-			I18N::translate('Family tree'), ' ',
-			'<input type="hidden" name="mod", value="', $this->getName(), '">',
-			'<input type="hidden" name="mod_action" value="admin_config">',
-			select_edit_control('ged', Tree::getNameList(), null, $WT_TREE->getNameHtml()),
-			'<input type="submit" value="', I18N::translate('show'), '">',
-			'</form></p>';
-
-		echo '<a href="module.php?mod=', $this->getName(), '&amp;mod_action=admin_edit">', I18N::translate('Add an FAQ item'), '</a>';
-
-		echo '<table id="faq_edit">';
+		echo '<table class="table table-bordered">';
 		if (empty($faqs)) {
 			echo '<tr><td class="error center" colspan="5">', I18N::translate('The FAQ list is empty.'), '</td></tr></table>';
 		} else {
 			foreach ($faqs as $faq) {
 				// NOTE: Print the position of the current item
 				echo '<tr class="faq_edit_pos"><td>';
-				echo I18N::translate('Position item'), ': ', ($faq->block_order + 1), ', ';
-				if ($faq->gedcom_id == null) {
+				echo I18N::translate('#%s', $faq->block_order + 1), ' ';
+				if ($faq->gedcom_id === null) {
 					echo I18N::translate('All');
 				} else {
 					echo $WT_TREE->getTitleHtml();
@@ -403,18 +467,18 @@ class FrequentlyAskedQuestionsModule extends AbstractModule implements ModuleMen
 				if ($faq->block_order == $min_block_order) {
 					echo '&nbsp;';
 				} else {
-					echo '<a href="module.php?mod=', $this->getName(), '&amp;mod_action=admin_moveup&amp;block_id=', $faq->block_id, '" class="icon-uarrow"></a>';
+					echo '<a href="module.php?mod=', $this->getName(), '&amp;mod_action=admin_moveup&amp;block_id=', $faq->block_id, '"><i class="fa fa-arrow-up"></i></i> ', I18N::translate('Move up'), '</a>';
 				}
 				echo '</td><td>';
 				if ($faq->block_order == $max_block_order) {
 					echo '&nbsp;';
 				} else {
-					echo '<a href="module.php?mod=', $this->getName(), '&amp;mod_action=admin_movedown&amp;block_id=', $faq->block_id, '" class="icon-darrow"></a>';
+					echo '<a href="module.php?mod=', $this->getName(), '&amp;mod_action=admin_movedown&amp;block_id=', $faq->block_id, '"><i class="fa fa-arrow-down"></i></i> ', I18N::translate('Move down'), '</a>';
 				}
 				echo '</td><td>';
-				echo '<a href="module.php?mod=', $this->getName(), '&amp;mod_action=admin_edit&amp;block_id=', $faq->block_id, '">', I18N::translate('Edit'), '</a>';
+				echo '<a href="module.php?mod=', $this->getName(), '&amp;mod_action=admin_edit&amp;block_id=', $faq->block_id, '"><i class="fa fa-pencil"></i> ', I18N::translate('Edit'), '</a>';
 				echo '</td><td>';
-				echo '<a href="module.php?mod=', $this->getName(), '&amp;mod_action=admin_delete&amp;block_id=', $faq->block_id, '" onclick="return confirm(\'', I18N::translate('Are you sure you want to delete this FAQ entry?'), '\');">', I18N::translate('Delete'), '</a>';
+				echo '<a href="module.php?mod=', $this->getName(), '&amp;mod_action=admin_delete&amp;block_id=', $faq->block_id, '" onclick="return confirm(\'', I18N::translate('Are you sure you want to delete “%s”?', Filter::escapeHtml($faq->header)), '\');"><i class="fa fa-trash"></i> ', I18N::translate('Delete'), '</a>';
 				echo '</td></tr>';
 				// NOTE: Print the title text of the current item
 				echo '<tr><td colspan="5">';
@@ -427,18 +491,22 @@ class FrequentlyAskedQuestionsModule extends AbstractModule implements ModuleMen
 		}
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * The user can re-order menus.  Until they do, they are shown in this order.
+	 *
+	 * @return int
+	 */
 	public function defaultMenuOrder() {
 		return 40;
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * A menu, to be added to the main application menu.
+	 *
+	 * @return Menu|null
+	 */
 	public function getMenu() {
 		global $WT_TREE;
-
-		if (Auth::isSearchEngine()) {
-			return null;
-		}
 
 		$faqs = Database::prepare(
 			"SELECT block_id FROM `##block` WHERE module_name = :module_name AND IFNULL(gedcom_id, :tree_id_1) = :tree_id_2"
@@ -448,12 +516,11 @@ class FrequentlyAskedQuestionsModule extends AbstractModule implements ModuleMen
 			'tree_id_2'   => $WT_TREE->getTreeId(),
 		))->fetchAll();
 
-		if (!$faqs) {
+		if ($faqs) {
+			return new Menu(I18N::translate('FAQ'), 'module.php?mod=faq&amp;mod_action=show', 'menu-help');
+		} else {
 			return null;
 		}
 
-		$menu = new Menu(I18N::translate('FAQ'), 'module.php?mod=faq&amp;mod_action=show', 'menu-help');
-
-		return $menu;
 	}
 }

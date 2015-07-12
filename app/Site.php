@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,9 +13,10 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
- * class Site - Provide an interface to the wt_site_setting table.
+ * Provide an interface to the wt_site_setting table.
  */
 class Site {
 	/**
@@ -56,8 +55,6 @@ class Site {
 	 *
 	 * @param string          $setting_name
 	 * @param string|int|bool $setting_value
-	 *
-	 * @return void
 	 */
 	public static function setPreference($setting_name, $setting_value) {
 		// Only need to update the database if the setting has actually changed.
@@ -66,7 +63,7 @@ class Site {
 				Database::prepare(
 					"DELETE FROM `##site_setting` WHERE setting_name = :setting_name"
 				)->execute(array(
-					'setting_name' => $setting_name
+					'setting_name' => $setting_name,
 				));
 			} else {
 				Database::prepare(

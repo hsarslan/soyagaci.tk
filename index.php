@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
  * Defined in session.php
@@ -22,6 +21,11 @@ namespace Fisharebest\Webtrees;
  * @global Tree $WT_TREE
  */
 global $WT_TREE;
+
+use Fisharebest\Webtrees\Controller\AjaxController;
+use Fisharebest\Webtrees\Controller\PageController;
+use Fisharebest\Webtrees\Functions\Functions;
+use Fisharebest\Webtrees\Functions\FunctionsDb;
 
 define('WT_SCRIPT_NAME', 'index.php');
 require './includes/session.php';
@@ -38,15 +42,15 @@ if (Auth::check()) {
 
 // Get the blocks list
 if ($ctype === 'user') {
-	$blocks = get_user_blocks(Auth::id());
+	$blocks = FunctionsDb::getUserBlocks(Auth::id());
 } else {
-	$blocks = get_gedcom_blocks($WT_TREE->getTreeId());
+	$blocks = FunctionsDb::getTreeBlocks($WT_TREE->getTreeId());
 }
 
 $active_blocks = Module::getActiveBlocks($WT_TREE);
 
 // The latest version is shown on the administration page.  This updates it every day.
-fetch_latest_version();
+Functions::fetchLatestVersion();
 
 // We generate individual blocks using AJAX
 if ($action === 'ajax') {
@@ -69,6 +73,12 @@ if ($action === 'ajax') {
 	return;
 }
 
+// Redirect search engines to the full URL
+if (Filter::get('ctype') !== $ctype || Filter::get('ged') !== $WT_TREE->getName()) {
+	header('Location: ' . WT_BASE_URL . 'index.php?ctype=' . $ctype . '&ged=' . $WT_TREE->getName());
+	return;
+}
+
 $controller = new PageController;
 if ($ctype === 'user') {
 	$controller->restrictAccess(Auth::check());
@@ -76,7 +86,6 @@ if ($ctype === 'user') {
 $controller
 	->setPageTitle($ctype === 'user' ? I18N::translate('My page') : $WT_TREE->getTitle())
 	->setMetaRobots('index,follow')
-	->setCanonicalUrl(WT_SCRIPT_NAME . '?ctype=' . $ctype . '&amp;ged=' . $WT_TREE->getNameHtml())
 	->pageHeader()
 	// By default jQuery modifies AJAX URLs to disable caching, causing JS libraries to be loaded many times.
 	->addInlineJavascript('jQuery.ajaxSetup({cache:true});');

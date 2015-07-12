@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,9 +13,19 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
+
+use Fisharebest\Webtrees\Module\AbstractModule;
+use Fisharebest\Webtrees\Module\ModuleBlockInterface;
+use Fisharebest\Webtrees\Module\ModuleChartInterface;
+use Fisharebest\Webtrees\Module\ModuleMenuInterface;
+use Fisharebest\Webtrees\Module\ModuleReportInterface;
+use Fisharebest\Webtrees\Module\ModuleSidebarInterface;
+use Fisharebest\Webtrees\Module\ModuleTabInterface;
+use Fisharebest\Webtrees\Module\ModuleThemeInterface;
 
 /**
- * Class Module - Static functions for managing and maintaining modules.
+ * Functions for managing and maintaining modules.
  */
 class Module {
 	/**
@@ -49,7 +57,7 @@ class Module {
 					Database::prepare(
 						"UPDATE `##module` SET status = 'disabled' WHERE module_name = :module_name"
 					)->execute(array(
-						'module_name' => $module_name
+						'module_name' => $module_name,
 					));
 				}
 			}
@@ -59,7 +67,7 @@ class Module {
 	}
 
 	/**
-	 * Get a list of modules which (a) provide a specific function chart and (b) we have permission to see.
+	 * Get a list of modules which (a) provide a specific function and (b) we have permission to see.
 	 *
 	 * We cannot currently use auto-loading for modules, as there may be user-defined
 	 * modules about which the auto-loader knows nothing.
@@ -84,8 +92,8 @@ class Module {
 
 		$array = array();
 		foreach ($module_names as $module_name) {
-			$interface = __NAMESPACE__ . '\Module' . ucfirst($component) . 'Interface';
-			$module = self::getModuleByName($module_name);
+			$interface = '\Fisharebest\Webtrees\Module\Module' . ucfirst($component) . 'Interface';
+			$module    = self::getModuleByName($module_name);
 			if ($module instanceof $interface) {
 				$array[$module_name] = $module;
 			}
@@ -93,7 +101,45 @@ class Module {
 
 		// The order of menus/sidebars/tabs is defined in the database.  Others are sorted by name.
 		if ($component !== 'menu' && $component !== 'sidebar' && $component !== 'tab') {
-			uasort($array, function(AbstractModule $x, AbstractModule $y) {
+			uasort($array, function (AbstractModule $x, AbstractModule $y) {
+				return I18N::strcasecmp($x->getTitle(), $y->getTitle());
+			});
+		}
+
+		return $array;
+	}
+
+	/**
+	 * Get a list of all modules, enabled or not, which provide a specific function.
+	 *
+	 * We cannot currently use auto-loading for modules, as there may be user-defined
+	 * modules about which the auto-loader knows nothing.
+	 *
+	 * @param string $component The type of module, such as "tab", "report" or "menu"
+	 *
+	 * @return AbstractModule[]
+	 */
+	public static function getAllModulesByComponent($component) {
+		$module_names = Database::prepare(
+			"SELECT SQL_CACHE module_name" .
+			" FROM `##module`" .
+			" ORDER BY CASE :component WHEN 'menu' THEN menu_order WHEN 'sidebar' THEN sidebar_order WHEN 'tab' THEN tab_order ELSE 0 END, module_name"
+		)->execute(array(
+			'component'    => $component,
+		))->fetchOneColumn();
+
+		$array = array();
+		foreach ($module_names as $module_name) {
+			$interface = '\Fisharebest\Webtrees\Module\Module' . ucfirst($component) . 'Interface';
+			$module    = self::getModuleByName($module_name);
+			if ($module instanceof $interface) {
+				$array[$module_name] = $module;
+			}
+		}
+
+		// The order of menus/sidebars/tabs is defined in the database.  Others are sorted by name.
+		if ($component !== 'menu' && $component !== 'sidebar' && $component !== 'tab') {
+			uasort($array, function (AbstractModule $x, AbstractModule $y) {
 				return I18N::strcasecmp($x->getTitle(), $y->getTitle());
 			});
 		}
@@ -276,7 +322,7 @@ class Module {
 			}
 		}
 
-		uasort($modules, function(AbstractModule $x, AbstractModule $y) {
+		uasort($modules, function (AbstractModule $x, AbstractModule $y) {
 			return I18N::strcasecmp($x->getTitle(), $y->getTitle());
 		});
 
@@ -287,9 +333,7 @@ class Module {
 	 * After creating a new family tree, we need to assign the default access
 	 * rights for each module.
 	 *
-	 * @param integer $tree_id
-	 *
-	 * @return void
+	 * @param int $tree_id
 	 */
 	public static function setDefaultAccess($tree_id) {
 		foreach (self::getInstalledModules('disabled') as $module) {

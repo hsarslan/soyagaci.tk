@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,40 +13,60 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module;
+
+use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Menu;
 
 /**
  * Class AhnentafelReportModule
  */
 class AhnentafelReportModule extends AbstractModule implements ModuleReportInterface {
-	/** {@inheritdoc} */
+	/**
+	 * How should this module be labelled on tabs, menus, etc.?
+	 *
+	 * @return string
+	 */
 	public function getTitle() {
 		// This text also appears in the .XML file - update both together
 		return /* I18N: Name of a module/report */ I18N::translate('Ancestors');
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * A sentence describing what this module does.
+	 *
+	 * @return string
+	 */
 	public function getDescription() {
 		// This text also appears in the .XML file - update both together
 		return /* I18N: Description of the “Ancestors” module */ I18N::translate('A report of an individual’s ancestors, in a narrative style.');
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * What is the default access level for this module?
+	 *
+	 * Some modules are aimed at admins or managers, and are not generally shown to users.
+	 *
+	 * @return int
+	 */
 	public function defaultAccessLevel() {
 		return Auth::PRIV_PRIVATE;
 	}
 
-	/** {@inheritdoc} */
-	public function getReportMenus() {
+	/**
+	 * Return a menu item for this report.
+	 *
+	 * @return Menu
+	 */
+	public function getReportMenu() {
 		global $controller, $WT_TREE;
 
-		$menus = array();
-		$menu = new Menu(
+		return new Menu(
 			$this->getTitle(),
 			'reportengine.php?ged=' . $WT_TREE->getNameUrl() . '&amp;action=setup&amp;report=' . WT_MODULES_DIR . $this->getName() . '/report.xml&amp;pid=' . $controller->getSignificantIndividual()->getXref(),
-			'menu-report-' . $this->getName()
+			'menu-report-' . $this->getName(),
+			array('rel' => 'nofollow')
 		);
-		$menus[] = $menu;
-
-		return $menus;
 	}
 }

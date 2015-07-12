@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 use PDO;
 use PDOException;
@@ -43,8 +42,7 @@ if (!file_exists(WT_DATA_DIR . 'config.ini.php')) {
 	return;
 }
 
-$WT_SESSION         = new \stdClass;
-$WT_SESSION->locale = '';
+Session::start();
 
 define('WT_LOCALE', I18N::init());
 
@@ -62,7 +60,7 @@ foreach (FlashMessages::getMessages() as $message) {
 $config_ini_php = parse_ini_file('data/config.ini.php');
 if (is_array($config_ini_php) && array_key_exists('dbhost', $config_ini_php) && array_key_exists('dbport', $config_ini_php) && array_key_exists('dbuser', $config_ini_php) && array_key_exists('dbpass', $config_ini_php) && array_key_exists('dbname', $config_ini_php)) {
 	try {
-		new PDO('mysql:host=' . $config_ini_php['dbhost'] . ';port=' . $config_ini_php['dbport'] . ';dbname=' . $config_ini_php['dbname'], $config_ini_php['dbuser'], $config_ini_php['dbpass'], array(PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_OBJ, PDO::ATTR_CASE=>PDO::CASE_LOWER, PDO::ATTR_AUTOCOMMIT=>true));
+		new PDO('mysql:host=' . $config_ini_php['dbhost'] . ';port=' . $config_ini_php['dbport'] . ';dbname=' . $config_ini_php['dbname'], $config_ini_php['dbuser'], $config_ini_php['dbpass'], array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_OBJ, PDO::ATTR_CASE => PDO::CASE_LOWER, PDO::ATTR_AUTOCOMMIT => true));
 	} catch (PDOException $ex) {
 		$messages .= '<p>' . I18N::translate('The database reported the following error message:') . '</p>';
 		$messages .= '<blockquote>' . $ex->getMessage() . '</blockquote>';
@@ -107,7 +105,7 @@ if (is_array($config_ini_php) && array_key_exists('dbhost', $config_ini_php) && 
 				</li>
 			</ol>
 			<p class="good">
-				<?php echo I18N::translate('If you cannot resolve the problem yourself, you can ask for help on the forums at <a href="http://webtrees.net">webtrees.net</a>'); ?>
+				<?php echo I18N::translate('If you cannot resolve the problem yourself, you can ask for help on the forums at <a href="http://webtrees.net">webtrees.net</a>.'); ?>
 			</p>
 		</div>
 	</body>

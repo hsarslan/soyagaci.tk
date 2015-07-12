@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,9 +13,21 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Controller;
+
+use Fisharebest\Webtrees\Family;
+use Fisharebest\Webtrees\FlashMessages;
+use Fisharebest\Webtrees\GedcomRecord;
+use Fisharebest\Webtrees\GedcomTag;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Individual;
+use Fisharebest\Webtrees\Media;
+use Fisharebest\Webtrees\Note;
+use Fisharebest\Webtrees\Repository;
+use Fisharebest\Webtrees\Source;
 
 /**
- * Class GedcomRecordController - Base controller for all GedcomRecord controllers
+ * Base controller for all GedcomRecord controllers
  */
 class GedcomRecordController extends PageController {
 	/**
@@ -62,7 +72,6 @@ class GedcomRecordController extends PageController {
 
 		// Set a page title
 		if ($this->record) {
-			$this->setCanonicalUrl($this->record->getHtmlUrl());
 			if ($this->record->canShowName()) {
 				// e.g. "John Doe" or "1881 Census of Wales"
 				$this->setPageTitle($this->record->getFullName());

@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,10 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module;
+
+use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\I18N;
 
 /**
  * Class PageMenuModule
@@ -30,12 +32,20 @@ class PageMenuModule extends AbstractModule implements ModuleMenuInterface {
 		return /* I18N: Description of the “Edit” module */ I18N::translate('An edit menu for individuals, families, sources, etc.');
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * The user can re-order menus.  Until they do, they are shown in this order.
+	 *
+	 * @return int
+	 */
 	public function defaultMenuOrder() {
 		return 10;
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * A menu, to be added to the main application menu.
+	 *
+	 * @return Menu|null
+	 */
 	public function getMenu() {
 		global $controller, $WT_TREE;
 
@@ -47,6 +57,7 @@ class PageMenuModule extends AbstractModule implements ModuleMenuInterface {
 		if (Auth::isEditor($WT_TREE) && method_exists($controller, 'getEditMenu')) {
 			$menu = $controller->getEditMenu();
 		}
+
 		return $menu;
 	}
 }

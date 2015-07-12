@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
  * Defined in session.php
@@ -22,6 +21,9 @@ namespace Fisharebest\Webtrees;
  * @global Tree $WT_TREE
  */
 global $WT_TREE;
+
+use Fisharebest\Webtrees\Controller\SimpleController;
+use Fisharebest\Webtrees\Functions\FunctionsImport;
 
 define('WT_SCRIPT_NAME', 'edit_changes.php');
 require './includes/session.php';
@@ -76,10 +78,10 @@ case 'accept':
 	foreach ($changes as $change) {
 		if (empty($change->new_gedcom)) {
 			// delete
-			update_record($change->old_gedcom, $gedcom_id, true);
+			FunctionsImport::updateRecord($change->old_gedcom, $gedcom_id, true);
 		} else {
 			// add/update
-			update_record($change->new_gedcom, $gedcom_id, false);
+			FunctionsImport::updateRecord($change->new_gedcom, $gedcom_id, false);
 		}
 		Database::prepare("UPDATE `##change` SET status='accepted' WHERE change_id=?")->execute(array($change->change_id));
 		Log::addEditLog("Accepted change {$change->change_id} for {$change->xref} / {$change->gedcom_name} into database");
@@ -103,10 +105,10 @@ case 'acceptall':
 	foreach ($changes as $change) {
 		if (empty($change->new_gedcom)) {
 			// delete
-			update_record($change->old_gedcom, $change->gedcom_id, true);
+			FunctionsImport::updateRecord($change->old_gedcom, $change->gedcom_id, true);
 		} else {
 			// add/update
-			update_record($change->new_gedcom, $change->gedcom_id, false);
+			FunctionsImport::updateRecord($change->new_gedcom, $change->gedcom_id, false);
 		}
 		Database::prepare("UPDATE `##change` SET status='accepted' WHERE change_id=?")->execute(array($change->change_id));
 		Log::addEditLog("Accepted change {$change->change_id} for {$change->xref} / {$change->gedcom_name} into database");
@@ -132,8 +134,8 @@ if ($changed_gedcoms) {
 		" ORDER BY gedcom_id, c.xref, c.change_id"
 	)->fetchAll();
 
-	$output = '<br><br><table class="list_table">';
-	$prev_xref = null;
+	$output         = '<br><br><table class="list_table">';
+	$prev_xref      = null;
 	$prev_gedcom_id = null;
 	foreach ($changes as $change) {
 		$tree = Tree::findById($change->gedcom_id);

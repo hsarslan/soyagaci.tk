@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,9 +13,12 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
+
+use Fisharebest\Webtrees\Functions\FunctionsPrint;
 
 /**
- * Class Fact - Class that defines an event details object
+ * A GEDCOM fact or event object.
  */
 class Fact {
 	/** @var string Unique identifier for this fact (currently implemented as a hash of the raw data). */
@@ -32,10 +33,10 @@ class Fact {
 	/** @var string The GEDCOM tag for this record */
 	private $tag;
 
-	/** @var boolean Is this a recently deleted fact, pending approval? */
+	/** @var bool Is this a recently deleted fact, pending approval? */
 	private $pending_deletion = false;
 
-	/** @var boolean Is this a recently added fact, pending approval? */
+	/** @var bool Is this a recently added fact, pending approval? */
 	private $pending_addition = false;
 
 	/** @var Date The date of this fact, from the “2 DATE …” attribute */
@@ -44,7 +45,7 @@ class Fact {
 	/** @var Place The place of this fact, from the “2 PLAC …” attribute */
 	private $place;
 
-	/** @var integer Temporary(!) variable Used by sort_facts() */
+	/** @var int Temporary(!) variable Used by Functions::sortFacts() */
 	public $sortOrder;
 
 	/**
@@ -86,7 +87,7 @@ class Fact {
 	/**
 	 * Get the record to which this fact links
 	 *
-	 * @return GedcomRecord|null
+	 * @return Individual|Family|Source|Repository|Media|Note|null
 	 */
 	public function getTarget() {
 		$xref = trim($this->getValue(), '@');
@@ -129,9 +130,9 @@ class Fact {
 	/**
 	 * Do the privacy rules allow us to display this fact to the current user
 	 *
-	 * @param integer|null $access_level
+	 * @param int|null $access_level
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public function canShow($access_level = null) {
 		if ($access_level === null) {
@@ -167,7 +168,7 @@ class Fact {
 	/**
 	 * Check whether this fact is protected against edit
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public function canEdit() {
 		// Managers can edit anything
@@ -248,7 +249,7 @@ class Fact {
 	/**
 	 * The Person/Family record where this Fact came from
 	 *
-	 * @return GedcomRecord
+	 * @return Individual|Family|Source|Repository|Media|Note|GedcomRecord
 	 */
 	public function getParent() {
 		return $this->parent;
@@ -284,7 +285,7 @@ class Fact {
 	/**
 	 * Is this a newly deleted fact, pending approval.
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public function isPendingDeletion() {
 		return $this->pending_deletion;
@@ -301,7 +302,7 @@ class Fact {
 	/**
 	 * Is this a newly added fact, pending approval.
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public function isPendingAddition() {
 		return $this->pending_addition;
@@ -385,7 +386,7 @@ class Fact {
 			}
 			$date = $this->getDate();
 			if ($this->getTag() == 'BIRT' && $this->getParent() instanceof Individual && $this->getParent()->getTree()->getPreference('SHOW_PARENTS_AGE')) {
-				$attributes[] = $date->display() . format_parents_age($this->getParent(), $date);
+				$attributes[] = $date->display() . FunctionsPrint::formatParentsAges($this->getParent(), $date);
 			} else {
 				$attributes[] = $date->display();
 			}
@@ -394,14 +395,19 @@ class Fact {
 				$attributes[] = $place;
 			}
 		}
-		$html = GedcomTag::getLabelValue($this->getTag(), implode(' — ', $attributes), $this->getParent());
+
+		$class = 'fact_' . $this->getTag();
 		if ($this->isPendingAddition()) {
-			return '<div class="new">' . $html . '</div>';
+			$class .= ' new';
 		} elseif ($this->isPendingDeletion()) {
-			return '<div class="old">' . $html . '</div>';
-		} else {
-			return $html;
+			$class .= ' old';
 		}
+
+		return
+			'<div class="' . $class . '">' .
+			/* I18N: a label/value pair, such as “Occupation: Farmer”.  Some languages may need to change the punctuation. */
+			I18N::translate('<span class="label">%1$s:</span> <span class="field" dir="auto">%2$s</span>', $this->getLabel(), implode(' — ', $attributes)) .
+			'</div>';
 	}
 
 	/**
@@ -410,7 +416,7 @@ class Fact {
 	 * @param Fact $a Fact one
 	 * @param Fact $b Fact two
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public static function compareDate(Fact $a, Fact $b) {
 		if ($a->getDate()->isOK() && $b->getDate()->isOK()) {
@@ -440,7 +446,7 @@ class Fact {
 	 * @param Fact $a Fact one
 	 * @param Fact $b Fact two
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public static function compareType(Fact $a, Fact $b) {
 		global $factsort;
@@ -537,11 +543,11 @@ class Fact {
 
 		// - Don't let dated after DEAT/BURI facts sort non-dated facts before DEAT/BURI
 		// - Treat dated after BURI facts as BURI instead
-		if ($a->getAttribute('DATE') != null && $factsort[$atag] > $factsort['BURI'] && $factsort[$atag] < $factsort['CHAN']) {
+		if ($a->getAttribute('DATE') !== null && $factsort[$atag] > $factsort['BURI'] && $factsort[$atag] < $factsort['CHAN']) {
 			$atag = 'BURI';
 		}
 
-		if ($b->getAttribute('DATE') != null && $factsort[$btag] > $factsort['BURI'] && $factsort[$btag] < $factsort['CHAN']) {
+		if ($b->getAttribute('DATE') !== null && $factsort[$btag] > $factsort['BURI'] && $factsort[$btag] < $factsort['CHAN']) {
 			$btag = 'BURI';
 		}
 
@@ -549,11 +555,11 @@ class Fact {
 
 		// If facts are the same then put dated facts before non-dated facts
 		if ($ret == 0) {
-			if ($a->getAttribute('DATE') != null && $b->getAttribute('DATE') == null) {
+			if ($a->getAttribute('DATE') !== null && $b->getAttribute('DATE') === null) {
 				return -1;
 			}
 
-			if ($b->getAttribute('DATE') != null && $a->getAttribute('DATE') == null) {
+			if ($b->getAttribute('DATE') !== null && $a->getAttribute('DATE') === null) {
 				return 1;
 			}
 

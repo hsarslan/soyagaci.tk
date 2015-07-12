@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,11 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
+
+use Fisharebest\Webtrees\Controller\PageController;
+use Fisharebest\Webtrees\Functions\FunctionsEdit;
+use Fisharebest\Webtrees\Module\ModuleConfigInterface;
 
 define('WT_SCRIPT_NAME', 'admin_module_tabs.php');
 require 'includes/session.php';
@@ -25,8 +28,7 @@ $controller
 	->setPageTitle(I18N::translate('Tabs'));
 
 $action  = Filter::post('action');
-$modules = Module::getInstalledModules('disabled');
-$modules = array_filter($modules, function(AbstractModule $x) { return $x instanceof ModuleTabInterface; });
+$modules = Module::getAllModulesByComponent('tab');
 
 if ($action === 'update_mods' && Filter::checkCsrf()) {
 	foreach ($modules as $module) {
@@ -111,7 +113,7 @@ $controller
 										<?php echo $tree->getTitleHtml(); ?>
 									</td>
 									<td>
-										<?php echo edit_field_access_level('access-' . $module->getName() . '-' . $tree->getTreeId(), $module->getAccessLevel($tree, 'tab')); ?>
+										<?php echo FunctionsEdit::editFieldAccessLevel('access-' . $module->getName() . '-' . $tree->getTreeId(), $module->getAccessLevel($tree, 'tab')); ?>
 									</td>
 								</tr>
 							<?php endforeach; ?>

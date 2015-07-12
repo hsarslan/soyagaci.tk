@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,38 +13,38 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-
-use Zend_Session;
+namespace Fisharebest\Webtrees\Controller;
 
 /**
- * Class AjaxController - Base controller for all popup pages
+ * Base controller for all popup pages
  */
 class AjaxController extends BaseController {
-
 	/**
+	 * Print the page header, using the theme
+	 *
 	 * @return $this
 	 */
 	public function pageHeader() {
-		// We have finished writing session data, so release the lock
-		Zend_Session::writeClose();
 		// Ajax responses are always UTF8
 		header('Content-Type: text/html; charset=UTF-8');
-		$this->page_header = true;
+		// We've displayed the header - display the footer automatically
+		register_shutdown_function(array($this, 'pageFooter'));
+
 		return $this;
 	}
 
 	/**
-	 * @return string
+	 * Print the page footer, using the theme
 	 */
 	public function pageFooter() {
 		// Ajax responses may have Javascript
-		return $this->getJavascript();
+		echo $this->getJavascript();
 	}
 
 	/**
 	 * Restrict access.
 	 *
-	 * @param boolean $condition
+	 * @param bool $condition
 	 *
 	 * @return $this
 	 */

@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,9 +13,10 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
- * Class File - File manipulation utilities
+ * File manipulation utilities.
  */
 class File {
 	/**
@@ -34,9 +33,9 @@ class File {
 	 * @return null|string
 	 */
 	public static function fetchUrl($url, $stream = null) {
-		$host = parse_url($url, PHP_URL_HOST);
-		$port = parse_url($url, PHP_URL_PORT);
-		$path = parse_url($url, PHP_URL_PATH);
+		$host  = parse_url($url, PHP_URL_HOST);
+		$port  = parse_url($url, PHP_URL_PORT);
+		$path  = parse_url($url, PHP_URL_PATH);
 		$query = parse_url($url, PHP_URL_QUERY);
 
 		if (!$port) {
@@ -57,7 +56,7 @@ class File {
 			if (preg_match('/^HTTP\/1.[01] 30[123].+\nLocation: ([^\r\n]+)/s', $response, $match)) {
 				fclose($fp);
 
-				return File::fetchUrl($match[1], $stream);
+				return self::fetchUrl($match[1], $stream);
 			} else {
 				// The response includes headers, a blank line, then the content
 				$response = substr($response, strpos($response, "\r\n\r\n") + 4);
@@ -89,14 +88,14 @@ class File {
 	 *
 	 * @param string $path
 	 *
-	 * @return boolean Was the file deleted
+	 * @return bool Was the file deleted
 	 */
 	public static function delete($path) {
 		if (is_dir($path)) {
 			$dir = opendir($path);
 			while ($dir !== false && (($file = readdir($dir)) !== false)) {
 				if ($file !== '.' && $file !== '..') {
-					File::delete($path . DIRECTORY_SEPARATOR . $file);
+					self::delete($path . DIRECTORY_SEPARATOR . $file);
 				}
 			}
 			closedir($dir);
@@ -121,14 +120,14 @@ class File {
 	 *
 	 * @param string $path
 	 *
-	 * @return boolean Does the folder now exist
+	 * @return bool Does the folder now exist
 	 */
 	public static function mkdir($path) {
 		if (is_dir($path)) {
 			return true;
 		} else {
 			if (dirname($path) && !is_dir(dirname($path))) {
-				File::mkdir(dirname($path));
+				self::mkdir(dirname($path));
 			}
 			try {
 				mkdir($path);

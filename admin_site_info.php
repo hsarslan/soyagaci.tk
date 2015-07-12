@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,9 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
+
+use Fisharebest\Webtrees\Controller\PageController;
 
 define('WT_SCRIPT_NAME', 'admin_site_info.php');
 require './includes/session.php';
@@ -26,13 +27,12 @@ $controller
 	->pageHeader();
 
 $variables = Database::prepare("SHOW VARIABLES")->fetchAssoc();
-array_walk($variables, function(&$x) { $x = str_replace(',', ', ', $x); });
+array_walk($variables, function (&$x) { $x = str_replace(',', ', ', $x); });
 
 ob_start();
 phpinfo(INFO_ALL & ~INFO_CREDITS & ~INFO_LICENSE);
-preg_match('%<style type="text/css">(.*?)</style>.*?(<body>.*</body>)%s', ob_get_clean(), $matches);
-$style = $matches[1];
-$html  = $matches[2];
+preg_match('%<body>(.*)</body>%s', ob_get_clean(), $matches);
+$html = $matches[1];
 
 ?>
 
@@ -48,36 +48,13 @@ $html  = $matches[2];
 		<div class="panel panel-default">
 			<div class="panel-heading">
 				<h2 class="panel-title">
-					<?php echo I18N::translate('Time'); ?>
-				</h2>
-			</div>
-			<div class="panel-body">
-				<?php echo /* I18N: The local time on the server */ I18N::translate('Server time'); ?> —
-				<?php echo format_timestamp(WT_SERVER_TIMESTAMP); ?><br>
-				<?php echo /* I18N: The local time on the client/browser */ I18N::translate('Client time'); ?> —
-				<?php echo format_timestamp(WT_CLIENT_TIMESTAMP); ?><br>
-				<?php echo /* I18N: Timezone - http://en.wikipedia.org/wiki/UTC */ I18N::translate('UTC'); ?> —
-				<?php echo format_timestamp(WT_TIMESTAMP); ?>
-			</div>
-		</div>
-	</div>
-</div>
-
-<div class="row">
-	<div class="col-xs-12">
-		<div class="panel panel-default">
-			<div class="panel-heading">
-				<h2 class="panel-title">
 					<?php echo I18N::translate('PHP information'); ?>
 				</h2>
 			</div>
-			<div class="panel-body">
-				<style type="text/css" scoped>
-					<?php echo $style; ?>
-					table { width: 100%; }
-					td.v { word-break: break-all; }
-				</style>
-				<?php echo $html; ?>
+			<div class="panel-body" dir="ltr">
+				<div class="php-info">
+					<?php echo $html; ?>
+				</div>
 			</div>
 		</div>
 	</div>

@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Report;
 
 /**
  * Class ReportBaseImage
@@ -75,32 +74,36 @@ class ReportBaseImage extends ReportBaseElement {
 	 * @param string $ln    T:same line, N:next line
 	 */
 	public function __construct($file, $x, $y, $w, $h, $align, $ln) {
-		$this->file = $file;
-		$this->width = $w;
+		$this->file   = $file;
+		$this->width  = $w;
 		$this->height = $h;
-		$this->x = $x;
-		$this->y = $y;
-		$this->align = $align;
-		$this->line = $ln;
+		$this->x      = $x;
+		$this->y      = $y;
+		$this->align  = $align;
+		$this->line   = $ln;
 
 		return 0;
 	}
 
 	/**
+	 * Get the height.
+	 *
 	 * @param $renderer
 	 *
 	 * @return float
 	 */
-	function getHeight($renderer) {
+	public function getHeight($renderer) {
 		return $this->height;
 	}
 
 	/**
+	 * Get the width.
+	 *
 	 * @param $renderer
 	 *
 	 * @return float
 	 */
-	function getWidth($renderer) {
+	public function getWidth($renderer) {
 		return $this->width;
 	}
 }

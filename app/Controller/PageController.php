@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,39 +13,29 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Controller;
 
-use Zend_Session;
+use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\Database;
+use Fisharebest\Webtrees\Family;
+use Fisharebest\Webtrees\Filter;
+use Fisharebest\Webtrees\Functions\Functions;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Individual;
+use Fisharebest\Webtrees\Theme;
 
 /**
- * Class PageController Controller for full-page, themed HTML responses
+ * Controller for full-page, themed HTML responses
  */
 class PageController extends BaseController {
-	// Page header information
-	private $canonical_url = '';
-	private $meta_robots = 'noindex,nofollow'; // Most pages are not intended for robots
-	private $page_title = WT_WEBTREES; // <head><title> $page_title </title></head>
+	/** @var string Most pages are not intended for robots */
+	private $meta_robots = 'noindex,nofollow';
 
-	/**
-	 * Startup activity
-	 */
-	public function __construct() {
-		parent::__construct();
-		// Every page uses these scripts
-		$this
-			->addExternalJavascript(WT_JQUERY_JS_URL)
-			->addExternalJavascript(WT_JQUERYUI_JS_URL)
-			->addExternalJavascript(WT_WEBTREES_JS_URL);
-	}
+	/** @var string <head><title> $page_title </title></head> */
+	private $page_title = WT_WEBTREES;
 
-	/**
-	 * Shutdown activity
-	 */
-	public function __destruct() {
-		// If we printed a header, automatically print a footer
-		if ($this->page_header) {
-			echo $this->pageFooter();
-		}
-	}
+	/** @var bool Is this a popup window? */
+	private $popup;
 
 	/**
 	 * What should this page show in the browser’s title bar?
@@ -63,34 +51,12 @@ class PageController extends BaseController {
 	}
 
 	/**
-	 * Some pages will want to display this as <h2> $page_title </h2>
+	 * Some pages will want to display this as <h1> $page_title </h1>
 	 *
 	 * @return string
 	 */
 	public function getPageTitle() {
 		return $this->page_title;
-	}
-
-	/**
-	 * What is the preferred URL for this page?
-	 *
-	 * @param string $canonical_url
-	 *
-	 * @return $this
-	 */
-	public function setCanonicalUrl($canonical_url) {
-		$this->canonical_url = $canonical_url;
-
-		return $this;
-	}
-
-	/**
-	 * What is the preferred URL for this page?
-	 *
-	 * @return string
-	 */
-	public function getCanonicalUrl() {
-		return $this->canonical_url;
 	}
 
 	/**
@@ -118,13 +84,13 @@ class PageController extends BaseController {
 	/**
 	 * Restrict access
 	 *
-	 * @param boolean $condition
+	 * @param bool $condition
 	 *
 	 * @return $this
 	 */
 	public function restrictAccess($condition) {
 		if ($condition !== true) {
-			header('Location: ' . WT_LOGIN_URL . '?url=' . rawurlencode(get_query_url()));
+			header('Location: ' . WT_LOGIN_URL . '?url=' . rawurlencode(Functions::getQueryUrl()));
 			exit;
 		}
 
@@ -133,12 +99,36 @@ class PageController extends BaseController {
 
 	/**
 	 * Print the page footer, using the theme
-	 *
-	 * @return string
 	 */
-	protected function pageFooter() {
-		return
+	public function pageFooter() {
+		echo
 			Theme::theme()->footerContainer() .
+			'<!--[if lt IE 9]><script src="' . WT_JQUERY_JS_URL . '"></script><![endif]-->' .
+			'<!--[if gte IE 9]><!--><script src="' . WT_JQUERY2_JS_URL . '"></script><!--<![endif]-->' .
+			'<script src="' . WT_JQUERYUI_JS_URL . '"></script>' .
+			'<script src="' . WT_WEBTREES_JS_URL . '"></script>' .
+			$this->getJavascript() .
+			Theme::theme()->hookFooterExtraJavascript() .
+			(WT_DEBUG_SQL ? Database::getQueryLog() : '') .
+			'</body>' .
+			'</html>' . PHP_EOL .
+			'<!-- webtrees: ' . WT_VERSION . ' -->' .
+			'<!-- Execution time: ' . I18N::number(microtime(true) - WT_START_TIME, 3) . ' seconds -->' .
+			'<!-- Memory: ' . I18N::number(memory_get_peak_usage(true) / 1024) . ' KB -->' .
+			'<!-- SQL queries: ' . I18N::number(Database::getQueryCount()) . ' -->';
+	}
+
+	/**
+	 * Print the page footer, using the theme
+	 * Note that popup windows are deprecated
+	 */
+	public function pageFooterPopupWindow() {
+		echo
+			Theme::theme()->footerContainerPopupWindow() .
+			'<!--[if lt IE 9]><script src="' . WT_JQUERY_JS_URL . '"></script><![endif]-->' .
+			'<!--[if gte IE 9]><!--><script src="' . WT_JQUERY2_JS_URL . '"></script><!--<![endif]-->' .
+			'<script src="' . WT_JQUERYUI_JS_URL . '">"</script>' .
+			'<script src="' . WT_WEBTREES_JS_URL . '">"</script>' .
 			$this->getJavascript() .
 			Theme::theme()->hookFooterExtraJavascript() .
 			(WT_DEBUG_SQL ? Database::getQueryLog() : '') .
@@ -153,12 +143,14 @@ class PageController extends BaseController {
 	/**
 	 * Print the page header, using the theme
 	 *
-	 * @param string $view 'simple' or ''
+	 * @param bool $popup Is this a popup window
 	 *
 	 * @return $this
 	 */
-	public function pageHeader($view = '') {
+	public function pageHeader($popup = false) {
 		global $WT_TREE;
+
+		$this->popup = $popup;
 
 		// Give Javascript access to some PHP constants
 		$this->addInlineJavascript('
@@ -183,13 +175,16 @@ class PageController extends BaseController {
 		echo Theme::theme()->html();
 		echo Theme::theme()->head($this);
 
-		switch ($view) {
-		case 'simple':
+		if ($this->popup) {
 			echo Theme::theme()->bodyHeaderPopupWindow();
-			break;
-		default:
+			// We've displayed the header - display the footer automatically
+			register_shutdown_function(array($this, 'pageFooterPopupWindow'), $this->popup);
+
+		} else {
 			echo Theme::theme()->bodyHeader();
-			break;
+			// We've displayed the header - display the footer automatically
+			register_shutdown_function(array($this, 'pageFooter'), $this->popup);
+
 		}
 
 		// Flush the output, so the browser can render the header and load javascript
@@ -198,12 +193,6 @@ class PageController extends BaseController {
 			ob_flush();
 		}
 		flush();
-
-		// Once we've displayed the header, we should no longer write session data.
-		Zend_Session::writeClose();
-
-		// We've displayed the header - display the footer automatically
-		$this->page_header = true;
 
 		return $this;
 	}

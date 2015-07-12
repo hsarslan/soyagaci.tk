@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,7 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Report;
 
 /**
  * Class ReportHtmlCell
@@ -24,10 +23,8 @@ class ReportHtmlCell extends ReportBaseCell {
 	 * HTML Cell renderer
 	 *
 	 * @param ReportHtml $renderer
-	 *
-	 * @return void
 	 */
-	function render($renderer) {
+	public function render($renderer) {
 		if (strpos($this->text, "{{:ptp:}}") !== false) {
 			return;
 		}
@@ -135,7 +132,7 @@ class ReportHtmlCell extends ReportBaseCell {
 		if (!empty($temptext)) {
 			// Wrap the text
 			$temptext = $renderer->textWrap($temptext, $cW);
-			$tmph = $renderer->getTextCellHeight($temptext);
+			$tmph     = $renderer->getTextCellHeight($temptext);
 			// Add some cell padding
 			$this->height += $cP;
 			if ($tmph > $this->height) {

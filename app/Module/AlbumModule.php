@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,42 +13,78 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module;
+
+use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\Filter;
+use Fisharebest\Webtrees\Functions\FunctionsPrint;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Media;
+use Fisharebest\Webtrees\Menu;
+use Fisharebest\Webtrees\Module;
+use Fisharebest\Webtrees\Theme;
 
 /**
  * Class AlbumModule
  */
 class AlbumModule extends AbstractModule implements ModuleTabInterface {
+	/** @var Media[] List of media objects. */
 	private $media_list;
 
-	/** {@inheritdoc} */
+	/**
+	 * How should this module be labelled on tabs, menus, etc.?
+	 *
+	 * @return string
+	 */
 	public function getTitle() {
 		return /* I18N: Name of a module */ I18N::translate('Album');
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * A sentence describing what this module does.
+	 *
+	 * @return string
+	 */
 	public function getDescription() {
 		return /* I18N: Description of the “Album” module */ I18N::translate('An alternative to the “media” tab, and an enhanced image viewer.');
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * The user can re-arrange the tab order, but until they do, this
+	 * is the order in which tabs are shown.
+	 *
+	 * @return int
+	 */
 	public function defaultTabOrder() {
 		return 60;
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Is this tab empty?  If so, we don't always need to display it.
+	 *
+	 * @return bool
+	 */
 	public function hasTabContent() {
 		global $WT_TREE;
 
 		return Auth::isEditor($WT_TREE) || $this->getMedia();
 	}
 
-
-	/** {@inheritdoc} */
+	/**
+	 * A greyed out tab has no actual content, but may perhaps have
+	 * options to create content.
+	 *
+	 * @return bool
+	 */
 	public function isGrayedOut() {
 		return !$this->getMedia();
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Generate the HTML content of this tab.
+	 *
+	 * @return string
+	 */
 	public function getTabContent() {
 		global $WT_TREE, $controller;
 
@@ -91,7 +125,7 @@ class AlbumModule extends AbstractModule implements ModuleTabInterface {
 			$needle   = '1 NOTE';
 			$before   = substr($haystack, 0, strpos($haystack, $needle));
 			$after    = substr(strstr($haystack, $needle), strlen($needle));
-			$notes    = print_fact_notes($before . $needle . $after, 1, true);
+			$notes    = FunctionsPrint::printFactNotes($before . $needle . $after, 1, true);
 
 			// Prepare Below Thumbnail  menu ----------------------------------------------------
 			$menu = new Menu('<div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">' . $media->getFullName() . '</div>');
@@ -99,7 +133,9 @@ class AlbumModule extends AbstractModule implements ModuleTabInterface {
 
 			// View Notes
 			if (strpos($media->getGedcom(), "\n1 NOTE")) {
-				$submenu = new Menu(I18N::translate('View notes'), '#', '', "modalNotes('" . Filter::escapeJs($notes) . "','" . I18N::translate('View notes') . "'); return false;");
+				$submenu = new Menu(I18N::translate('View notes'), '#', '', array(
+					'onclick' => 'modalNotes("' . Filter::escapeJs($notes) . '","' . I18N::translate('View notes') . '"); return false;',
+				));
 				$submenu->addClass("submenuitem");
 				$menu->addSubmenu($submenu);
 			}
@@ -120,28 +156,40 @@ class AlbumModule extends AbstractModule implements ModuleTabInterface {
 
 			if (Auth::isEditor($media->getTree())) {
 				// Edit Media
-				$submenu = new Menu(I18N::translate('Edit media'), '#', '', "return window.open('addmedia.php?action=editmedia&amp;pid=" . $media->getXref() . "', '_blank', edit_window_specs);");
+				$submenu = new Menu(I18N::translate('Edit media'), '#', '', array(
+					'onclick' => 'return window.open("addmedia.php?action=editmedia&pid=' . $media->getXref() . '", "_blank", edit_window_specs);',
+				));
 				$submenu->addClass("submenuitem");
 				$menu->addSubmenu($submenu);
 				if (Auth::isAdmin()) {
 					if (Module::getModuleByName('GEDFact_assistant')) {
-						$submenu = new Menu(I18N::translate('Manage links'), '#', '', "return window.open('inverselink.php?mediaid=" . $media->getXref() . "&amp;linkto=manage', '_blank', find_window_specs);");
+						$submenu = new Menu(I18N::translate('Manage links'), '#', '', array(
+							'onclick' => 'return window.open("inverselink.php?mediaid=' . $media->getXref() . '&linkto=manage", "_blank", find_window_specs);',
+						));
 						$submenu->addClass("submenuitem");
 						$menu->addSubmenu($submenu);
 					} else {
-						$submenu = new Menu(I18N::translate('Link this media object to an individual'), '#', 'menu-obje-link-indi', "return ilinkitem('" . $media->getXref() . "','person');");
+						$submenu = new Menu(I18N::translate('Link this media object to an individual'), '#', 'menu-obje-link-indi', array(
+							'onclick' => 'return ilinkitem("' . $media->getXref() . '","person");',
+						));
 						$submenu->addClass('submenuitem');
 						$menu->addSubmenu($submenu);
 
-						$submenu = new Menu(I18N::translate('Link this media object to a family'), '#', 'menu-obje-link-fam', "return ilinkitem('" . $media->getXref() . "','family');");
+						$submenu = new Menu(I18N::translate('Link this media object to a family'), '#', 'menu-obje-link-fam', array(
+							'onclick' => 'return ilinkitem("' . $media->getXref() . '","family");',
+						));
 						$submenu->addClass('submenuitem');
 						$menu->addSubmenu($submenu);
 
-						$submenu = new Menu(I18N::translate('Link this media object to a source'), '#', 'menu-obje-link-sour', "return ilinkitem('" . $media->getXref() . "','source');");
+						$submenu = new Menu(I18N::translate('Link this media object to a source'), '#', 'menu-obje-link-sour', array(
+							'onclick' => 'return ilinkitem("' . $media->getXref() . '","source");',
+						));
 						$submenu->addClass('submenuitem');
 						$menu->addSubmenu($submenu);
 					}
-					$submenu = new Menu(I18N::translate('Unlink media'), '#', '', "return unlink_media('" . I18N::translate('Are you sure you want to remove links to this media object?') . "', '" . $controller->record->getXref() . "', '" . $media->getXref() . "');");
+					$submenu = new Menu(I18N::translate('Unlink media'), '#', '', array(
+						'onclick' => 'return unlink_media("' . I18N::translate('Are you sure you want to remove links to this media object?') . '", "' . $controller->record->getXref() . '", "' . $media->getXref() . '");',
+					));
 					$submenu->addClass("submenuitem");
 					$menu->addSubmenu($submenu);
 				}
@@ -153,6 +201,7 @@ class AlbumModule extends AbstractModule implements ModuleTabInterface {
 		}
 		$html .= '</ul>';
 		$html .= '</td></tr></table>';
+
 		return $html;
 	}
 
@@ -193,19 +242,30 @@ class AlbumModule extends AbstractModule implements ModuleTabInterface {
 			foreach ($controller->record->getFacts('_WT_OBJE_SORT') as $fact) {
 				$wt_obje_sort[] = trim($fact->getValue(), '@');
 			}
-			usort($this->media_list, function(Media $x, Media $y) use ($wt_obje_sort) {
+			usort($this->media_list, function (Media $x, Media $y) use ($wt_obje_sort) {
 				return array_search($x->getXref(), $wt_obje_sort) - array_search($y->getXref(), $wt_obje_sort);
 			});
 		}
+
 		return $this->media_list;
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Can this tab load asynchronously?
+	 *
+	 * @return bool
+	 */
 	public function canLoadAjax() {
 		return !Auth::isSearchEngine(); // Search engines cannot use AJAX
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Any content (e.g. Javascript) that needs to be rendered before the tabs.
+	 *
+	 * This function is probably not needed, as there are better ways to achieve this.
+	 *
+	 * @return string
+	 */
 	public function getPreLoadContent() {
 		return '';
 	}

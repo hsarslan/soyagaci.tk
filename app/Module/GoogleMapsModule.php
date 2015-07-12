@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,10 +13,28 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module;
 
+use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\Controller\ChartController;
+use Fisharebest\Webtrees\Controller\PageController;
+use Fisharebest\Webtrees\Controller\SimpleController;
+use Fisharebest\Webtrees\Database;
+use Fisharebest\Webtrees\Family;
+use Fisharebest\Webtrees\Filter;
+use Fisharebest\Webtrees\FlashMessages;
+use Fisharebest\Webtrees\Functions\Functions;
+use Fisharebest\Webtrees\Functions\FunctionsCharts;
+use Fisharebest\Webtrees\Functions\FunctionsEdit;
+use Fisharebest\Webtrees\Functions\FunctionsPrint;
+use Fisharebest\Webtrees\GedcomTag;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Individual;
+use Fisharebest\Webtrees\Module;
+use Fisharebest\Webtrees\Stats;
+use Fisharebest\Webtrees\Theme;
+use Fisharebest\Webtrees\Tree;
 use PDO;
-use PDOException;
-use Zend_Session;
 
 /**
  * Class GoogleMapsModule
@@ -38,51 +54,25 @@ use Zend_Session;
  * Hence, use "Google Maps™ mapping service" where appropriate.
  */
 class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, ModuleTabInterface {
-
-	/** @var array of ancestors of root person */
+	/** @var Individual[] of ancestors of root person */
 	private $ancestors = array();
 
-	/** @var integer Number of generation to display */
+	/** @var int Number of generation to display */
 	private $generations;
 
-	/** @var integer Number of nodes in the chart */
+	/** @var int Number of nodes in the chart */
 	private $treesize;
 
-	/** {@inheritdoc} */
+	/**
+	 * Create a new module.
+	 *
+	 * @param string $directory Where is this module installed
+	 */
 	public function __construct($directory) {
 		parent::__construct($directory);
 
-		// Create GM tables, if not already present
-		try {
-			Database::updateSchema(WT_ROOT . WT_MODULES_DIR . '/googlemap/db_schema/', 'GM_SCHEMA_VERSION', 5);
-		} catch (PDOException $ex) {
-			// The schema update scripts should never fail.  If they do, there is no clean recovery.
-			FlashMessages::addMessage($ex->getMessage(), 'danger');
-			header('Location: ' . WT_BASE_URL . 'site-unavailable.php');
-			throw $ex;
-		}
-
-		// Set default values
-		try {
-			// TODO: do this once only, in a db_schema upgrade script?
-			$this->setSetting('GM_MAP_TYPE', $this->getSetting('GM_MAP_TYPE', 'G_NORMAL_MAP')); // G_PHYSICAL_MAP, G_NORMAL_MAP, G_SATELLITE_MAP, G_HYBRID_MAP
-			$this->setSetting('GM_MAX_ZOOM', $this->getSetting('GM_MAX_ZOOM', '20')); // max zoom level
-			$this->setSetting('GM_MIN_ZOOM', $this->getSetting('GM_MIN_ZOOM', '2')); // min zoom level
-			$this->setSetting('GM_PRECISION_0', $this->getSetting('GM_PRECISION_0', '0')); // Country level
-			$this->setSetting('GM_PRECISION_1', $this->getSetting('GM_PRECISION_1', '1')); // State level
-			$this->setSetting('GM_PRECISION_2', $this->getSetting('GM_PRECISION_2', '2')); // City level
-			$this->setSetting('GM_PRECISION_3', $this->getSetting('GM_PRECISION_3', '3')); // Neighborhood level
-			$this->setSetting('GM_PRECISION_4', $this->getSetting('GM_PRECISION_4', '4')); // House level
-			$this->setSetting('GM_PRECISION_5', $this->getSetting('GM_PRECISION_5', '5')); // Max prcision level
-			$this->setSetting('GM_XSIZE', $this->getSetting('GM_XSIZE', '600')); // X-size of Google map
-			$this->setSetting('GM_YSIZE', $this->getSetting('GM_YSIZE', '400')); // Y-size of Google map
-			$this->setSetting('GM_PH_XSIZE', $this->getSetting('GM_PH_XSIZE', '500')); // X-size of Place Hierarchy Google map
-			$this->setSetting('GM_PH_YSIZE', $this->getSetting('GM_PH_YSIZE', '350')); // Y-size of Place Hierarchy Google map
-			$this->setSetting('GM_PH_MARKER', $this->getSetting('GM_PH_MARKER', 'G_FLAG')); // Possible values: G_FLAG = Flag, G_DEFAULT_ICON = Standard icon
-			$this->setSetting('GM_DISP_SHORT_PLACE', $this->getSetting('GM_DISP_SHORT_PLACE', '0')); // Display full place name or only the actual level name
-		} catch (\Exception $ex) {
-			// Perhaps the module hasn't been installed yet (no entry in wt_modules)
-		}
+		// Create/update the database tables.
+		Database::updateSchema('\Fisharebest\Webtrees\Module\GoogleMaps\Schema', 'GM_SCHEMA_VERSION', 6);
 	}
 
 	/** {@inheritdoc} */
@@ -95,7 +85,12 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 		return /* I18N: Description of the “Google Maps™” module */ I18N::translate('Show the location of places and events using the Google Maps™ mapping service.');
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * This is a general purpose hook, allowing modules to respond to routes
+	 * of the form module.php?mod=FOO&mod_action=BAR
+	 *
+	 * @param string $mod_action
+	 */
 	public function modAction($mod_action) {
 		switch ($mod_action) {
 		case 'admin_config':
@@ -191,6 +186,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 			// end
 			echo '</td></tr></table>';
 			echo '<script>loadMap();</script>';
+
 			return '<div id="' . $this->getName() . '_content">' . ob_get_clean() . '</div>';
 		} else {
 			$html = '<table class="facts_table">';
@@ -201,13 +197,14 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 				$html .= '<a href="module.php?mod=googlemap&amp;mod_action=admin_config">' . I18N::translate('Google Maps™ preferences') . '</a>';
 				$html .= '</td></tr>';
 			}
+
 			return $html;
 		}
 	}
 
 	/** {@inheritdoc} */
 	public function hasTabContent() {
-		return !Auth::isSearchEngine() && (Module::getModuleByName('googlemap') || Auth::isAdmin());
+		return Module::getModuleByName('googlemap') || Auth::isAdmin();
 	}
 
 	/** {@inheritdoc} */
@@ -270,13 +267,6 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 
 		$controller->pageHeader();
 
-		$map_types = array(
-			'ROADMAP' => I18N::translate('Map'),
-			'SATELLITE' => I18N::translate('Satellite'),
-			'HYBRID' => I18N::translate('Hybrid'),
-			'TERRAIN' => I18N::translate('Terrain'),
-		);
-
 		?>
 		<ol class="breadcrumb small">
 			<li><a href="admin.php"><?php echo I18N::translate('Control panel'); ?></a></li>
@@ -321,7 +311,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 						</tr>
 						<tr>
 							<th><?php echo /* I18N: http://en.wikipedia.org/wiki/Google_street_view */ I18N::translate('Google Street View™'); ?></th>
-							<td><?php echo radio_buttons('GM_USE_STREETVIEW', array(false=> I18N::translate('hide'), true=> I18N::translate('show')), $this->getSetting('GM_USE_STREETVIEW')); ?></td>
+							<td><?php echo FunctionsEdit::radioButtons('GM_USE_STREETVIEW', array(false => I18N::translate('hide'), true => I18N::translate('show')), $this->getSetting('GM_USE_STREETVIEW'), 'class="radio-inline"'); ?></td>
 						</tr>
 						<tr>
 							<th><?php echo I18N::translate('Size of map (in pixels)'); ?></th>
@@ -462,7 +452,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 					<table class="gm_edit_config">
 						<tr>
 							<th><?php echo I18N::translate('Use Google Maps™ for the place hierarchy'); ?></th>
-							<td><?php echo edit_field_yes_no('GM_PLACE_HIERARCHY', $this->getSetting('GM_PLACE_HIERARCHY')); ?></td>
+							<td><?php echo FunctionsEdit::editFieldYesNo('GM_PLACE_HIERARCHY', $this->getSetting('GM_PLACE_HIERARCHY'), 'class="radio-inline"'); ?></td>
 						</tr>
 						<tr>
 							<th><?php echo I18N::translate('Size of map (in pixels)'); ?></th>
@@ -484,10 +474,10 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 						</tr>
 						<tr>
 							<th>
-								<?php echo I18N::translate('Display short placenames'), help_link('GM_DISP_SHORT_PLACE', 'googlemap'); ?>
+								<?php echo I18N::translate('Display short placenames'); ?>
 							</th>
 							<td>
-								<?php echo edit_field_yes_no('GM_DISP_SHORT_PLACE', $this->getSetting('GM_DISP_SHORT_PLACE')); ?>
+								<?php echo FunctionsEdit::editFieldYesNo('GM_DISP_SHORT_PLACE', $this->getSetting('GM_DISP_SHORT_PLACE'), 'class="radio-inline"'); ?>
 								<p class="small text-muted">
 									<?php echo I18N::translate('Hide the flags that are configured in the googlemap module.  Usually these are for countries and states.  This serves as a visual cue that the markers around the flag are from the general area, and not the specific spot.'); ?>
 								</p>
@@ -498,7 +488,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 								<?php echo I18N::translate('Display map coordinates'); ?>
 							</th>
 							<td>
-								<?php echo edit_field_yes_no('GM_COORD', $this->getSetting('GM_COORD')); ?>
+								<?php echo FunctionsEdit::editFieldYesNo('GM_COORD', $this->getSetting('GM_COORD'), 'class="radio-inline"'); ?>
 								<p class="small text-muted">
 									<?php echo I18N::translate('This options sets whether latitude and longitude are displayed on the pop-up window attached to map markers.'); ?>
 								</p>
@@ -524,7 +514,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
-	 * ...
+	 * Select a flag.
 	 */
 	private function flags() {
 		global $WT_TREE;
@@ -613,7 +603,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 		<?php
 		}
 		$countryList = array();
-		$placesDir = scandir(WT_MODULES_DIR . 'googlemap/places/');
+		$placesDir   = scandir(WT_MODULES_DIR . 'googlemap/places/');
 		for ($i = 0; $i < count($country); $i++) {
 			if (count(preg_grep('/' . $country[$i] . '/', $placesDir)) != 0) {
 				$rep = opendir(WT_MODULES_DIR . 'googlemap/places/' . $country[$i] . '/');
@@ -660,7 +650,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 					<td class="optionbox" colspan="4">
 						<select name="COUNTRYSELECT" dir="ltr" onchange="selectCountry()">
 							<option value="Countries"><?php echo I18N::translate('Countries'); ?></option>
-							<?php foreach ($countryList as $country_key=>$country_name) {
+							<?php foreach ($countryList as $country_key => $country_name) {
 								echo '<option value="', $country_key, '" ';
 								if ($countrySelected == $country_key) {
 									echo 'selected';
@@ -704,7 +694,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 					<td class="optionbox" colspan="4">
 						<select name="STATESELECT" dir="ltr" onchange="selectCountry()">
 							<option value="States"><?php echo /* I18N: Part of a country, state/region/county */ I18N::translate('Subdivision'); ?></option>
-							<?php foreach ($stateList as $state_key=>$state_name) {
+							<?php foreach ($stateList as $state_key => $state_name) {
 								echo '<option value="', $state_key, '" ';
 								if ($stateSelected == $state_key) {
 									echo 'selected';
@@ -739,17 +729,17 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
-	 * ...
+	 * Display a map showing the originas of ones ancestors.
 	 */
 	private function pedigreeMap() {
 		global $controller, $WT_TREE;
 
 		$MAX_PEDIGREE_GENERATIONS = $WT_TREE->getPreference('MAX_PEDIGREE_GENERATIONS');
 
-		$controller = new ChartController();
+		$controller        = new ChartController();
 		$this->generations = Filter::getInteger('PEDIGREE_GENERATIONS', 2, $WT_TREE->getPreference('MAX_PEDIGREE_GENERATIONS'), $WT_TREE->getPreference('DEFAULT_PEDIGREE_GENERATIONS'));
-		$this->treesize = pow(2, $this->generations) - 1;
-		$this->ancestors = array_values($controller->sosaAncestors($this->generations));
+		$this->treesize    = pow(2, $this->generations) - 1;
+		$this->ancestors   = array_values($controller->sosaAncestors($this->generations));
 
 		// Start of internal configuration variables
 		// Limit this to match available number of icons.
@@ -780,7 +770,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 					</td>
 					<td class="optionbox">
 						<input class="pedigree_form" data-autocomplete-type="INDI" type="text" id="rootid" name="rootid" size="3" value="<?php echo $controller->root->getXref(); ?>">
-						<?php echo print_findindi_link('rootid'); ?>
+						<?php echo FunctionsPrint::printFindIndividualLink('rootid'); ?>
 					</td>
 					<td class="topbottombar" rowspan="2">
 						<input type="submit" value="<?php echo I18N::translate('View'); ?>">
@@ -810,15 +800,15 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 
 		<!-- count records by type -->
 		<?php
-		$curgen = 1;
-		$priv = 0;
-		$count = 0;
+		$curgen   = 1;
+		$priv     = 0;
+		$count    = 0;
 		$miscount = 0;
-		$missing = '';
+		$missing  = '';
 
 		$latlongval = array();
-		$lat = array();
-		$lon = array();
+		$lat        = array();
+		$lon        = array();
 		for ($i = 0; $i < ($this->treesize); $i++) {
 			// -- check to see if we have moved to the next generation
 			if ($i + 1 >= pow(2, $curgen)) {$curgen++; }
@@ -913,7 +903,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 					echo /* I18N: %1$s is a count of individuals, %2$s is a list of their names */ I18N::plural(
 						'%1$s individual is missing birthplace map coordinates: %2$s.',
 						'%1$s individuals are missing birthplace map coordinates: %2$s.',
-						$miscount, I18N::number($miscount), I18N::number($missing)),
+						$miscount, I18N::number($miscount), $missing),
 						'<br>';
 				}
 			}
@@ -932,17 +922,19 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
+	 * Create the Javascript to activate the map.
+	 *
 	 * @return string
 	 */
 	private function pedigreeMapJavascript() {
-		global $controller, $PEDIGREE_GENERATIONS;
+		global $PEDIGREE_GENERATIONS;
 
 		// The HomeControl returns the map to the original position and style
 		$js = 'function HomeControl(controlDiv, pm_map) {' .
 			// Set CSS styles for the DIV containing the control
 			// Setting padding to 5 px will offset the control from the edge of the map
 			'controlDiv.style.paddingTop = "5px";
-			controlDiv.style.paddingRight = "0px";'.
+			controlDiv.style.paddingRight = "0px";' .
 			// Set CSS for the control border
 			'var controlUI = document.createElement("DIV");
 			controlUI.style.backgroundColor = "white";
@@ -954,15 +946,15 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 			controlUI.style.cursor = "pointer";
 			controlUI.style.textAlign = "center";
 			controlUI.title = "";
-			controlDiv.appendChild(controlUI);'.
+			controlDiv.appendChild(controlUI);' .
 			// Set CSS for the control interior
 			'var controlText = document.createElement("DIV");
 			controlText.style.fontFamily = "Arial,sans-serif";
 			controlText.style.fontSize = "12px";
 			controlText.style.paddingLeft = "15px";
 			controlText.style.paddingRight = "15px";
-			controlText.innerHTML = "<b>'. I18N::translate('Redraw map') . '<\/b>";
-			controlUI.appendChild(controlText);'.
+			controlText.innerHTML = "<b>' . I18N::translate('Redraw map') . '<\/b>";
+			controlUI.appendChild(controlText);' .
 			// Setup the click event listeners: simply set the map to original LatLng
 			'google.maps.event.addDomListener(controlUI, "click", function() {
 				pm_map.setMapTypeId(google.maps.MapTypeId.TERRAIN),
@@ -973,14 +965,15 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 					document.getElementById(lastlinkid).className = "person_box:target";
 				}
 			});
-		}'.
+		}' .
 		// This function picks up the click and opens the corresponding info window
 		'function myclick(i) {
 			if (document.getElementById(lastlinkid) != null) {
 				document.getElementById(lastlinkid).className = "person_box:target";
 			}
 			google.maps.event.trigger(gmarkers[i], "click");
-		}'.
+			return false;
+		}' .
 		// this variable will collect the html which will eventually be placed in the side_bar
 		'var side_bar_html = "";' .
 		// arrays to hold copies of the markers and html used by the side_bar
@@ -988,7 +981,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 		'var gmarkers = [];
 		var i = 0;
 		var lastlinkid;
-		var infowindow = new google.maps.InfoWindow({});'.
+		var infowindow = new google.maps.InfoWindow({});' .
 		// === Create an associative array of GIcons()
 		'var gicons = [];
 		gicons["1"]        = new google.maps.MarkerImage(WT_STATIC_URL+WT_MODULES_DIR+"googlemap/images/icon1.png")
@@ -1248,10 +1241,10 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 									new google.maps.Size(24, 24), // Image size
 									new google.maps.Point(0, 0),  // Image origin
 									new google.maps.Point(2, 22)  // Image anchor
-								);'.
+								);' .
 		// / A function to create the marker and set up the event window
 		'function createMarker(point, name, html, mhtml, icontype) {
-			var contentString = "<div id=\'iwcontent_edit\'>"+mhtml+"<\/div>";'.
+			var contentString = "<div id=\'iwcontent_edit\'>"+mhtml+"<\/div>";' .
 			// Create a marker with the requested icon
 			'var marker = new google.maps.Marker({
 				icon:     gicons[icontype],
@@ -1270,14 +1263,14 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 					document.getElementById(lastlinkid).className = "person_box:target";
 				}
 				lastlinkid=linkid;
-			});'.
+			});' .
 			// save the info we need to use later for the side_bar
 			'gmarkers[i] = marker;' .
 			// add a line to the side_bar html
-			'side_bar_html += "<br><div id=\'"+linkid+"\' onclick=\'myclick(" + i + ")\'>" + html +"<br></div>";
+			'side_bar_html += "<br><div id=\'"+linkid+"\' onclick=\'return myclick(" + i + ")\'>" + html +"<br></div>";
 			i++;
 			return marker;
-		};'.
+		};' .
 		// create the map
 		'var myOptions = {
 			zoom: 6,
@@ -1299,12 +1292,12 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 				document.getElementById(lastlinkid).className = "person_box:target";
 			}
 		infowindow.close();
-		});'.
+		});' .
 		// Create the DIV to hold the control and call HomeControl() passing in this DIV. --
 		'var homeControlDiv = document.createElement("DIV");
 		var homeControl = new HomeControl(homeControlDiv, pm_map);
 		homeControlDiv.index = 1;
-		pm_map.controls[google.maps.ControlPosition.TOP_RIGHT].push(homeControlDiv);'.
+		pm_map.controls[google.maps.ControlPosition.TOP_RIGHT].push(homeControlDiv);' .
 		// create the map bounds
 		'var bounds = new google.maps.LatLngBounds();';
 		// add the points
@@ -1334,7 +1327,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 					$curgen++;
 				}
 
-				$relationship = get_sosa_name($i + 1);
+				$relationship = FunctionsCharts::getSosaName($i + 1);
 
 				$event = '<img src="' . WT_STATIC_URL . WT_MODULES_DIR . 'googlemap/images/sq' . $curgen . '.png" width="10" height="10"> ' .
 					'<strong>' . $relationship . '</strong>';
@@ -1394,9 +1387,9 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 							$js .= '
 								var linecolor;
 								var plines;
-								var lines = [new google.maps.LatLng('.$lat[$i] . ',' . $lon[$i] . '),
-									new google.maps.LatLng('.$lat[$to_child] . ',' . $lon[$to_child] . ')];
-								linecolor = "'.$colored_line[$curgen] . '";
+								var lines = [new google.maps.LatLng(' . $lat[$i] . ',' . $lon[$i] . '),
+									new google.maps.LatLng(' . $lat[$to_child] . ',' . $lon[$to_child] . ')];
+								linecolor = "' . $colored_line[$curgen] . '";
 								plines = new google.maps.Polygon({
 									paths: lines,
 									strokeColor: linecolor,
@@ -1421,17 +1414,17 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 		// Close the sidebar highlight when the infowindow is closed
 		'google.maps.event.addListener(infowindow, "closeclick", function() {
 			document.getElementById(lastlinkid).className = "person_box:target";
-		});'.
+		});' .
 		// put the assembled side_bar_html contents into the side_bar div
 		'document.getElementById("side_bar").innerHTML = side_bar_html;' .
 		// create the context menu div
 		'var contextmenu = document.createElement("div");
 			contextmenu.style.visibility="hidden";
-			contextmenu.innerHTML = "<a href=\'#\' onclick=\'zoomIn()\'><div class=\'optionbox\'>&nbsp;&nbsp;'. I18N::translate('Zoom in') . '&nbsp;&nbsp;</div></a>"
-								+ "<a href=\'#\' onclick=\'zoomOut()\'><div class=\'optionbox\'>&nbsp;&nbsp;'. I18N::translate('Zoom out') . '&nbsp;&nbsp;</div></a>"
-								+ "<a href=\'#\' onclick=\'zoomInHere()\'><div class=\'optionbox\'>&nbsp;&nbsp;'. I18N::translate('Zoom in here') . '</div></a>"
-								+ "<a href=\'#\' onclick=\'zoomOutHere()\'><div class=\'optionbox\'>&nbsp;&nbsp;'. I18N::translate('Zoom out here') . '&nbsp;&nbsp;</div></a>"
-								+ "<a href=\'#\' onclick=\'centreMapHere()\'><div class=\'optionbox\'>&nbsp;&nbsp;'. I18N::translate('Center map here') . '&nbsp;&nbsp;</div></a>";' .
+			contextmenu.innerHTML = "<a href=\'#\' onclick=\'zoomIn()\'><div class=\'optionbox\'>&nbsp;&nbsp;' . I18N::translate('Zoom in') . '&nbsp;&nbsp;</div></a>"
+								+ "<a href=\'#\' onclick=\'zoomOut()\'><div class=\'optionbox\'>&nbsp;&nbsp;' . I18N::translate('Zoom out') . '&nbsp;&nbsp;</div></a>"
+								+ "<a href=\'#\' onclick=\'zoomInHere()\'><div class=\'optionbox\'>&nbsp;&nbsp;' . I18N::translate('Zoom in here') . '</div></a>"
+								+ "<a href=\'#\' onclick=\'zoomOutHere()\'><div class=\'optionbox\'>&nbsp;&nbsp;' . I18N::translate('Zoom out here') . '&nbsp;&nbsp;</div></a>"
+								+ "<a href=\'#\' onclick=\'centreMapHere()\'><div class=\'optionbox\'>&nbsp;&nbsp;' . I18N::translate('Center map here') . '&nbsp;&nbsp;</div></a>";' .
 		// listen for singlerightclick
 		'google.maps.event.addListener(pm_map,"singlerightclick", function(pixel,tile) {' .
 			// store the "pixel" info in case we need it later
@@ -1447,7 +1440,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 			pos.apply(contextmenu);
 			contextmenu.style.visibility = "visible";
 		});
-		'.
+		' .
 		// functions that perform the context menu options
 		'function zoomIn() {' .
 			// perform the requested operation
@@ -1455,34 +1448,34 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 			// hide the context menu now that it has been used
 			'contextmenu.style.visibility="hidden";
 		}
-		function zoomOut() {'.
+		function zoomOut() {' .
 			// perform the requested operation
 			'pm_map.zoomOut();' .
 			// hide the context menu now that it has been used
 			'contextmenu.style.visibility="hidden";
 		}
-		function zoomInHere() {'.
+		function zoomInHere() {' .
 			// perform the requested operation
 			'var point = pm_map.fromContainerPixelToLatLng(clickedPixel)
-			pm_map.zoomIn(point,true);'.
+			pm_map.zoomIn(point,true);' .
 			// hide the context menu now that it has been used
 			'contextmenu.style.visibility="hidden";
 		}
-		function zoomOutHere() {'.
+		function zoomOutHere() {' .
 			// perform the requested operation
 			'var point = pm_map.fromContainerPixelToLatLng(clickedPixel)
-			pm_map.setCenter(point,pm_map.getZoom()-1);'.
+			pm_map.setCenter(point,pm_map.getZoom()-1);' .
 			// There is no pm_map.zoomOut() equivalent
 			// hide the context menu now that it has been used
 			'contextmenu.style.visibility="hidden";
 		}
-		function centreMapHere() {'.
+		function centreMapHere() {' .
 			// perform the requested operation
 			'var point = pm_map.fromContainerPixelToLatLng(clickedPixel)
-			pm_map.setCenter(point);'.
+			pm_map.setCenter(point);' .
 			// hide the context menu now that it has been used
 			'contextmenu.style.visibility="hidden";
-		}'.
+		}' .
 		// If the user clicks on the map, close the context menu
 		'google.maps.event.addListener(pm_map, "click", function() {
 			contextmenu.style.visibility="hidden";
@@ -1492,12 +1485,11 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
-	 * ...
+	 * Check places for missing data, etc.
 	 */
 	private function adminPlaceCheck() {
 		global $WT_TREE;
 
-		$action    = Filter::get('action', '', 'go');
 		$gedcom_id = Filter::get('gedcom_id', null, $WT_TREE->getTreeId());
 		$country   = Filter::get('country', '.+', 'XYZ');
 		$state     = Filter::get('state', '.+', 'XYZ');
@@ -1535,107 +1527,99 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 		</ul>
 		<?php
 
-		//Start of User Defined options
-		echo '
-			<form method="get" name="placecheck" action="module.php">
-				<input type="hidden" name="mod" value="', $this->getName(), '">
-				<input type="hidden" name="mod_action" value="admin_placecheck">
-				<div class="gm_check">
-					<label>', I18N::translate('Family tree'), '</label>';
-					echo select_edit_control('gedcom_id', Tree::getIdList(), null, $gedcom_id, ' onchange="this.form.submit();"');
-					echo '<label>', I18N::translate('Country'), '</label>
-					<select name="country" onchange="this.form.submit();">
-						<option value="XYZ" selected>', /* I18N: first/default option in a drop-down listbox */ I18N::translate('&lt;select&gt;'), '</option>
-						<option value="XYZ">', I18N::translate('All'), '</option>';
-							$rows = Database::prepare("SELECT pl_id, pl_place FROM `##placelocation` WHERE pl_level=0 ORDER BY pl_place")
-								->fetchAssoc();
-							foreach ($rows as $id=>$place) {
-								echo '<option value="', Filter::escapeHtml($place), '" ';
-								if ($place == $country) {
-									echo 'selected';
-									$par_id = $id;
-								}
-								echo '>', Filter::escapeHtml($place), '</option>';
-							}
-					echo '</select>';
-					if ($country != 'XYZ') {
-						echo '<label>', /* I18N: Part of a country, state/region/county */ I18N::translate('Subdivision'), '</label>
-							<select name="state" onchange="this.form.submit();">
-								<option value="XYZ" selected>', I18N::translate('&lt;select&gt;'), '</option>
-								<option value="XYZ">', I18N::translate('All'), '</option>';
-								$places = Database::prepare("SELECT pl_place FROM `##placelocation` WHERE pl_parent_id=? ORDER BY pl_place")
-									->execute(array($par_id))
-									->fetchOneColumn();
-								foreach ($places as $place) {
-									echo '<option value="', Filter::escapeHtml($place), '" ', $place == $state ? 'selected' : '', '>', Filter::escapeHtml($place), '</option>';
-								}
-								echo '</select>';
-							}
-					echo '<label>', I18N::translate('Include fully matched places: '), '</label>';
-					echo '<input type="checkbox" name="matching" value="1" onchange="this.form.submit();" ';
-					echo $matching ? 'checked' : '';
-					echo '>';
-				echo '</div>'; // close div gm_check
-				echo '<input type="hidden" name="action" value="go">';
-			echo '</form>'; //close form placecheck
-			echo '<hr>';
+		echo '<h2>', I18N::translate('Place check'), '</h2>';
 
-		switch ($action) {
-		case 'go':
-			//Identify gedcom file
-			$trees = Tree::getAll();
-			echo '<div id="gm_check_title">', Tree::findById($gedcom_id)->getTitleHtml(), '</div>';
-			//Select all '2 PLAC ' tags in the file and create array
-			$place_list = array();
-			$ged_data = Database::prepare("SELECT i_gedcom FROM `##individuals` WHERE i_gedcom LIKE ? AND i_file=?")
-				->execute(array("%\n2 PLAC %", $gedcom_id))
+		// User options
+		$rows = Database::prepare("SELECT pl_id, pl_place FROM `##placelocation` WHERE pl_level=0 ORDER BY pl_place")->fetchAssoc();
+
+		echo '<form name="placecheck" class="form form-inline">';
+		echo '<input type="hidden" name="mod" value="', $this->getName(), '">';
+		echo '<input type="hidden" name="mod_action" value="admin_placecheck">';
+
+		echo '<label for="gedcom_id">', I18N::translate('Family tree'), '</label> ';
+		echo FunctionsEdit::selectEditControl('gedcom_id', Tree::getIdList(), null, $gedcom_id, ' onchange="this.form.submit();" class="form-control"'), ' ';
+		echo '<label for="country">', I18N::translate('Country'), '</label> ';
+		echo '<select name="country" onchange="this.form.submit();" class="form-control"> ';
+		echo '<option value="XYZ">', I18N::translate('All'), '</option>';
+		foreach ($rows as $id => $place) {
+			echo '<option value="', Filter::escapeHtml($place), '" ';
+			if ($place == $country) {
+				echo 'selected';
+				$par_id = $id;
+			}
+			echo '>', Filter::escapeHtml($place), '</option>';
+		}
+		echo '</select> ';
+		if ($country != 'XYZ') {
+			echo '<label>', /* I18N: Part of a country, state/region/county */ I18N::translate('Subdivision'), '</label> ';
+			echo '<select name="state" onchange="this.form.submit();" class="form-control">';
+			echo '<option value="XYZ">', I18N::translate('All'), '</option>';
+			$places = Database::prepare("SELECT pl_place FROM `##placelocation` WHERE pl_parent_id=? ORDER BY pl_place")
+				->execute(array($par_id))
 				->fetchOneColumn();
-			foreach ($ged_data as $ged_datum) {
-				preg_match_all('/\n2 PLAC (.+)/', $ged_datum, $matches);
-				foreach ($matches[1] as $match) {
-					$place_list[$match] = true;
-				}
+			foreach ($places as $place) {
+				echo '<option value="', Filter::escapeHtml($place), '" ', $place == $state ? 'selected' : '', '>', Filter::escapeHtml($place), '</option>';
 			}
-			$ged_data = Database::prepare("SELECT f_gedcom FROM `##families` WHERE f_gedcom LIKE ? AND f_file=?")
-				->execute(array("%\n2 PLAC %", $gedcom_id))
-				->fetchOneColumn();
-			foreach ($ged_data as $ged_datum) {
-				preg_match_all('/\n2 PLAC (.+)/', $ged_datum, $matches);
-				foreach ($matches[1] as $match) {
-					$place_list[$match] = true;
-				}
+			echo '</select> ';
+		}
+		echo '<label>';
+		echo '<input type="checkbox" name="matching" value="1" onchange="this.form.submit();" ', ($matching ? 'checked' : ''), '>';
+		echo I18N::translate('Include fully matched places');
+		echo '</label>';
+		echo '</form>';
+		echo '<hr>';
+
+		//Select all '2 PLAC ' tags in the file and create array
+		$place_list = array();
+		$ged_data   = Database::prepare("SELECT i_gedcom FROM `##individuals` WHERE i_gedcom LIKE ? AND i_file=?")
+			->execute(array("%\n2 PLAC %", $gedcom_id))
+			->fetchOneColumn();
+		foreach ($ged_data as $ged_datum) {
+			preg_match_all('/\n2 PLAC (.+)/', $ged_datum, $matches);
+			foreach ($matches[1] as $match) {
+				$place_list[$match] = true;
 			}
-			// Unique list of places
-			$place_list = array_keys($place_list);
-
-			// Apply_filter
-			if ($country == 'XYZ') {
-				$filter = '.*$';
-			} else {
-				$filter = preg_quote($country) . '$';
-				if ($state != 'XYZ') {
-					$filter = preg_quote($state) . ', ' . $filter;
-				}
+		}
+		$ged_data = Database::prepare("SELECT f_gedcom FROM `##families` WHERE f_gedcom LIKE ? AND f_file=?")
+			->execute(array("%\n2 PLAC %", $gedcom_id))
+			->fetchOneColumn();
+		foreach ($ged_data as $ged_datum) {
+			preg_match_all('/\n2 PLAC (.+)/', $ged_datum, $matches);
+			foreach ($matches[1] as $match) {
+				$place_list[$match] = true;
 			}
-			$place_list = preg_grep('/' . $filter . '/', $place_list);
+		}
+		// Unique list of places
+		$place_list = array_keys($place_list);
 
-			//sort the array, limit to unique values, and count them
-			usort($place_list, __NAMESPACE__ . '\I18N::strcasecmp');
-			$i = count($place_list);
+		// Apply_filter
+		if ($country == 'XYZ') {
+			$filter = '.*$';
+		} else {
+			$filter = preg_quote($country) . '$';
+			if ($state != 'XYZ') {
+				$filter = preg_quote($state) . ', ' . $filter;
+			}
+		}
+		$place_list = preg_grep('/' . $filter . '/', $place_list);
 
-			//calculate maximum no. of levels to display
-			$x = 0;
-			$max = 0;
-			while ($x < $i) {
-				$levels = explode(",", $place_list[$x]);
-				$parts = count($levels);
-				if ($parts > $max) $max = $parts;
+		//sort the array, limit to unique values, and count them
+		usort($place_list, '\Fisharebest\Webtrees\I18N::strcasecmp');
+		$i = count($place_list);
+
+		//calculate maximum no. of levels to display
+		$x   = 0;
+		$max = 0;
+		while ($x < $i) {
+			$levels                 = explode(",", $place_list[$x]);
+			$parts                  = count($levels);
+			if ($parts > $max) $max = $parts;
 			$x++; }
-			$x = 0;
+		$x = 0;
 
-			//scripts for edit, add and refresh
-			?>
-			<script>
+		//scripts for edit, add and refresh
+		?>
+		<script>
 			function edit_place_location(placeid) {
 				window.open('module.php?mod=googlemap&mod_action=places_edit&action=update&placeid='+placeid, '_blank', gmap_window_specs);
 				return false;
@@ -1645,143 +1629,139 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 				window.open('module.php?mod=googlemap&mod_action=places_edit&action=add&placeid='+placeid, '_blank', gmap_window_specs);
 				return false;
 			}
-			</script>
-			<?php
+		</script>
+		<?php
 
-			//start to produce the display table
-			$cols = 0;
-			$span = $max * 3 + 3;
-			echo '<div class="gm_check_details">';
-			echo '<table class="table table-bordered table-condensed table-hover"><tr>';
-			echo '<th rowspan="3">', I18N::translate('Place'), '</th>';
-			echo '<th colspan="', $span, '">', I18N::translate('Geographic data'), '</th></tr>';
-			echo '<tr>';
-			while ($cols < $max) {
-				if ($cols == 0) {
-					echo '<th colspan="3">', I18N::translate('Country'), '</th>';
-				} else {
-					echo '<th colspan="3">', I18N::translate('Level'), '&nbsp;', $cols + 1, '</th>';
-				}
-				$cols++;
+		//start to produce the display table
+		echo '<table class="table table-bordered table-condensed table-hover"><thead><tr>';
+		echo '<th rowspan="3">', I18N::translate('Place'), '</th>';
+		echo '<th colspan="', $max * 3, '">', I18N::translate('Geographic data'), '</th></tr>';
+		echo '<tr>';
+		for ($cols = 0; $cols < $max; ++$cols) {
+			if ($cols == 0) {
+				echo '<th colspan="3">', I18N::translate('Country'), '</th>';
+			} else {
+				echo '<th colspan="3">', I18N::translate('Level'), ' ', $cols + 1, '</th>';
 			}
-			echo '</tr><tr>';
-			$cols = 0;
-			while ($cols < $max) {
-				echo '<th>', GedcomTag::getLabel('PLAC'), '</th><th>', I18N::translate('Latitude'), '</th><th>', I18N::translate('Longitude'), '</th>';
-				$cols++;
+		}
+		echo '</tr><tr>';
+		for ($cols = 0; $cols < $max; ++$cols) {
+			echo '<th>', GedcomTag::getLabel('PLAC'), '</th>';
+			echo '<th>', I18N::translate('Latitude'), '</th>';
+			echo '<th>', I18N::translate('Longitude'), '</th>';
+		}
+		echo '</tr></thead><tbody>';
+		$countrows = 0;
+		$matched   = array();
+		while ($x < $i) {
+			$placestr = '';
+			$levels   = explode(', ', $place_list[$x]);
+			$parts    = count($levels);
+			$levels   = array_reverse($levels);
+			$placestr .= '<a href="placelist.php?action=show';
+			foreach ($levels as $pindex => $ppart) {
+				$placestr .= '&amp;parent[' . $pindex . ']=' . urlencode($ppart);
 			}
-			echo '</tr>';
-			$countrows = 0;
-			$matched = array();
-			while ($x < $i) {
-				$placestr = "";
-				$levels = explode(",", $place_list[$x]);
-				$parts = count($levels);
-				$levels = array_reverse($levels);
-				$placestr .= "<a href=\"placelist.php?action=show";
-				foreach ($levels as $pindex=>$ppart) {
-					$ppart = urlencode(trim($ppart));
-					$placestr .= "&amp;parent[$pindex]=" . $ppart . "";
+			$placestr .= '">' . $place_list[$x] . "</a>";
+			$gedplace    = '<tr><td>' . $placestr . '</td>';
+			$z           = 0;
+			$id          = 0;
+			$level       = 0;
+			$matched[$x] = 0; // used to exclude places where the gedcom place is matched at all levels
+			$mapstr_edit = '<a href="#" dir="auto" onclick="edit_place_location(\'';
+			$mapstr_add  = '<a href="#" dir="auto" onclick="add_place_location(\'';
+			$mapstr3     = '';
+			$mapstr4     = '';
+			$mapstr5     = '\')" title=\'';
+			$mapstr6     = '\' >';
+			$mapstr7     = '\')">';
+			$mapstr8     = '</a>';
+			$plac        = array();
+			$lati        = array();
+			$long        = array();
+			while ($z < $parts) {
+				if ($levels[$z] == '') {
+					$levels[$z] = 'unknown'; // GoogleMap module uses "unknown" while GEDCOM uses , ,
 				}
-				$placestr .= "\">" . $place_list[$x] . "</a>";
-				$gedplace = "<tr><td>" . $placestr . "</td>";
-				$z = 0;
-				$id = 0;
-				$level = 0;
-				$matched[$x] = 0; // used to exclude places where the gedcom place is matched at all levels
-				$mapstr_edit = "<a href=\"#\" onclick=\"edit_place_location('";
-				$mapstr_add = "<a href=\"#\" onclick=\"add_place_location('";
-				$mapstr3 = "";
-				$mapstr4 = "";
-				$mapstr5 = "')\" title='";
-				$mapstr6 = "' >";
-				$mapstr7 = "')\">";
-				$mapstr8 = "</a>";
-				$plac = array();
-				$lati = array();
-				$long = array();
-				while ($z < $parts) {
-					if ($levels[$z] == ' ' || $levels[$z] == '')
-						$levels[$z] = "unknown"; // GoogleMap module uses "unknown" while GEDCOM uses , ,
 
-					$levels[$z] = rtrim(ltrim($levels[$z]));
-
-					$placelist = $this->createPossiblePlaceNames($levels[$z], $z + 1); // add the necessary prefix/postfix values to the place name
-					foreach ($placelist as $key=>$placename) {
-						$row =
-							Database::prepare("SELECT pl_id, pl_place, pl_long, pl_lati, pl_zoom FROM `##placelocation` WHERE pl_level=? AND pl_parent_id=? AND pl_place LIKE ? ORDER BY pl_place")
+				$placelist = $this->createPossiblePlaceNames($levels[$z], $z + 1); // add the necessary prefix/postfix values to the place name
+				foreach ($placelist as $key => $placename) {
+					$row =
+						Database::prepare("SELECT pl_id, pl_place, pl_long, pl_lati, pl_zoom FROM `##placelocation` WHERE pl_level=? AND pl_parent_id=? AND pl_place LIKE ? ORDER BY pl_place")
 							->execute(array($z, $id, $placename))
 							->fetchOneRow(PDO::FETCH_ASSOC);
-						if (!empty($row['pl_id'])) {
-							$row['pl_placerequested'] = $levels[$z]; // keep the actual place name that was requested so we can display that instead of what is in the db
-							break;
-						}
+					if (!empty($row['pl_id'])) {
+						$row['pl_placerequested'] = $levels[$z]; // keep the actual place name that was requested so we can display that instead of what is in the db
+						break;
 					}
-					if ($row['pl_id'] != '') {
-						$id = $row['pl_id'];
-					}
+				}
+				if ($row['pl_id'] != '') {
+					$id = $row['pl_id'];
+				}
 
-					if ($row['pl_place'] != '') {
-						$placestr2 = $mapstr_edit . $id . "&amp;level=" . $level . $mapstr3 . $mapstr5 . I18N::translate('Zoom=') . $row['pl_zoom'] . $mapstr6 . $row['pl_placerequested'] . $mapstr8;
-						if ($row['pl_place'] == 'unknown')
-							$matched[$x]++;
+				if ($row['pl_place'] != '') {
+					$placestr2 = $mapstr_edit . $id . "&amp;level=" . $level . $mapstr3 . $mapstr5 . I18N::translate('Zoom=') . $row['pl_zoom'] . $mapstr6 . $row['pl_placerequested'] . $mapstr8;
+					if ($row['pl_place'] === 'unknown')
+						$matched[$x]++;
+				} else {
+					if ($levels[$z] === 'unknown') {
+						$placestr2 = $mapstr_add . $id . "&amp;level=" . $level . $mapstr3 . $mapstr7 . "<strong>" . I18N::translate('unknown') . "</strong>" . $mapstr8; $matched[$x]++;
 					} else {
-						if ($levels[$z] == "unknown") {
-							$placestr2 = $mapstr_add . $id . "&amp;level=" . $level . $mapstr3 . $mapstr7 . "<strong>" . rtrim(ltrim(I18N::translate('unknown'))) . "</strong>" . $mapstr8; $matched[$x]++;
-						} else {
-							$placestr2 = $mapstr_add . $id . "&amp;place_name=" . urlencode($levels[$z]) . "&amp;level=" . $level . $mapstr3 . $mapstr7 . '<span class="error">' . rtrim(ltrim($levels[$z])) . '</span>' . $mapstr8; $matched[$x]++;
-						}
+						$placestr2 = $mapstr_add . $id . "&amp;place_name=" . urlencode($levels[$z]) . "&amp;level=" . $level . $mapstr3 . $mapstr7 . '<span class="danger">' . $levels[$z] . '</span>' . $mapstr8; $matched[$x]++;
 					}
-					$plac[$z] = "<td>" . $placestr2 . "</td>\n";
-					if ($row['pl_lati'] == '0') {
-						$lati[$z] = "<td class='error'><strong>" . $row['pl_lati'] . "</strong></td>";
-					} elseif ($row['pl_lati'] != '') {
-						$lati[$z] = "<td>" . $row['pl_lati'] . "</td>";
+				}
+				$plac[$z] = '<td>' . $placestr2 . '</td>';
+				if ($row['pl_lati'] == '0' && $row['pl_long'] == '0') {
+					$lati[$z] = '<td class="danger">0</td>';
+				} elseif ($row['pl_lati'] != '') {
+					$lati[$z] = '<td>' . $row['pl_lati'] . '</td>';
+				} else {
+					$lati[$z] = '<td class="danger"><i class="fa fa-warning"></i></td>';
+					$matched[$x]++;
+				}
+				if ($row['pl_lati'] == '0' && $row['pl_long'] == '0') {
+					$long[$z] = '<td class="danger">0</td>';
+				} elseif ($row['pl_long'] != '') {
+					$long[$z] = '<td>' . $row['pl_long'] . '</td>';
+				} else {
+					$long[$z] = '<td class="danger"><i class="fa fa-warning"></i></td>';
+					$matched[$x]++;
+				}
+				$level++;
+				$mapstr3 = $mapstr3 . "&amp;parent[" . $z . "]=" . Filter::escapeJs($row['pl_placerequested']);
+				$mapstr4 = $mapstr4 . "&amp;parent[" . $z . "]=" . Filter::escapeJs($levels[$z]);
+				$z++;
+			}
+			if ($matching) {
+				$matched[$x] = 1;
+			}
+			if ($matched[$x] != 0) {
+				echo $gedplace;
+				$z = 0;
+				while ($z < $max) {
+					if ($z < $parts) {
+						echo $plac[$z];
+						echo $lati[$z];
+						echo $long[$z];
 					} else {
-						$lati[$z] = "<td class='error center'><strong>X</strong></td>"; $matched[$x]++;
+						echo '<td></td>';
+						echo '<td></td>';
+						echo '<td></td>';
 					}
-					if ($row['pl_long'] == '0') {
-						$long[$z] = "<td class='error'><strong>" . $row['pl_long'] . "</strong></td>";
-					} elseif ($row['pl_long'] != '') {
-						$long[$z] = "<td>" . $row['pl_long'] . "</td>";
-					} else {
-						$long[$z] = "<td class='error center'><strong>X</strong></td>"; $matched[$x]++;
-					}
-					$level++;
-					$mapstr3 = $mapstr3 . "&amp;parent[" . $z . "]=" . Filter::escapeJs($row['pl_placerequested']);
-					$mapstr4 = $mapstr4 . "&amp;parent[" . $z . "]=" . Filter::escapeJs($levels[$z]);
 					$z++;
 				}
-				if ($matching) {
-					$matched[$x] = 1;
-				}
-				if ($matched[$x] != 0) {
-					echo $gedplace;
-					$z = 0;
-					while ($z < $max) {
-						if ($z < $parts) {
-							echo $plac[$z];
-							echo $lati[$z];
-							echo $long[$z];
-						} else {
-							echo '<td></td><td></td><td></td>';
-						}
-						$z++;
-					}
-					echo '</tr>';
-					$countrows++;
-				}
-				$x++;
+				echo '</tr>';
+				$countrows++;
 			}
-			// echo final row of table
-			echo '<tr><td colspan="2" class="accepted">', /* I18N: A count of places */ I18N::translate('Total places: %s', I18N::number($countrows)), '</td></tr></table></div>';
-			break;
-		default:
-			// Do not run until user selects a gedcom/place/etc.
-			// Instead, show some useful help info.
-			echo '<div class="gm_check_top accepted">', I18N::translate('This will list all the places from the selected GEDCOM file.  By default this will NOT INCLUDE places that are fully matched between the GEDCOM file and the GoogleMap tables.'), '</div>';
-			break;
+			$x++;
 		}
+		echo '</tbody>';
+		echo '<tfoot>';
+		echo '<tr>';
+		echo '<th colspan="', (1 + 3 * $max), '">', /* I18N: A count of places */ I18N::translate('Total places: %s', I18N::number($countrows)), '</th>';
+		echo '</tr>';
+		echo '</tfoot>';
+		echo '</table>';
 	}
 
 	/**
@@ -1789,7 +1769,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	 *
 	 * @param Individual $individual
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	private function checkMapData(Individual $individual) {
 		$statement = Database::prepare(
@@ -1815,6 +1795,8 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
+	 * Remove prefixes from a place name to allow it to be matched.
+	 *
 	 * @param string   $prefix_list
 	 * @param string   $place
 	 * @param string[] $placelist
@@ -1834,6 +1816,8 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
+	 * Remove suffixes from a place name to allow it to be matched.
+	 *
 	 * @param string   $suffix_list
 	 * @param string   $place
 	 * @param string[] $placelist
@@ -1853,6 +1837,8 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
+	 * Remove prefixes and sufixes to allow place names to be matched.
+	 *
 	 * @param string   $prefix_list
 	 * @param string   $suffix_list
 	 * @param string   $place
@@ -1875,8 +1861,10 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
-	 * @param string  $placename
-	 * @param integer $level
+	 * Match placenames with different prefixes and suffixes.
+	 *
+	 * @param string $placename
+	 * @param int    $level
 	 *
 	 * @return string[]
 	 */
@@ -1893,6 +1881,8 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
+	 * Get the map co-ordinates of a place.
+	 *
 	 * @param string $place
 	 *
 	 * @return null|\stdClass
@@ -1930,6 +1920,8 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
+	 * Build a map for an individual.
+	 *
 	 * @param Individual $indi
 	 */
 	private function buildIndividualMap(Individual $indi) {
@@ -1940,11 +1932,11 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 			$indifacts = array_merge($indifacts, $family->getFacts());
 		}
 
-		sort_facts($indifacts);
+		Functions::sortFacts($indifacts);
 
 		// Create the markers list array
 		$gmarks = array();
-		$i = 0;
+		$i      = 0;
 
 		foreach ($indifacts as $fact) {
 			if (!$fact->getPlace()->isEmpty()) {
@@ -2090,18 +2082,6 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 				}
 			}
 		}
-
-		// Group markers by location
-		$location_groups = array();
-		foreach ($gmarks as $gmark) {
-			$key = $gmark['lat'] . $gmark['lng'];
-			if (isset($location_groups[$key])) {
-				$location_groups[$key][] = $gmark;
-			} else {
-				$location_groups[$key] = array($gmark);
-			}
-		}
-		$location_groups = array_values($location_groups);
 
 		// *** ENABLE STREETVIEW ***
 		$STREETVIEW = $this->getSetting('GM_USE_STREETVIEW');
@@ -2287,6 +2267,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 			function myclick(i) {
 				infowindow.close();
 				google.maps.event.trigger(gmarkers[i], 'click');
+				return false;
 			}
 
 			// Home control
@@ -2355,7 +2336,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 
 				// Add the markers to the map from the $gmarks array
 				var locations = [
-					<?php foreach ($gmarks as $n=>$gmark) { ?>
+					<?php foreach ($gmarks as $n => $gmark) { ?>
 					<?php echo $n ? ',' : ''; ?>
 					{
 						"event":        "<?php echo Filter::escapeJs($gmark['fact_label']); ?>",
@@ -2472,10 +2453,10 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 		// Create the normal googlemap sidebar of events and children
 		echo '<div style="overflow: auto; overflow-x: hidden; overflow-y: auto; height:', $this->getSetting('GM_YSIZE'), 'px;"><table class="facts_table">';
 
-		foreach ($gmarks as $gmark) {
+		foreach ($gmarks as $key => $gmark) {
 			echo '<tr>';
 			echo '<td class="facts_label">';
-			echo '<a href="#" onclick="myclick(\'', Filter::escapeHtml($key), '\')">', $gmark['fact_label'], '</a></td>';
+			echo '<a href="#" onclick="return myclick(\'', Filter::escapeHtml($key), '\')">', $gmark['fact_label'], '</a></td>';
 			echo '<td class="', $gmark['class'], '" style="white-space: normal">';
 			if ($gmark['info']) {
 				echo '<span class="field">', Filter::escapeHtml($gmark['info']), '</span><br>';
@@ -2494,9 +2475,11 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
+	 * Get the Location ID.
+	 *
 	 * @param string $place
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	private function getPlaceLocationId($place) {
 		$par      = explode(',', strip_tags($place));
@@ -2514,7 +2497,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 				$pl_id = (int) Database::prepare(
 					"SELECT pl_id FROM `##placelocation` WHERE pl_level = :level AND pl_parent_id = :parent_id AND pl_place LIKE :placename"
 				)->execute(array(
-					'level' => $i,
+					'level'     => $i,
 					'parent_id' => $place_id,
 					'placename' => $placename,
 				))->fetchOne();
@@ -2532,9 +2515,11 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
+	 * Get the place ID.
+	 *
 	 * @param string $place
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	private function getPlaceId($place) {
 		global $WT_TREE;
@@ -2551,8 +2536,8 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 				$pl_id = (int) Database::prepare(
 					"SELECT p_id FROM `##places` WHERE p_parent_id = :place_id AND p_file = :tree_id AND p_place = :placename"
 				)->execute(array(
-					'place_id' => $place_id,
-					'tree_id' => $WT_TREE->getTreeId(),
+					'place_id'  => $place_id,
+					'tree_id'   => $WT_TREE->getTreeId(),
 					'placename' => $placename,
 				))->fetchOne();
 				if ($pl_id) {
@@ -2569,10 +2554,12 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
-	 * @param integer  $level
+	 * Set the place IDs.
+	 *
+	 * @param int      $level
 	 * @param string[] $parent
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	private function setPlaceIdMap($level, $parent) {
 		$fullplace = '';
@@ -2589,10 +2576,12 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
-	 * @param integer  $level
+	 * Set the map level.
+	 *
+	 * @param int      $level
 	 * @param string[] $parent
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	private function setLevelMap($level, $parent) {
 		$fullplace = '';
@@ -2621,7 +2610,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 		global $level, $levelm, $plzoom, $controller, $WT_TREE;
 
 		$STREETVIEW = $this->getSetting('GM_USE_STREETVIEW');
-		$parent = Filter::getArray('parent');
+		$parent     = Filter::getArray('parent');
 
 		// create the map
 		echo '<table style="margin:20px auto 0 auto;"><tr valign="top"><td>';
@@ -2741,8 +2730,10 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
-	 * @param integer $numls
-	 * @param integer $levelm
+	 * Find the current location.
+	 *
+	 * @param int $numls
+	 * @param int $levelm
 	 *
 	 * @return integer[]
 	 */
@@ -2759,7 +2750,9 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
-	 * @param integer  $level
+	 * Print the numbers of individuals.
+	 *
+	 * @param int      $level
 	 * @param string[] $parent
 	 */
 	private function printHowManyPeople($level, $parent) {
@@ -2785,13 +2778,15 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
+	 * Print the flags and markers.
+	 *
 	 * @param string[] $place2
-	 * @param integer  $level
+	 * @param int      $level
 	 * @param string[] $parent
-	 * @param integer  $levelm
+	 * @param int      $levelm
 	 * @param string   $linklevels
 	 * @param string   $placelevels
-	 * @param boolean  $lastlevel
+	 * @param bool     $lastlevel
 	 */
 	private function printGoogleMapMarkers($place2, $level, $parent, $levelm, $linklevels, $placelevels, $lastlevel = false) {
 		if (!$place2['lati'] || !$place2['long']) {
@@ -2932,8 +2927,8 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	/**
 	 * Called by placelist.php
 	 *
-	 * @param integer  $numfound
-	 * @param integer  $level
+	 * @param int      $numfound
+	 * @param int      $level
 	 * @param string[] $parent
 	 * @param string   $linklevels
 	 * @param string   $placelevels
@@ -2992,13 +2987,13 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 			// Creates a marker whose info window displays the given name
 			function createMarker(point, html, icon, name) {
 				// Choose icon and shadow ============
-				if (icon.image && '.$level . '<=3) {
-					if (icon.image!="'.WT_STATIC_URL . WT_MODULES_DIR . 'googlemap/images/marker_yellow.png") {
+				if (icon.image && ' . $level . '<=3) {
+					if (icon.image!="' . WT_STATIC_URL . WT_MODULES_DIR . 'googlemap/images/marker_yellow.png") {
 						var iconImage = new google.maps.MarkerImage(icon.image,
 						new google.maps.Size(25, 15),
 						new google.maps.Point(0,0),
 						new google.maps.Point(12, 15));
-						var iconShadow = new google.maps.MarkerImage("'.WT_STATIC_URL . WT_MODULES_DIR . 'googlemap/images/flag_shadow.png",
+						var iconShadow = new google.maps.MarkerImage("' . WT_STATIC_URL . WT_MODULES_DIR . 'googlemap/images/flag_shadow.png",
 						new google.maps.Size(35, 45),
 						new google.maps.Point(0,0),
 						new google.maps.Point(1, 45));
@@ -3064,10 +3059,10 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 			}
 		');
 
-		$levelm = $this->setLevelMap($level, $parent);
+		$levelm                           = $this->setLevelMap($level, $parent);
 		if (isset($levelo[0])) $levelo[0] = 0;
-		$numls = count($parent) - 1;
-		$levelo = $this->checkWhereAmI($numls, $levelm);
+		$numls                            = count($parent) - 1;
+		$levelo                           = $this->checkWhereAmI($numls, $levelm);
 		if ($numfound < 2 && ($level == 1 || !isset($levelo[$level - 1]))) {
 			$controller->addInlineJavascript('map.maxZoom=6;');
 		} elseif ($numfound < 2 && !isset($levelo[$level - 2])) {
@@ -3090,7 +3085,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 					// re-calculate the hierarchy information required to display the current place
 					$thisloc = $parent;
 					array_pop($thisloc);
-					$thislevel = $level - 1;
+					$thislevel      = $level - 1;
 					$thislinklevels = substr($linklevels, 0, strrpos($linklevels, '&amp;'));
 					if (strpos($placelevels, ',', 1)) {
 						$thisplacelevels = substr($placelevels, strpos($placelevels, ',', 1));
@@ -3107,9 +3102,9 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 		// display any sub-places
 		$placeidlist = array();
 		foreach ($place_names as $placename) {
-			$thisloc = $parent;
-			$thisloc[] = $placename;
-			$this_levelm = $this->setLevelMap($level + 1, $thisloc);
+			$thisloc                         = $parent;
+			$thisloc[]                       = $placename;
+			$this_levelm                     = $this->setLevelMap($level + 1, $thisloc);
 			if ($this_levelm) $placeidlist[] = $this_levelm;
 		}
 
@@ -3144,7 +3139,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	 * e.g. 0=>"Top level", 16=>"England", 19=>"London", 217=>"Westminster"
 	 * NB This function exists in both places.php and places_edit.php
 	 *
-	 * @param integer $id
+	 * @param int $id
 	 *
 	 * @return string[]
 	 */
@@ -3161,6 +3156,8 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
+	 * Get the highest index.
+	 *
 	 * @return int
 	 */
 	private function getHighestIndex() {
@@ -3168,6 +3165,8 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
+	 * Get the highest level.
+	 *
 	 * @return int
 	 */
 	private function getHighestLevel() {
@@ -3177,8 +3176,8 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	/**
 	 * Find all of the places in the hierarchy
 	 *
-	 * @param integer $parent_id
-	 * @param boolean $inactive
+	 * @param int  $parent_id
+	 * @param bool $inactive
 	 *
 	 * @return array[]
 	 */
@@ -3210,11 +3209,11 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 		foreach ($rows as $row) {
 			$placelist[] = array(
 				'place_id' => $row->pl_id,
-				'place' => $row->pl_place,
-				'lati' => $row->pl_lati,
-				'long' => $row->pl_long,
-				'zoom' => $row->pl_zoom,
-				'icon' => $row->pl_icon,
+				'place'    => $row->pl_place,
+				'lati'     => $row->pl_lati,
+				'long'     => $row->pl_long,
+				'zoom'     => $row->pl_zoom,
+				'icon'     => $row->pl_icon,
 			);
 		}
 
@@ -3222,7 +3221,9 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
-	 * @param integer $parent_id
+	 * Set the output level.
+	 *
+	 * @param int $parent_id
 	 */
 	private function outputLevel($parent_id) {
 		$tmp      = $this->placeIdToHierarchy($parent_id);
@@ -3277,7 +3278,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
-	 * ...
+	 * Edit places.
 	 */
 	private function placesEdit() {
 		$GM_MAX_ZOOM = $this->getSetting('GM_MAX_ZOOM');
@@ -3294,7 +3295,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 				->pageHeader();
 
 		$where_am_i = $this->placeIdToHierarchy($placeid);
-		$level = count($where_am_i);
+		$level      = count($where_am_i);
 
 		if ($action == 'addrecord' && Auth::isAdmin()) {
 			$statement =
@@ -3337,36 +3338,36 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 				Filter::get('svbear'),
 				Filter::get('svelev'),
 				Filter::get('svzoom'),
-				$placeid
+				$placeid,
 			));
 			$controller->addInlineJavaScript('window.close();');
 			exit;
 		}
 
-		if ($action == "update") {
+		if ($action === 'update') {
 			// --- find the place in the file
 			$row =
 				Database::prepare("SELECT pl_place, pl_lati, pl_long, pl_icon, pl_parent_id, pl_level, pl_zoom FROM `##placelocation` WHERE pl_id=?")
 				->execute(array($placeid))
 				->fetchOneRow();
-			$place_name = $row->pl_place;
-			$place_icon = $row->pl_icon;
+			$place_name       = $row->pl_place;
+			$place_icon       = $row->pl_icon;
 			$selected_country = explode("/", $place_icon);
 			if (isset($selected_country[1]) && $selected_country[1] != "flags")
 				$selected_country = $selected_country[1];
 			else
 				$selected_country = "Countries";
-			$parent_id = $row->pl_parent_id;
-			$level = $row->pl_level;
-			$zoomfactor = $row->pl_zoom;
-			$parent_lati = "0.0";
-			$parent_long = "0.0";
+			$parent_id         = $row->pl_parent_id;
+			$level             = $row->pl_level;
+			$zoomfactor        = $row->pl_zoom;
+			$parent_lati       = 0.0;
+			$parent_long       = 0.0;
 			if ($row->pl_lati !== null && $row->pl_long !== null) {
 				$place_lati = (float) (str_replace(array('N', 'S', ','), array('', '-', '.'), $row->pl_lati));
 				$place_long = (float) (str_replace(array('E', 'W', ','), array('', '-', '.'), $row->pl_long));
 			} else {
-				$place_lati = null;
-				$place_long = null;
+				$place_lati = 0.0;
+				$place_long = 0.0;
 				$zoomfactor = 1;
 			}
 
@@ -3386,23 +3387,21 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 					}
 				}
 				$parent_id = $row->pl_parent_id;
-			}
-			while ($row->pl_parent_id != 0 && $row->pl_lati === null && $row->pl_long === null);
+			} while ($row->pl_parent_id != 0 && $row->pl_lati === null && $row->pl_long === null);
 
 			echo '<b>', Filter::escapeHtml(str_replace('Unknown', I18N::translate('unknown'), implode(I18N::$list_separator, array_reverse($where_am_i, true)))), '</b><br>';
 		}
 
-		if ($action == 'add') {
+		if ($action === 'add') {
 			// --- find the parent place in the file
 			if ($placeid != 0) {
-				if (!isset($place_name)) $place_name = '';
-				$place_lati = null;
-				$place_long = null;
-				$zoomfactor = 1;
-				$parent_lati = '0.0';
-				$parent_long = '0.0';
-				$place_icon = '';
-				$parent_id = $placeid;
+				$place_lati  = 0.0;
+				$place_long  = 0.0;
+				$zoomfactor  = 1;
+				$parent_lati = 0.0;
+				$parent_long = 0.0;
+				$place_icon  = '';
+				$parent_id   = $placeid;
 				do {
 					$row =
 						Database::prepare("SELECT pl_lati, pl_long, pl_parent_id, pl_zoom, pl_level FROM `##placelocation` WHERE pl_id=?")
@@ -3411,7 +3410,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 					if ($row->pl_lati !== null && $row->pl_long !== null) {
 						$parent_lati = str_replace(array('N', 'S', ','), array('', '-', '.'), $row->pl_lati);
 						$parent_long = str_replace(array('E', 'W', ','), array('', '-', '.'), $row->pl_long);
-						$zoomfactor = $row->pl_zoom;
+						$zoomfactor  = $row->pl_zoom;
 						if ($zoomfactor > $GM_MAX_ZOOM) {
 							$zoomfactor = $GM_MAX_ZOOM;
 						}
@@ -3419,22 +3418,23 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 					}
 					$parent_id = $row->pl_parent_id;
 				} while ($row->pl_parent_id != 0 && $row->pl_lati === null && $row->pl_long === null);
-			}
-			else {
-				if (!isset($place_name)) $place_name = '';
-				$place_lati  = null;
-				$place_long  = null;
-				$parent_lati = "0.0";
-				$parent_long = "0.0";
+			} else {
+				$place_lati  = 0.0;
+				$place_long  = 0.0;
+				$parent_lati = 0.0;
+				$parent_long = 0.0;
 				$place_icon  = '';
 				$parent_id   = 0;
-				$level = 0;
+				$level       = 0;
 				$zoomfactor  = $this->getSetting('GM_MIN_ZOOM');
 			}
 			$selected_country = 'Countries';
 
-			if (!isset($place_name) || $place_name == "") echo '<b>', I18N::translate('unknown');
-			else echo '<b>', $place_name;
+			if ($place_name == '') {
+				echo '<b>', I18N::translate('unknown');
+			} else {
+				echo '<b>', $place_name;
+			}
 			if (count($where_am_i) > 0)
 				echo ', ', Filter::escapeHtml(str_replace('Unknown', I18N::translate('unknown'), implode(I18N::$list_separator, array_reverse($where_am_i, true)))), '</b><br>';
 			echo '</b><br>';
@@ -3448,15 +3448,12 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 			var marker;
 			var zoom;
 			var pl_name = '<?php echo Filter::escapeJs($place_name); ?>';
-			if (pl_name) {
-				var pl_lati = '<?php echo $place_lati; ?>';
-				var pl_long = '<?php echo $place_long; ?>';
+			if (<?php echo $place_lati; ?> !== 0.0 && <?php echo $place_long; ?> !== 0.0) {
+				var latlng = new google.maps.LatLng(<?php echo $place_lati; ?>, <?php echo $place_long; ?>);
 			} else {
-				var pl_lati = '<?php echo $parent_lati; ?>';
-				var pl_long = '<?php echo $parent_long; ?>';
+				var latlng = new google.maps.LatLng(<?php echo $parent_lati; ?>, <?php echo $parent_long; ?>);
 			}
 			var pl_zoom = <?php echo $zoomfactor; ?>;
-			var latlng = new google.maps.LatLng(pl_lati, pl_long);
 			var polygon1;
 			var polygon2;
 			var geocoder;
@@ -3985,7 +3982,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 				<td class="descriptionbox"><?php echo GedcomTag::getLabel('PLAC'); ?></td>
 				<td class="optionbox"><input type="text" id="new_pl_name" name="NEW_PLACE_NAME" value="<?php echo Filter::escapeHtml($place_name); ?>" size="25" class="address_input">
 					<div id="INDI_PLAC_pop" style="display: inline;">
-					<?php echo print_specialchar_link('new_pl_name'); ?></div></td><td class="optionbox">
+					<?php echo FunctionsPrint::printSpecialCharacterLink('new_pl_name'); ?></div></td><td class="optionbox">
 					<label for="new_pl_name"><a href="#" onclick="showLocation_all(document.getElementById('new_pl_name').value); return false">&nbsp;<?php echo I18N::translate('Search globally'); ?></a></label>
 					&nbsp;&nbsp;|&nbsp;&nbsp;
 					<label for="new_pl_name"><a href="#" onclick="showLocation_level(document.getElementById('new_pl_name').value); return false">&nbsp;<?php echo I18N::translate('Search locally'); ?></a></label>
@@ -4092,7 +4089,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
-	 * ...
+	 * Places administration.
 	 */
 	private function adminPlaces() {
 		global $WT_TREE;
@@ -4110,12 +4107,11 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 		$controller->restrictAccess(Auth::isAdmin());
 
 		if ($action == 'ExportFile' && Auth::isAdmin()) {
-			Zend_Session::writeClose();
-			$tmp = $this->placeIdToHierarchy($parent);
-			$maxLevel = $this->getHighestLevel();
+			$tmp                         = $this->placeIdToHierarchy($parent);
+			$maxLevel                    = $this->getHighestLevel();
 			if ($maxLevel > 8) $maxLevel = 8;
-			$tmp[0] = 'places';
-			$outputFileName = preg_replace('/[:;\/\\\(\)\{\}\[\] $]/', '_', implode('-', $tmp)) . '.csv';
+			$tmp[0]                      = 'places';
+			$outputFileName              = preg_replace('/[:;\/\\\(\)\{\}\[\] $]/', '_', implode('-', $tmp)) . '.csv';
 			header('Content-Type: application/octet-stream');
 			header('Content-Disposition: attachment; filename="' . $outputFileName . '"');
 			echo '"', I18N::translate('Level'), '";"', I18N::translate('Country'), '";';
@@ -4164,18 +4160,18 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 		<?php
 
 		if ($action == 'ImportGedcom') {
-			$placelist = array();
-			$j = 0;
+			$placelist      = array();
+			$j              = 0;
 			$gedcom_records =
 				Database::prepare("SELECT i_gedcom FROM `##individuals` WHERE i_file=? UNION ALL SELECT f_gedcom FROM `##families` WHERE f_file=?")
 				->execute(array($WT_TREE->getTreeId(), $WT_TREE->getTreeId()))
 				->fetchOneColumn();
 			foreach ($gedcom_records as $gedrec) {
-				$i = 1;
-				$placerec = get_sub_record(2, '2 PLAC', $gedrec, $i);
+				$i        = 1;
+				$placerec = Functions::getSubRecord(2, '2 PLAC', $gedrec, $i);
 				while (!empty($placerec)) {
 					if (preg_match("/2 PLAC (.+)/", $placerec, $match)) {
-						$placelist[$j] = array();
+						$placelist[$j]          = array();
 						$placelist[$j]['place'] = trim($match[1]);
 						if (preg_match("/4 LATI (.*)/", $placerec, $match)) {
 							$placelist[$j]['lati'] = trim($match[1]);
@@ -4199,26 +4195,26 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 							}
 						}
 						else $placelist[$j]['long'] = null;
-						$j = $j + 1;
+						$j                          = $j + 1;
 					}
-					$i = $i + 1;
-					$placerec = get_sub_record(2, '2 PLAC', $gedrec, $i);
+					$i        = $i + 1;
+					$placerec = Functions::getSubRecord(2, '2 PLAC', $gedrec, $i);
 				}
 			}
 			asort($placelist);
 
-			$prevPlace = '';
-			$prevLati = '';
-			$prevLong = '';
+			$prevPlace     = '';
+			$prevLati      = '';
+			$prevLong      = '';
 			$placelistUniq = array();
-			$j = 0;
-			foreach ($placelist as $k=>$place) {
+			$j             = 0;
+			foreach ($placelist as $k => $place) {
 				if ($place['place'] != $prevPlace) {
-					$placelistUniq[$j] = array();
+					$placelistUniq[$j]          = array();
 					$placelistUniq[$j]['place'] = $place['place'];
-					$placelistUniq[$j]['lati'] = $place['lati'];
-					$placelistUniq[$j]['long'] = $place['long'];
-					$j = $j + 1;
+					$placelistUniq[$j]['lati']  = $place['lati'];
+					$placelistUniq[$j]['long']  = $place['long'];
+					$j                          = $j + 1;
 				} elseif (($place['place'] == $prevPlace) && (($place['lati'] != $prevLati) || ($place['long'] != $prevLong))) {
 					if (($placelistUniq[$j - 1]['lati'] == 0) || ($placelistUniq[$j - 1]['long'] == 0)) {
 						$placelistUniq[$j - 1]['lati'] = $place['lati'];
@@ -4228,21 +4224,21 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 					}
 				}
 				$prevPlace = $place['place'];
-				$prevLati = $place['lati'];
-				$prevLong = $place['long'];
+				$prevLati  = $place['lati'];
+				$prevLong  = $place['long'];
 			}
 
 			$highestIndex = $this->getHighestIndex();
 
 			$default_zoom_level = array(4, 7, 10, 12);
-			foreach ($placelistUniq as $k=>$place) {
-				$parent = preg_split('/ *, */', $place['place']);
-				$parent = array_reverse($parent);
+			foreach ($placelistUniq as $k => $place) {
+				$parent    = preg_split('/ *, */', $place['place']);
+				$parent    = array_reverse($parent);
 				$parent_id = 0;
 				for ($i = 0; $i < count($parent); $i++) {
 					if (!isset($default_zoom_level[$i]))
 						$default_zoom_level[$i] = $default_zoom_level[$i - 1];
-					$escparent = $parent[$i];
+					$escparent               = $parent[$i];
 					if ($escparent == '') {
 						$escparent = 'Unknown';
 					}
@@ -4299,7 +4295,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 					<td>
 						<select name="localfile">
 							<option></option>
-							<?php foreach ($placefiles as $p=>$placefile) { ?>
+							<?php foreach ($placefiles as $p => $placefile) { ?>
 							<option value="<?php echo Filter::escapeHtml($placefile); ?>"><?php
 								if (substr($placefile, 0, 1) == "/") echo substr($placefile, 1);
 								else echo $placefile; ?></option>
@@ -4332,8 +4328,8 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 
 		if ($action === 'ImportFile2') {
 			$country_names = array();
-			$stats = new Stats($WT_TREE);
-			foreach ($stats->iso3166() as $key=>$value) {
+			$stats         = new Stats($WT_TREE);
+			foreach ($stats->iso3166() as $key => $value) {
 				$country_names[$key] = I18N::translate($key);
 			}
 			if (isset($_POST['cleardatabase'])) {
@@ -4350,14 +4346,14 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 			}
 			asort($lines);
 			$highestIndex = $this->getHighestIndex();
-			$placelist = array();
-			$j = 0;
-			$maxLevel = 0;
+			$placelist    = array();
+			$j            = 0;
+			$maxLevel     = 0;
 			foreach ($lines as $p => $placerec) {
-				$fieldrec = explode(';', $placerec);
+				$fieldrec                               = explode(';', $placerec);
 				if ($fieldrec[0] > $maxLevel) $maxLevel = $fieldrec[0];
 			}
-			$fields = count($fieldrec);
+			$fields   = count($fieldrec);
 			$set_icon = true;
 			if (!is_dir(WT_MODULES_DIR . 'googlemap/places/flags/')) {
 				$set_icon = false;
@@ -4365,7 +4361,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 			foreach ($lines as $p => $placerec) {
 				$fieldrec = explode(';', $placerec);
 				if (is_numeric($fieldrec[0]) && $fieldrec[0] <= $maxLevel) {
-					$placelist[$j] = array();
+					$placelist[$j]          = array();
 					$placelist[$j]['place'] = '';
 					for ($ii = $fields - 4; $ii > 1; $ii--) {
 						if ($fieldrec[0] > $ii - 2) $placelist[$j]['place'] .= $fieldrec[$ii] . ',';
@@ -4389,20 +4385,20 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 				}
 			}
 
-			$prevPlace = '';
-			$prevLati = '';
-			$prevLong = '';
+			$prevPlace     = '';
+			$prevLati      = '';
+			$prevLong      = '';
 			$placelistUniq = array();
-			$j = 0;
-			foreach ($placelist as $k=>$place) {
+			$j             = 0;
+			foreach ($placelist as $k => $place) {
 				if ($place['place'] != $prevPlace) {
-					$placelistUniq[$j] = array();
+					$placelistUniq[$j]          = array();
 					$placelistUniq[$j]['place'] = $place['place'];
-					$placelistUniq[$j]['lati'] = $place['lati'];
-					$placelistUniq[$j]['long'] = $place['long'];
-					$placelistUniq[$j]['zoom'] = $place['zoom'];
-					$placelistUniq[$j]['icon'] = $place['icon'];
-					$j = $j + 1;
+					$placelistUniq[$j]['lati']  = $place['lati'];
+					$placelistUniq[$j]['long']  = $place['long'];
+					$placelistUniq[$j]['zoom']  = $place['zoom'];
+					$placelistUniq[$j]['icon']  = $place['icon'];
+					$j                          = $j + 1;
 				} elseif (($place['place'] == $prevPlace) && (($place['lati'] != $prevLati) || ($place['long'] != $prevLong))) {
 					if (($placelistUniq[$j - 1]['lati'] == 0) || ($placelistUniq[$j - 1]['long'] == 0)) {
 						$placelistUniq[$j - 1]['lati'] = $place['lati'];
@@ -4414,18 +4410,18 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 					}
 				}
 				$prevPlace = $place['place'];
-				$prevLati = $place['lati'];
-				$prevLong = $place['long'];
+				$prevLati  = $place['lati'];
+				$prevLong  = $place['long'];
 			}
 
-			$default_zoom_level = array();
+			$default_zoom_level    = array();
 			$default_zoom_level[0] = 4;
 			$default_zoom_level[1] = 7;
 			$default_zoom_level[2] = 10;
 			$default_zoom_level[3] = 12;
-			foreach ($placelistUniq as $k=>$place) {
-				$parent = explode(',', $place['place']);
-				$parent = array_reverse($parent);
+			foreach ($placelistUniq as $k => $place) {
+				$parent    = explode(',', $place['place']);
+				$parent    = array_reverse($parent);
 				$parent_id = 0;
 				for ($i = 0; $i < count($parent); $i++) {
 					$escparent = $parent[$i];
@@ -4523,14 +4519,14 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 		function delete_place(placeid) {
 			var answer=confirm('<?php echo I18N::translate('Remove this location?'); ?>');
 			if (answer == true) {
-				window.location = '<?php echo get_query_url(array('action' => 'DeleteRecord')); ?>&action=DeleteRecord&deleteRecord=' + placeid;
+				window.location = '<?php echo Functions::getQueryUrl(array('action' => 'DeleteRecord')); ?>&action=DeleteRecord&deleteRecord=' + placeid;
 			}
 		}
 		</script>
 		<?php
 		echo '<div id="gm_breadcrumb">';
 		$where_am_i = $this->placeIdToHierarchy($parent);
-		foreach (array_reverse($where_am_i, true) as $id=>$place) {
+		foreach (array_reverse($where_am_i, true) as $id => $place) {
 			if ($id == $parent) {
 				if ($place != 'Unknown') {
 					echo Filter::escapeHtml($place);
@@ -4572,7 +4568,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 		echo '<th>';
 		echo I18N::translate('Edit'), '</th><th>', I18N::translate('Delete'), '</th></tr>';
 		if (count($placelist) == 0)
-			echo '<tr><td colspan="7" class="accepted">', I18N::translate('No places found'), '</td></tr>';
+			echo '<tr><td colspan="7">', I18N::translate('No places found'), '</td></tr>';
 		foreach ($placelist as $place) {
 			echo '<tr><td><a href="module.php?mod=googlemap&mod_action=admin_places&parent=', $place['place_id'], '&inactive=', $inactive, '">';
 			if ($place['place'] != 'Unknown')
@@ -4617,7 +4613,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 				</td>
 				<td>
 					<form action="?" onsubmit="add_place_location(this.parent_id.options[this.parent_id.selectedIndex].value); return false;">
-						<?php echo select_edit_control('parent_id', $where_am_i, I18N::translate('Top level'), $parent); ?>
+						<?php echo FunctionsEdit::selectEditControl('parent_id', $where_am_i, I18N::translate('Top level'), $parent); ?>
 						<input type="submit" value="<?php echo I18N::translate('Add'); ?>">
 					</form>
 				</td>
@@ -4631,7 +4627,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 						<input type="hidden" name="mod" value="googlemap">
 						<input type="hidden" name="mod_action" value="admin_places">
 						<input type="hidden" name="action" value="ImportGedcom">
-						<?php echo select_edit_control('ged', Tree::getNameList(), null, $WT_TREE->getName()); ?>
+						<?php echo FunctionsEdit::selectEditControl('ged', Tree::getNameList(), null, $WT_TREE->getName()); ?>
 						<input type="submit" value="<?php echo I18N::translate('Import'); ?>">
 					</form>
 				</td>
@@ -4658,7 +4654,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 						<input type="hidden" name="mod" value="googlemap">
 						<input type="hidden" name="mod_action" value="admin_places">
 						<input type="hidden" name="action" value="ExportFile">
-						<?php echo select_edit_control('parent', $where_am_i, I18N::translate('All'), $WT_TREE->getTreeId()); ?>
+						<?php echo FunctionsEdit::selectEditControl('parent', $where_am_i, I18N::translate('All'), $WT_TREE->getTreeId()); ?>
 						<input type="submit" value="<?php echo I18N::translate('Download'); ?>">
 					</form>
 				</td>
@@ -4668,7 +4664,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 	}
 
 	/**
-	 * ...
+	 * Generate the streetview window.
 	 */
 	private function wtStreetView() {
 	header('Content-type: text/html; charset=UTF-8');
@@ -4958,7 +4954,7 @@ class GoogleMapsModule extends AbstractModule implements ModuleConfigInterface, 
 					<form name="myForm" title="myForm">
 						<?php
 						echo '<input id="butt1" name ="butt1" type="button" value="', I18N::translate('Google Maps™'), '" onclick="toggleStreetView();"></input>';
-						echo '<input id="butt2" name ="butt2" type="button" value="', I18N::translate('Reset'), '" onclick="initialize();"></input>';
+						echo '<input id="butt2" name ="butt2" type="button" value="', I18N::translate('reset'), '" onclick="initialize();"></input>';
 						?>
 					</form>
 				</div>

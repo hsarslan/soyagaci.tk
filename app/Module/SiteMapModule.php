@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,15 +13,26 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module;
 
-use Zend_Session;
+use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\Controller\PageController;
+use Fisharebest\Webtrees\Database;
+use Fisharebest\Webtrees\Filter;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Individual;
+use Fisharebest\Webtrees\Media;
+use Fisharebest\Webtrees\Note;
+use Fisharebest\Webtrees\Repository;
+use Fisharebest\Webtrees\Source;
+use Fisharebest\Webtrees\Tree;
 
 /**
  * Class SiteMapModule
  */
 class SiteMapModule extends AbstractModule implements ModuleConfigInterface {
 	const RECORDS_PER_VOLUME = 500; // Keep sitemap files small, for memory, CPU and max_allowed_packet limits.
-	const CACHE_LIFE = 1209600; // Two weeks
+	const CACHE_LIFE         = 1209600; // Two weeks
 
 	/** {@inheritdoc} */
 	public function getTitle() {
@@ -35,14 +44,18 @@ class SiteMapModule extends AbstractModule implements ModuleConfigInterface {
 		return /* I18N: Description of the “Sitemaps” module */ I18N::translate('Generate sitemap files for search engines.');
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * This is a general purpose hook, allowing modules to respond to routes
+	 * of the form module.php?mod=FOO&mod_action=BAR
+	 *
+	 * @param string $mod_action
+	 */
 	public function modAction($mod_action) {
 		switch ($mod_action) {
 		case 'admin':
 			$this->admin();
 			break;
 		case 'generate':
-			Zend_Session::writeClose();
 			$this->generate(Filter::get('file'));
 			break;
 		default:
@@ -51,6 +64,8 @@ class SiteMapModule extends AbstractModule implements ModuleConfigInterface {
 	}
 
 	/**
+	 * Generate an XML file.
+	 *
 	 * @param string $file
 	 */
 	private function generate($file) {
@@ -73,7 +88,7 @@ class SiteMapModule extends AbstractModule implements ModuleConfigInterface {
 		if ($timestamp > WT_TIMESTAMP - self::CACHE_LIFE) {
 			$data = $this->getSetting('sitemap.xml');
 		} else {
-			$data = '';
+			$data    = '';
 			$lastmod = '<lastmod>' . date('Y-m-d') . '</lastmod>';
 			foreach (Tree::getAll() as $tree) {
 				if ($tree->getPreference('include_in_sitemap')) {
@@ -131,7 +146,7 @@ class SiteMapModule extends AbstractModule implements ModuleConfigInterface {
 	 * A separate file for each family tree and each record type.
 	 * These files depend on access levels, so only cache for visitors.
 	 *
-	 * @param integer $ged_id
+	 * @param int    $ged_id
 	 * @param string $rec_type
 	 * @param string $volume
 	 */
@@ -142,7 +157,7 @@ class SiteMapModule extends AbstractModule implements ModuleConfigInterface {
 		if ($timestamp > WT_TIMESTAMP - self::CACHE_LIFE && !Auth::check()) {
 			$data = $this->getSetting('sitemap-' . $ged_id . '-' . $rec_type . '-' . $volume . '.xml');
 		} else {
-			$data = '<url><loc>' . WT_BASE_URL . 'index.php?ctype=gedcom&amp;ged=' . $tree->getNameUrl() . '</loc></url>' . PHP_EOL;
+			$data    = '<url><loc>' . WT_BASE_URL . 'index.php?ctype=gedcom&amp;ged=' . $tree->getNameUrl() . '</loc></url>' . PHP_EOL;
 			$records = array();
 			switch ($rec_type) {
 			case 'i':
@@ -282,7 +297,7 @@ class SiteMapModule extends AbstractModule implements ModuleConfigInterface {
 			<li><a href="admin_modules.php"><?php echo I18N::translate('Module administration'); ?></a></li>
 			<li class="active"><?php echo $controller->getPageTitle(); ?></li>
 		</ol>
-		<h2><?php echo $controller->getPageTitle(); ?></h2>
+		<h1><?php echo $controller->getPageTitle(); ?></h1>
 		<?php
 
 		echo
@@ -294,12 +309,12 @@ class SiteMapModule extends AbstractModule implements ModuleConfigInterface {
 			'<form method="post" action="module.php?mod=' . $this->getName() . '&amp;mod_action=admin">',
 		'<input type="hidden" name="action" value="save">';
 		foreach (Tree::getAll() as $tree) {
-			echo '<p><input type="checkbox" name="include', $tree->getTreeId(), '" ';
+			echo '<div class="checkbox"><label><input type="checkbox" name="include', $tree->getTreeId(), '" ';
 			if ($tree->getPreference('include_in_sitemap')) {
 				echo 'checked';
 				$include_any = true;
 			}
-			echo '>', $tree->getTitleHtml(), '</p>';
+			echo '>', $tree->getTitleHtml(), '</label></div>';
 		}
 		echo
 		'<input type="submit" value="', I18N::translate('save'), '">',

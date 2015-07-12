@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,56 +13,77 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Theme;
+
+use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Menu;
+use Fisharebest\Webtrees\Tree;
 
 /**
- * Class AdministrationTheme - Theme for the control panel.
+ * The theme for the control panel.
  */
-class AdministrationTheme extends BaseTheme {
-	/** {@inheritdoc} */
+class AdministrationTheme extends AbstractTheme implements ThemeInterface {
+	/**
+	 * A list of CSS files to include for this page.
+	 *
+	 * @return string[]
+	 */
 	protected function stylesheets() {
-		$stylesheets = array(
-			WT_FONT_AWESOME_CSS_URL,
-			WT_BOOTSTRAP_CSS_URL,
-			WT_DATATABLES_BOOTSTRAP_CSS_URL,
-			WT_BOOTSTRAP_DATETIMEPICKER_CSS_URL,
-			$this->assetUrl() . 'style.css',
-		);
-
-		if (I18N::direction() === 'rtl') {
-			$stylesheets[] = WT_BOOTSTRAP_RTL_CSS_URL;
-		}
+		$stylesheets   = parent::stylesheets();
+		$stylesheets[] = WT_DATATABLES_BOOTSTRAP_CSS_URL;
+		$stylesheets[] = WT_BOOTSTRAP_DATETIMEPICKER_CSS_URL;
+		$stylesheets[] = $this->assetUrl() . 'style.css';
 
 		return $stylesheets;
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Where are our CSS, JS and other assets?
+	 *
+	 * @return string A relative path, such as "themes/foo/"
+	 */
 	public function assetUrl() {
 		return 'themes/_administration/css-1.7.0/';
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Create the contents of the <footer> tag.
+	 *
+	 * @return string
+	 */
 	protected function footerContent() {
 		return '';
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Create the contents of the <header> tag.
+	 *
+	 * @return string
+	 */
 	protected function headerContent() {
 		return
 			$this->accessibilityLinks() .
 			$this->secondaryMenuContainer($this->secondaryMenu());
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Allow themes to add extra scripts to the page footer.
+	 *
+	 * @return string
+	 */
 	public function hookFooterExtraJavascript() {
 		return
 			'<script src="' . WT_BOOTSTRAP_JS_URL . '"></script>';
 	}
 
 	/**
+	 * Site administration functions.
+	 *
 	 * @return Menu
 	 */
 	protected function menuAdminSite() {
-		return new Menu(/* I18N: Menu entry*/ I18N::translate('Website'), '#', '', '', array(
+		return new Menu(/* I18N: Menu entry*/ I18N::translate('Website'), '#', '', array(), array(
 			new Menu(/* I18N: Menu entry */ I18N::translate('Website preferences'), 'admin_site_config.php?action=site'),
 			new Menu(/* I18N: Menu entry */ I18N::translate('Sending email'), 'admin_site_config.php?action=email'),
 			new Menu(/* I18N: Menu entry */ I18N::translate('Login and registration'), 'admin_site_config.php?action=login'),
@@ -79,10 +98,12 @@ class AdministrationTheme extends BaseTheme {
 	}
 
 	/**
+	 * Tree administration menu.
+	 *
 	 * @return Menu
 	 */
 	protected function menuAdminTrees() {
-		return new Menu(/* I18N: Menu entry */ I18N::translate('Family trees'), '#', '', '', array_filter(array(
+		return new Menu(/* I18N: Menu entry */ I18N::translate('Family trees'), '#', '', array(), array_filter(array(
 			$this->menuAdminTreesManage(),
 			$this->menuAdminTreesSetDefault(),
 			$this->menuAdminTreesMerge(),
@@ -90,6 +111,8 @@ class AdministrationTheme extends BaseTheme {
 	}
 
 	/**
+	 * Manage trees menu.
+	 *
 	 * @return Menu
 	 */
 	protected function menuAdminTreesManage() {
@@ -97,6 +120,8 @@ class AdministrationTheme extends BaseTheme {
 	}
 
 	/**
+	 * Merge trees menu.
+	 *
 	 * @return Menu|null
 	 */
 	protected function menuAdminTreesMerge() {
@@ -108,6 +133,8 @@ class AdministrationTheme extends BaseTheme {
 	}
 
 	/**
+	 * Set default blocks menu.
+	 *
 	 * @return Menu|null
 	 */
 	protected function menuAdminTreesSetDefault() {
@@ -119,10 +146,12 @@ class AdministrationTheme extends BaseTheme {
 	}
 
 	/**
+	 * User administration menu.
+	 *
 	 * @return Menu
 	 */
 	protected function menuAdminUsers() {
-		return new Menu(/* I18N: Menu entry */ I18N::translate('Users'), '#', '', '', array(
+		return new Menu(/* I18N: Menu entry */ I18N::translate('Users'), '#', '', array(), array(
 			new Menu(/* I18N: Menu entry */ I18N::translate('User administration'), 'admin_users.php'),
 			new Menu(/* I18N: Menu entry */ I18N::translate('Add a new user'), 'admin_users.php?action=edit'),
 			new Menu(/* I18N: Menu entry */ I18N::translate('Send broadcast messages'), 'admin_users_bulk.php'),
@@ -132,20 +161,24 @@ class AdministrationTheme extends BaseTheme {
 	}
 
 	/**
+	 * Media administration menu.
+	 *
 	 * @return Menu
 	 */
 	protected function menuAdminMedia() {
-		return new Menu(/* I18N: Menu entry */ I18N::translate('Media'), '#', '', '', array(
+		return new Menu(/* I18N: Menu entry */ I18N::translate('Media'), '#', '', array(), array(
 			new Menu(/* I18N: Menu entry */ I18N::translate('Manage media'), 'admin_media.php'),
 			new Menu(/* I18N: Menu entry */ I18N::translate('Upload media files'), 'admin_media_upload.php'),
 		));
 	}
 
 	/**
+	 * Module administration menu.
+	 *
 	 * @return Menu
 	 */
 	protected function menuAdminModules() {
-		return new Menu(/* I18N: Menu entry */ I18N::translate('Modules'), '#', '', '', array(
+		return new Menu(/* I18N: Menu entry */ I18N::translate('Modules'), '#', '', array(), array(
 			new Menu(/* I18N: Menu entry */ I18N::translate('Module administration'), 'admin_modules.php'),
 			new Menu(/* I18N: Menu entry */ I18N::translate('Menus'), 'admin_module_menus.php'),
 			new Menu(/* I18N: Menu entry */ I18N::translate('Tabs'), 'admin_module_tabs.php'),
@@ -155,7 +188,11 @@ class AdministrationTheme extends BaseTheme {
 		));
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Generate a list of items for the main menu.
+	 *
+	 * @return Menu[]
+	 */
 	protected function primaryMenu() {
 		if (Auth::isAdmin()) {
 			return array(
@@ -172,7 +209,13 @@ class AdministrationTheme extends BaseTheme {
 		}
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Add markup to the primary menu.
+	 *
+	 * @param Menu[] $menus
+	 *
+	 * @return string
+	 */
 	protected function primaryMenuContainer(array $menus) {
 		$html = '';
 		foreach ($menus as $menu) {
@@ -198,7 +241,11 @@ class AdministrationTheme extends BaseTheme {
 			'</nav>';
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Generate a list of items for the user menu.
+	 *
+	 * @return Menu[]
+	 */
 	protected function secondaryMenu() {
 		return array_filter(array(
 			$this->menuPendingChanges(),
@@ -208,22 +255,42 @@ class AdministrationTheme extends BaseTheme {
 		));
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Add markup to the secondary menu.
+	 *
+	 * @param Menu[] $menus
+	 *
+	 * @return string
+	 */
 	protected function secondaryMenuContainer(array $menus) {
-		$html = '';
-		foreach ($menus as $menu) {
-			$html .= $menu->bootstrap();
-		}
-
-		return '<div class="clearfix"><ul class="nav nav-pills small pull-right flip" role="menu">' . $html . '</ul></div>';
+		return '<div class="clearfix"><ul class="nav nav-pills small pull-right flip" role="menu">' . $this->secondaryMenuContent($menus) . '</ul></div>';
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * Format the secondary menu.
+	 *
+	 * @param Menu[] $menus
+	 *
+	 * @return string
+	 */
+	protected function secondaryMenuContent(array $menus) {
+		return implode('', array_map(function (Menu $menu) { return $menu->bootstrap(); }, $menus));
+	}
+
+	/**
+	 * A fixed string to identify this theme, in settings, etc.
+	 *
+	 * @return string
+	 */
 	public function themeId() {
 		return '_administration';
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * What is this theme called?
+	 *
+	 * @return string
+	 */
 	public function themeName() {
 		return 'administration';
 	}

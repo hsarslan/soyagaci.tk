@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,9 +13,10 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees;
 
 /**
- * Class User - Provide an interface to the wt_user table.
+ * Provide an interface to the wt_user table.
  */
 class User {
 	/** @var  string The primary key of this user. */
@@ -41,7 +40,7 @@ class User {
 	/**
 	 * Find the user with a specified user_id.
 	 *
-	 * @param integer|null $user_id
+	 * @param int|null $user_id
 	 *
 	 * @return User|null
 	 */
@@ -51,7 +50,7 @@ class User {
 				"SELECT SQL_CACHE user_id, user_name, real_name, email FROM `##user` WHERE user_id = ?"
 			)->execute(array($user_id))->fetchOneRow();
 			if ($row) {
-				self::$cache[$user_id] = new User($row);
+				self::$cache[$user_id] = new self($row);
 			} else {
 				self::$cache[$user_id] = null;
 			}
@@ -89,7 +88,7 @@ class User {
 			" WHERE gedcom_id = :tree_id AND setting_name = 'gedcomid' AND setting_value = :xref"
 		)->execute(array(
 			'tree_id' => $individual->getTree()->getTreeId(),
-			'xref'    => $individual->getXref()
+			'xref'    => $individual->getXref(),
 		))->fetchOne();
 
 		return self::find($user_id);
@@ -135,18 +134,19 @@ class User {
 		));
 
 		// Set default blocks for this user
-		$user = User::findByIdentifier($user_name);
+		$user = self::findByIdentifier($user_name);
 		Database::prepare(
 			"INSERT INTO `##block` (`user_id`, `location`, `block_order`, `module_name`)" .
 			" SELECT :user_id , `location`, `block_order`, `module_name` FROM `##block` WHERE `user_id` = -1"
 		)->execute(array('user_id' => $user->getUserId()));
+
 		return $user;
 	}
 
 	/**
 	 * Get a count of all users.
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	public static function count() {
 		return (int) Database::prepare(
@@ -172,7 +172,7 @@ class User {
 		)->fetchAll();
 
 		foreach ($rows as $row) {
-			$users[] = new User($row);
+			$users[] = new self($row);
 		}
 
 		return $users;
@@ -195,7 +195,7 @@ class User {
 
 		$users = array();
 		foreach ($rows as $row) {
-			$users[] = new User($row);
+			$users[] = new self($row);
 		}
 
 		return $users;
@@ -218,7 +218,7 @@ class User {
 
 		$users = array();
 		foreach ($rows as $row) {
-			$users[] = new User($row);
+			$users[] = new self($row);
 		}
 
 		return $users;
@@ -238,7 +238,7 @@ class User {
 
 		$users = array();
 		foreach ($rows as $row) {
-			$users[] = new User($row);
+			$users[] = new self($row);
 		}
 
 		return $users;
@@ -259,7 +259,7 @@ class User {
 	/**
 	 * Delete a user
 	 */
-	function delete() {
+	public function delete() {
 		// Don't delete the logs.
 		Database::prepare("UPDATE `##log` SET user_id=NULL WHERE user_id =?")->execute(array($this->user_id));
 		// Take over the user’s pending changes. (What else could we do with them?)
@@ -275,10 +275,9 @@ class User {
 	}
 
 	/** Validate a supplied password
-	 *
 	 * @param string $password
 	 *
-	 * @return boolean
+	 * @return bool
 	 */
 	public function checkPassword($password) {
 		$password_hash = Database::prepare(
@@ -289,6 +288,7 @@ class User {
 			if (password_needs_rehash($password_hash, PASSWORD_DEFAULT)) {
 				$this->setPassword($password);
 			}
+
 			return true;
 		} else {
 			return false;

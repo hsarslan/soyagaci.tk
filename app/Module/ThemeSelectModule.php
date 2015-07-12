@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,6 +13,10 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Module;
+
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Theme;
 
 /**
  * Class ThemeSelectModule
@@ -30,13 +32,20 @@ class ThemeSelectModule extends AbstractModule implements ModuleBlockInterface {
 		return /* I18N: Description of the “Theme change” module */ I18N::translate('An alternative way to select a new theme.');
 	}
 
-	/** {@inheritdoc} */
-	public function getBlock($block_id, $template = true, $cfg = null) {
-		/** @var BaseTheme */
-		$id = $this->getName() . $block_id;
+	/**
+	 * Generate the HTML content of this block.
+	 *
+	 * @param int      $block_id
+	 * @param bool     $template
+	 * @param string[] $cfg
+	 *
+	 * @return string
+	 */
+	public function getBlock($block_id, $template = true, $cfg = array()) {
+		$id    = $this->getName() . $block_id;
 		$class = $this->getName() . '_block';
 		$title = $this->getTitle();
-		$menu = Theme::theme()->menuThemes();
+		$menu  = Theme::theme()->menuThemes();
 
 		if ($menu) {
 			$content = '<div class="center theme_form">' . $menu . '</div><br>';
@@ -66,7 +75,11 @@ class ThemeSelectModule extends AbstractModule implements ModuleBlockInterface {
 		return true;
 	}
 
-	/** {@inheritdoc} */
+	/**
+	 * An HTML form to edit block settings
+	 *
+	 * @param int $block_id
+	 */
 	public function configureBlock($block_id) {
 	}
 }

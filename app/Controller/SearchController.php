@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,11 +13,26 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+namespace Fisharebest\Webtrees\Controller;
 
-use Zend_Session;
+use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\Config;
+use Fisharebest\Webtrees\Family;
+use Fisharebest\Webtrees\Filter;
+use Fisharebest\Webtrees\FlashMessages;
+use Fisharebest\Webtrees\Functions\FunctionsDb;
+use Fisharebest\Webtrees\Functions\FunctionsPrintLists;
+use Fisharebest\Webtrees\GedcomRecord;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Individual;
+use Fisharebest\Webtrees\Log;
+use Fisharebest\Webtrees\Note;
+use Fisharebest\Webtrees\Site;
+use Fisharebest\Webtrees\Source;
+use Fisharebest\Webtrees\Tree;
 
 /**
- * Class SearchController - Controller for the search page
+ * Controller for the search page
  */
 class SearchController extends PageController {
 	/** @var string The type of search to perform */
@@ -58,18 +71,35 @@ class SearchController extends PageController {
 	/** @var string The soundex algorithm to use */
 	public $soundex;
 
-	// Need to decide if these variables are public/private/protected (or unused)
-	var $showasso = 'off';
-	var $name;
-	var $firstname;
-	var $lastname;
-	var $place;
-	var $year;
-	var $replace = '';
-	var $replaceNames = false;
-	var $replacePlaces = false;
-	var $replaceAll = false;
-	var $replacePlacesWord = false;
+	/** @var string @var string Search parameter */
+	public $showasso = 'off';
+
+	/** @var string @var string Search parameter */
+	public $firstname;
+
+	/** @var string @var string Search parameter */
+	public $lastname;
+
+	/** @var string @var string Search parameter */
+	public $place;
+
+	/** @var string @var string Search parameter */
+	public $year;
+
+	/** @var string @var string Replace parameter */
+	public $replace = '';
+
+	/** @var bool @var string Replace parameter */
+	public $replaceNames = false;
+
+	/** @var bool @var string Replace parameter */
+	public $replacePlaces = false;
+
+	/** @var bool @var string Replace parameter */
+	public $replaceAll = false;
+
+	/** @var bool @var string Replace parameter */
+	public $replacePlacesWord = false;
 
 	/**
 	 * Startup activity
@@ -113,7 +143,6 @@ class SearchController extends PageController {
 		$this->lastname          = Filter::get('lastname');
 		$this->place             = Filter::get('place');
 		$this->year              = Filter::get('year');
-		$this->name              = Filter::get('name');
 
 		// If no record types specified, search individuals
 		if (!$this->srfams && !$this->srsour && !$this->srnote) {
@@ -170,11 +199,12 @@ class SearchController extends PageController {
 			$this->soundexSearch();
 			break;
 		case 'replace':
+			$this->setPageTitle(I18N::translate('Search and replace'));
 			$this->search_trees = array($WT_TREE);
-			$this->srindi = 'checked';
-			$this->srfams = 'checked';
-			$this->srsour = 'checked';
-			$this->srnote = 'checked';
+			$this->srindi       = 'checked';
+			$this->srfams       = 'checked';
+			$this->srsour       = 'checked';
+			$this->srnote       = 'checked';
 			if (Filter::post('query')) {
 				$this->searchAndReplace($WT_TREE);
 				header('Location: ' . WT_BASE_URL . WT_SCRIPT_NAME . '?action=replace&query=' . Filter::escapeUrl($this->query) . '&replace=' . Filter::escapeUrl($this->replace) . '&replaceAll=' . $this->replaceAll . '&replaceNames=' . $this->replaceNames . '&replacePlaces=' . $this->replacePlaces . '&replacePlacesWord=' . $this->replacePlacesWord);
@@ -209,26 +239,26 @@ class SearchController extends PageController {
 
 			// Search the individuals
 			if ($this->srindi && $query_terms) {
-				$this->myindilist = search_indis($query_terms, $this->search_trees);
+				$this->myindilist = FunctionsDb::searchIndividuals($query_terms, $this->search_trees);
 			}
 
 			// Search the fams
 			if ($this->srfams && $query_terms) {
 				$this->myfamlist = array_merge(
-					search_fams($query_terms, $this->search_trees),
-					search_fams_names($query_terms, $this->search_trees)
+					FunctionsDb::searchFamilies($query_terms, $this->search_trees),
+					FunctionsDb::searchFamilyNames($query_terms, $this->search_trees)
 				);
 				$this->myfamlist = array_unique($this->myfamlist);
 			}
 
 			// Search the sources
 			if ($this->srsour && $query_terms) {
-				$this->mysourcelist = search_sources($query_terms, $this->search_trees);
+				$this->mysourcelist = FunctionsDb::searchSources($query_terms, $this->search_trees);
 			}
 
 			// Search the notes
 			if ($this->srnote && $query_terms) {
-				$this->mynotelist = search_notes($query_terms, $this->search_trees);
+				$this->mynotelist = FunctionsDb::searchNotes($query_terms, $this->search_trees);
 			}
 
 			// If only 1 item is returned, automatically forward to that item
@@ -236,7 +266,6 @@ class SearchController extends PageController {
 			if (count($this->myindilist) == 1 && !$this->myfamlist && !$this->mysourcelist && !$this->mynotelist) {
 				$indi = $this->myindilist[0];
 				if ($indi->canShowName()) {
-					Zend_Session::writeClose();
 					header('Location: ' . WT_BASE_URL . $indi->getRawUrl());
 					exit;
 				}
@@ -244,7 +273,6 @@ class SearchController extends PageController {
 			if (!$this->myindilist && count($this->myfamlist) == 1 && !$this->mysourcelist && !$this->mynotelist) {
 				$fam = $this->myfamlist[0];
 				if ($fam->canShowName()) {
-					Zend_Session::writeClose();
 					header('Location: ' . WT_BASE_URL . $fam->getRawUrl());
 					exit;
 				}
@@ -252,7 +280,6 @@ class SearchController extends PageController {
 			if (!$this->myindilist && !$this->myfamlist && count($this->mysourcelist) == 1 && !$this->mynotelist) {
 				$sour = $this->mysourcelist[0];
 				if ($sour->canShowName()) {
-					Zend_Session::writeClose();
 					header('Location: ' . WT_BASE_URL . $sour->getRawUrl());
 					exit;
 				}
@@ -260,7 +287,6 @@ class SearchController extends PageController {
 			if (!$this->myindilist && !$this->myfamlist && !$this->mysourcelist && count($this->mynotelist) == 1) {
 				$note = $this->mynotelist[0];
 				if ($note->canShowName()) {
-					Zend_Session::writeClose();
 					header('Location: ' . WT_BASE_URL . $note->getRawUrl());
 					exit;
 				}
@@ -274,8 +300,6 @@ class SearchController extends PageController {
 	 * @param Tree $tree
 	 */
 	private function searchAndReplace(Tree $tree) {
-		global $STANDARD_NAME_FACTS;
-
 		$this->generalSearch();
 
 		//-- don't try to make any changes if nothing was found
@@ -286,7 +310,7 @@ class SearchController extends PageController {
 		Log::addEditLog("Search And Replace old:" . $this->query . " new:" . $this->replace);
 
 		$adv_name_tags   = preg_split("/[\s,;: ]+/", $tree->getPreference('ADVANCED_NAME_FACTS'));
-		$name_tags       = array_unique(array_merge($STANDARD_NAME_FACTS, $adv_name_tags));
+		$name_tags       = array_unique(array_merge(Config::standardNameFacts(), $adv_name_tags));
 		$name_tags[]     = '_MARNM';
 		$records_updated = 0;
 		foreach ($this->myindilist as $id => $record) {
@@ -318,7 +342,7 @@ class SearchController extends PageController {
 		}
 
 		if ($records_updated) {
-			FlashMessages::addMessage(I18N::plural('%s individuals has been updated.', '%s individuals have been updated.', $records_updated, I18N::number($records_updated)));
+			FlashMessages::addMessage(I18N::plural('%s individual has been updated.', '%s individuals have been updated.', $records_updated, I18N::number($records_updated)));
 		}
 
 		$records_updated = 0;
@@ -420,29 +444,26 @@ class SearchController extends PageController {
 	 *
 	 *  The names' Soundex SQL table contains all the soundex values twice
 	 *  The places table contains only one value
-	 *
-	 *  The code should be improved - see RFE
-	 *
 	 */
 	private function soundexSearch() {
-		if (((!empty ($this->lastname)) || (!empty ($this->firstname)) || (!empty ($this->place))) && $this->search_trees) {
+		if (((!empty($this->lastname)) || (!empty($this->firstname)) || (!empty($this->place))) && $this->search_trees) {
 			$logstring = "Type: Soundex\n";
-			if (!empty ($this->lastname)) {
+			if (!empty($this->lastname)) {
 				$logstring .= "Last name: " . $this->lastname . "\n";
 			}
-			if (!empty ($this->firstname)) {
+			if (!empty($this->firstname)) {
 				$logstring .= "First name: " . $this->firstname . "\n";
 			}
-			if (!empty ($this->place)) {
+			if (!empty($this->place)) {
 				$logstring .= "Place: " . $this->place . "\n";
 			}
-			if (!empty ($this->year)) {
+			if (!empty($this->year)) {
 				$logstring .= "Year: " . $this->year . "\n";
 			}
 			Log::addSearchLog($logstring, $this->search_trees);
 
 			if ($this->search_trees) {
-				$this->myindilist = search_indis_soundex($this->soundex, $this->lastname, $this->firstname, $this->place, $this->search_trees);
+				$this->myindilist = FunctionsDb::searchIndividualsPhonetic($this->soundex, $this->lastname, $this->firstname, $this->place, $this->search_trees);
 			} else {
 				$this->myindilist = array();
 			}
@@ -474,14 +495,14 @@ class SearchController extends PageController {
 			header('Location: ' . WT_BASE_URL . $indi->getRawUrl());
 			exit;
 		}
-		usort($this->myindilist, __NAMESPACE__ . '\GedcomRecord::compare');
-		usort($this->myfamlist, __NAMESPACE__ . '\GedcomRecord::compare');
+		usort($this->myindilist, '\Fisharebest\Webtrees\GedcomRecord::compare');
+		usort($this->myfamlist, '\Fisharebest\Webtrees\GedcomRecord::compare');
 	}
 
 	/**
 	 * Display the search results
 	 */
-	function printResults() {
+	public function printResults() {
 		if ($this->action !== 'replace' && ($this->query || $this->firstname || $this->lastname || $this->place)) {
 			if ($this->myindilist || $this->myfamlist || $this->mysourcelist || $this->mynotelist) {
 				$this->addInlineJavascript('jQuery("#search-result-tabs").tabs();');
@@ -504,16 +525,16 @@ class SearchController extends PageController {
 				}
 				echo '</ul>';
 				if (!empty($this->myindilist)) {
-					echo '<div id="individual-results-tab">', format_indi_table($this->myindilist), '</div>';
+					echo '<div id="individual-results-tab">', FunctionsPrintLists::individualTable($this->myindilist), '</div>';
 				}
 				if (!empty($this->myfamlist)) {
-					echo '<div id="families-results-tab">', format_fam_table($this->myfamlist), '</div>';
+					echo '<div id="families-results-tab">', FunctionsPrintLists::familyTable($this->myfamlist), '</div>';
 				}
 				if (!empty($this->mysourcelist)) {
-					echo '<div id="sources-results-tab">', format_sour_table($this->mysourcelist), '</div>';
+					echo '<div id="sources-results-tab">', FunctionsPrintLists::sourceTable($this->mysourcelist), '</div>';
 				}
 				if (!empty($this->mynotelist)) {
-					echo '<div id="notes-results-tab">', format_note_table($this->mynotelist), '</div>';
+					echo '<div id="notes-results-tab">', FunctionsPrintLists::noteTable($this->mynotelist), '</div>';
 				}
 			} else {
 				// One or more search terms were specified, but no results were found.

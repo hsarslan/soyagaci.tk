@@ -1,6 +1,4 @@
 <?php
-namespace Fisharebest\Webtrees;
-
 /**
  * webtrees: online genealogy
  * Copyright (C) 2015 webtrees development team
@@ -15,14 +13,15 @@ namespace Fisharebest\Webtrees;
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-
-use Zend_Controller_Action_HelperBroker;
+namespace Fisharebest\Webtrees;
 
 /**
- * Class FlashMessages - Flash messages allow us to generate messages
- * in one context, and display them in another.
+ * Generate messages in one request and display them in the next.
  */
 class FlashMessages {
+	// Session storage key
+	const FLASH_KEY = 'flash_messages';
+
 	/**
 	 * Add a new message to the session storage.
 	 *
@@ -33,9 +32,10 @@ class FlashMessages {
 		$message         = new \stdClass;
 		$message->text   = $text;
 		$message->status = $status;
-		$flash_messenger = Zend_Controller_Action_HelperBroker::getStaticHelper('FlashMessenger');
 
-		$flash_messenger->addMessage($message);
+		$messages   = Session::get(self::FLASH_KEY, array());
+		$messages[] = $message;
+		Session::put(self::FLASH_KEY, $messages);
 	}
 
 	/**
@@ -44,20 +44,8 @@ class FlashMessages {
 	 * @return string[]
 	 */
 	public static function getMessages() {
-		$flash_messenger = Zend_Controller_Action_HelperBroker::getStaticHelper('FlashMessenger');
-
-		$messages = array();
-
-		// Get messages from previous requests
-		foreach ($flash_messenger->getMessages() as $message) {
-			$messages[] = $message;
-		}
-
-		// Get messages from the current request
-		foreach ($flash_messenger->getCurrentMessages() as $message) {
-			$messages[] = $message;
-		}
-		$flash_messenger->clearCurrentMessages();
+		$messages = Session::get(self::FLASH_KEY, array());
+		Session::forget(self::FLASH_KEY);
 
 		return $messages;
 	}
