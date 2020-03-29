@@ -98,7 +98,8 @@ class PlacesModule extends AbstractModule implements ModuleTabInterface
      */
     public function hasTabContent(Individual $individual): bool
     {
-        return Site::getPreference('map-provider') !== '';
+        return Site::getPreference('map-provider') !== '' &&
+            $this->getMapData($individual)->features !== [];
     }
 
     /**
@@ -136,8 +137,11 @@ class PlacesModule extends AbstractModule implements ModuleTabInterface
         return view('modules/places/tab', [
             'data'     => $this->getMapData($individual),
             'provider' => [
-                'name'    => 'OpenStreetMap.Mapnik',
-                'options' => []
+                'url'    => 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                'options' => [
+                    'attribution' => '<a href="https://www.openstreetmap.org/copyright">&copy; OpenStreetMap</a> contributors',
+                    'max_zoom'    => 19
+                ]
             ]
         ]);
     }

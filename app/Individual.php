@@ -908,7 +908,9 @@ class Individual extends GedcomRecord
             }
         }
 
-        return $step_families->unique();
+        return $step_families->uniqueStrict(static function (Family $family): string {
+            return $family->xref();
+        });
     }
 
     /**
@@ -1165,7 +1167,7 @@ class Individual extends GedcomRecord
         $full = '<span class="NAME" dir="auto" translate="no">' . preg_replace('/\/([^\/]*)\//', '<span class="SURN">$1</span>', e($full)) . '</span>';
         // Localise quotation marks around the nickname
         $full = preg_replace_callback('/&quot;([^&]*)&quot;/', static function (array $matches): string {
-            return I18N::translate('“%s”', $matches[1]);
+            return '<q class="wt-nickname">' . $matches[1] . '</q>';
         }, $full);
 
         // A suffix of “*” indicates a preferred name

@@ -95,7 +95,7 @@ window.WT_OSM = (function () {
     })
     .addControl(new resetControl())
     .addControl(newZoomControl)
-    .addLayer(L.tileLayer.provider(provider.name, provider.options));
+    .addLayer(L.tileLayer(provider.url, provider.options));
   };
 
   /**
@@ -157,11 +157,9 @@ window.WT_OSM = (function () {
   };
 
   /**
-   *
-   * @param elem
+   * @param   elem
    * @returns {$}
    */
-
   $.fn.scrollTo = function (elem) {
     let _this = $(this);
     _this.animate({

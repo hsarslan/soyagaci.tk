@@ -23,7 +23,7 @@ use Fisharebest\Webtrees\I18N;
     }
 </style>
 
-<script type="application/javascript">
+<script>
     "use strict";
 
     window.WT_OSM = (function() {
@@ -86,7 +86,7 @@ use Fisharebest\Webtrees\I18N;
                 })
                 .addControl(new resetControl())
                 .addControl(newZoomControl)
-                .addLayer(L.tileLayer.provider(provider.name, provider.options))
+                .addLayer(L.tileLayer(provider.url, provider.options));
         };
 
         /**
@@ -103,7 +103,7 @@ use Fisharebest\Webtrees\I18N;
             } else {
                 if (data.features.length === 1) {
                     //fudge factor - maps zooms to maximum permitted otherwise
-                    zoom = geoJson_data.features[0].properties.zoom;
+                    zoom = data.features[0].properties.zoom;
                 }
                 let geoJsonLayer = L.geoJson(data, {
                     pointToLayer: function(feature, latlng) {
@@ -146,11 +146,9 @@ use Fisharebest\Webtrees\I18N;
         };
 
         /**
-         *
-         * @param elem
+         * @param   elem
          * @returns {$}
          */
-
         $.fn.scrollTo = function(elem) {
             let _this = $(this);
             _this.animate({

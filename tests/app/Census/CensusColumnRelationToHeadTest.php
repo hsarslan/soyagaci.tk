@@ -41,6 +41,6 @@ class CensusColumnRelationToHeadTest extends TestCase
 
         $column = new CensusColumnRelationToHead($census, '', '');
 
-        $this->assertSame('head', $column->generate($individual, $individual));
+        $this->assertSame('-', $column->generate($individual, $individual));
     }
 }

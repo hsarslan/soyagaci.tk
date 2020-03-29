@@ -21,6 +21,7 @@ namespace Fisharebest\Webtrees;
 
 use Closure;
 use ErrorException;
+use Fisharebest\Webtrees\Http\Middleware\BadBotBlocker;
 use Fisharebest\Webtrees\Http\Middleware\BootModules;
 use Fisharebest\Webtrees\Http\Middleware\CheckForMaintenanceMode;
 use Fisharebest\Webtrees\Http\Middleware\ClientIp;
@@ -88,13 +89,13 @@ class Webtrees
     public const NAME = 'webtrees';
 
     // Required version of database tables/columns/indexes/etc.
-    public const SCHEMA_VERSION = 43;
+    public const SCHEMA_VERSION = 44;
 
     // e.g. "dev", "alpha", "beta", etc.
     public const STABILITY = 'dev';
 
     // Version number
-    public const VERSION = '2.0.3' . (self::STABILITY === '' ? '' : '-') . self::STABILITY;
+    public const VERSION = '2.0.4' . (self::STABILITY === '' ? '' : '-') . self::STABILITY;
 
     // Project website.
     public const URL = 'https://www.webtrees.net/';
@@ -110,10 +111,11 @@ class Webtrees
         BaseUrl::class,
         HandleExceptions::class,
         ClientIp::class,
+        UseCache::class,
+        BadBotBlocker::class,
         UseDatabase::class,
         UseDebugbar::class,
         UpdateDatabaseSchema::class,
-        UseCache::class,
         UseFilesystem::class,
         UseSession::class,
         UseLanguage::class,

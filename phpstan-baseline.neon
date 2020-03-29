@@ -666,11 +666,6 @@ parameters:
 			path: app/Http/Controllers/AdminController.php
 
 		-
-			message: "#^Method Fisharebest\\\\Webtrees\\\\Http\\\\Controllers\\\\AdminSiteController\\:\\:themeOptions\\(\\) should return Illuminate\\\\Support\\\\Collection&iterable\\<string\\> but returns Illuminate\\\\Support\\\\Collection&iterable\\<Fisharebest\\\\Webtrees\\\\Module\\\\ModuleInterface\\>\\.$#"
-			count: 1
-			path: app/Http/Controllers/AdminSiteController.php
-
-		-
 			message: "#^Parameter \\#1 \\$str of function strtoupper expects string, int\\|string given\\.$#"
 			count: 2
 			path: app/Http/Controllers/AdminTreesController.php
@@ -867,11 +862,6 @@ parameters:
 
 		-
 			message: "#^Method Fisharebest\\\\Webtrees\\\\Http\\\\Controllers\\\\PlaceHierarchyController\\:\\:getHierarchy\\(\\) return type has no value type specified in iterable type array\\.$#"
-			count: 1
-			path: app/Http/Controllers/PlaceHierarchyController.php
-
-		-
-			message: "#^Method Fisharebest\\\\Webtrees\\\\Http\\\\Controllers\\\\PlaceHierarchyController\\:\\:getEvents\\(\\) return type has no value type specified in iterable type array\\.$#"
 			count: 1
 			path: app/Http/Controllers/PlaceHierarchyController.php
 
@@ -1473,42 +1463,22 @@ parameters:
 		-
 			message: "#^Parameter \\#1 \\$string of function strlen expects string, string\\|false given\\.$#"
 			count: 1
-			path: modules_v4/example-middleware.disable/module.php
-
-		-
-			message: "#^Parameter \\#3 \\$headers of function response expects array\\<string\\>, array\\<string, int\\|string\\> given\\.$#"
-			count: 1
-			path: modules_v4/example-middleware.disable/module.php
-
-		-
-			message: "#^Binary operation \"\\-\" between 32 and string results in an error\\.$#"
-			count: 1
-			path: modules_v4/example-middleware.disable/module.php
-
-		-
-			message: "#^Parameter \\#1 \\$string of function strlen expects string, string\\|false given\\.$#"
-			count: 1
-			path: modules_v4/example-theme.disable/module.php
-
-		-
-			message: "#^Parameter \\#3 \\$headers of function response expects array\\<string\\>, array\\<string, int\\|string\\> given\\.$#"
-			count: 1
-			path: modules_v4/example-theme.disable/module.php
-
-		-
-			message: "#^Method class@anonymous/modules_v4/example\\-theme\\.disable/module\\.php\\:17\\:\\:stylesheets\\(\\) return type has no value type specified in iterable type array\\.$#"
-			count: 1
-			path: modules_v4/example-theme.disable/module.php
-
-		-
-			message: "#^Parameter \\#1 \\$string of function strlen expects string, string\\|false given\\.$#"
-			count: 1
 			path: modules_v4/example-report.disable/module.php
 
 		-
 			message: "#^Parameter \\#3 \\$headers of function response expects array\\<string\\>, array\\<string, int\\|string\\> given\\.$#"
 			count: 1
 			path: modules_v4/example-report.disable/module.php
+
+		-
+			message: "#^Parameter \\#1 \\$string of function strlen expects string, string\\|false given\\.$#"
+			count: 1
+			path: modules_v4/example-footer.disable/module.php
+
+		-
+			message: "#^Parameter \\#3 \\$headers of function response expects array\\<string\\>, array\\<string, int\\|string\\> given\\.$#"
+			count: 1
+			path: modules_v4/example-footer.disable/module.php
 
 		-
 			message: "#^Parameter \\#1 \\$string of function strlen expects string, string\\|false given\\.$#"
@@ -1533,12 +1503,32 @@ parameters:
 		-
 			message: "#^Parameter \\#1 \\$string of function strlen expects string, string\\|false given\\.$#"
 			count: 1
-			path: modules_v4/example-footer.disable/module.php
+			path: modules_v4/example-theme.disable/module.php
 
 		-
 			message: "#^Parameter \\#3 \\$headers of function response expects array\\<string\\>, array\\<string, int\\|string\\> given\\.$#"
 			count: 1
-			path: modules_v4/example-footer.disable/module.php
+			path: modules_v4/example-theme.disable/module.php
+
+		-
+			message: "#^Method class@anonymous/modules_v4/example\\-theme\\.disable/module\\.php\\:17\\:\\:stylesheets\\(\\) return type has no value type specified in iterable type array\\.$#"
+			count: 1
+			path: modules_v4/example-theme.disable/module.php
+
+		-
+			message: "#^Parameter \\#1 \\$string of function strlen expects string, string\\|false given\\.$#"
+			count: 1
+			path: modules_v4/example-middleware.disable/module.php
+
+		-
+			message: "#^Parameter \\#3 \\$headers of function response expects array\\<string\\>, array\\<string, int\\|string\\> given\\.$#"
+			count: 1
+			path: modules_v4/example-middleware.disable/module.php
+
+		-
+			message: "#^Binary operation \"\\-\" between 32 and string results in an error\\.$#"
+			count: 1
+			path: modules_v4/example-middleware.disable/module.php
 
 		-
 			message: "#^Parameter \\#1 \\$string of function strlen expects string, string\\|false given\\.$#"
@@ -2016,7 +2006,7 @@ parameters:
 			path: app/Report/ReportParserGenerate.php
 
 		-
-			message: "#^Cannot access offset \\(float\\|int\\) on array\\<int, string\\>\\|false\\.$#"
+			message: "#^Cannot access offset float\\|int on array\\<int, string\\>\\|false\\.$#"
 			count: 14
 			path: app/Report/ReportParserGenerate.php
 
@@ -2107,6 +2097,16 @@ parameters:
 
 		-
 			message: "#^Binary operation \"\\+\" between string and 1 results in an error\\.$#"
+			count: 1
+			path: app/Report/ReportParserGenerate.php
+
+		-
+			message: "#^Parameter \\#1 \\$level of static method Fisharebest\\\\Webtrees\\\\Functions\\\\Functions\\:\\:getSubRecord\\(\\) expects int, float\\|int given\\.$#"
+			count: 1
+			path: app/Report/ReportParserGenerate.php
+
+		-
+			message: "#^Parameter \\#1 \\$nlevel of static method Fisharebest\\\\Webtrees\\\\Functions\\\\Functions\\:\\:getCont\\(\\) expects int, float\\|int given\\.$#"
 			count: 1
 			path: app/Report/ReportParserGenerate.php
 
@@ -2367,41 +2367,6 @@ parameters:
 
 		-
 			message: "#^Parameter \\#1 \\$haystack of function mb_stripos expects string, string\\|null given\\.$#"
-			count: 1
-			path: app/Services/SearchService.php
-
-		-
-			message: "#^Anonymous function should return Fisharebest\\\\Webtrees\\\\Family but returns Fisharebest\\\\Webtrees\\\\Family\\|null\\.$#"
-			count: 1
-			path: app/Services/SearchService.php
-
-		-
-			message: "#^Anonymous function should return Fisharebest\\\\Webtrees\\\\Individual but returns Fisharebest\\\\Webtrees\\\\Individual\\|null\\.$#"
-			count: 1
-			path: app/Services/SearchService.php
-
-		-
-			message: "#^Anonymous function should return Fisharebest\\\\Webtrees\\\\Media but returns Fisharebest\\\\Webtrees\\\\Media\\|null\\.$#"
-			count: 1
-			path: app/Services/SearchService.php
-
-		-
-			message: "#^Anonymous function should return Fisharebest\\\\Webtrees\\\\Note but returns Fisharebest\\\\Webtrees\\\\Note\\|null\\.$#"
-			count: 1
-			path: app/Services/SearchService.php
-
-		-
-			message: "#^Anonymous function should return Fisharebest\\\\Webtrees\\\\Repository but returns Fisharebest\\\\Webtrees\\\\Repository\\|null\\.$#"
-			count: 1
-			path: app/Services/SearchService.php
-
-		-
-			message: "#^Anonymous function should return Fisharebest\\\\Webtrees\\\\Source but returns Fisharebest\\\\Webtrees\\\\Source\\|null\\.$#"
-			count: 1
-			path: app/Services/SearchService.php
-
-		-
-			message: "#^Anonymous function should return Fisharebest\\\\Webtrees\\\\GedcomRecord but returns Fisharebest\\\\Webtrees\\\\GedcomRecord\\|null\\.$#"
 			count: 1
 			path: app/Services/SearchService.php
 
@@ -2924,11 +2889,6 @@ parameters:
 			message: "#^Method Fisharebest\\\\Webtrees\\\\SurnameTradition\\\\PatrilinealSurnameTradition\\:\\:inflect\\(\\) should return string but returns string\\|null\\.$#"
 			count: 1
 			path: app/SurnameTradition/PatrilinealSurnameTradition.php
-
-		-
-			message: "#^Method Fisharebest\\\\Webtrees\\\\Tree\\:\\:createRecord\\(\\) should return Fisharebest\\\\Webtrees\\\\GedcomRecord but returns Fisharebest\\\\Webtrees\\\\GedcomRecord\\|null\\.$#"
-			count: 1
-			path: app/Tree.php
 
 		-
 			message: "#^Method Fisharebest\\\\Webtrees\\\\View\\:\\:__construct\\(\\) has parameter \\$data with no value type specified in iterable type array\\.$#"

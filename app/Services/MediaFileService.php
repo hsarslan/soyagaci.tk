@@ -354,8 +354,9 @@ class MediaFileService
 
         $media_roots = DB::table('gedcom_setting')
             ->where('setting_name', '=', 'MEDIA_DIRECTORY')
+            ->where('gedcom_id', '>', '0')
             ->pluck('setting_value')
-            ->unique();
+            ->uniqueStrict();
 
         $disk_folders = new Collection($media_roots);
 
@@ -375,7 +376,7 @@ class MediaFileService
         }
 
         return $disk_folders->concat($db_folders)
-            ->unique()
+            ->uniqueStrict()
             ->mapWithKeys(static function (string $folder): array {
                 return [$folder => $folder];
             });

@@ -43,6 +43,7 @@ use Fisharebest\Webtrees\Repository;
 use Fisharebest\Webtrees\Services\ModuleService;
 use Fisharebest\Webtrees\Services\UserService;
 use Fisharebest\Webtrees\Source;
+use Fisharebest\Webtrees\Submission;
 use Fisharebest\Webtrees\Submitter;
 use Fisharebest\Webtrees\Tree;
 use Ramsey\Uuid\Uuid;
@@ -292,13 +293,21 @@ class FunctionsPrintFacts
                     echo '<div class="error">', e($fact->value()), '</div>';
                 }
                 break;
+            case 'SUBN':
+                $submission = $fact->target();
+                if ($submission instanceof Submission) {
+                    echo '<div><a class="field" href="', e($submission->url()), '">', $submission->fullName(), '</a></div>';
+                } else {
+                    echo '<div class="error">', e($fact->value()), '</div>';
+                }
+                break;
             case 'URL':
             case '_URL':
             case 'WWW':
                 echo '<div class="field"><a href="', e($fact->value()), '">', e($fact->value()), '</a></div>';
                 break;
             case 'TEXT': // 0 SOUR / 1 TEXT
-                echo '<div class="field">', nl2br(e($fact->value()), false), '</div>';
+                echo Filter::formatText($fact->value(), $tree);
                 break;
             default:
                 // Display the value for all other facts/events
@@ -315,8 +324,8 @@ class FunctionsPrintFacts
                         break;
                     default:
                         if (preg_match('/^@(' . Gedcom::REGEX_XREF . ')@$/', $fact->value(), $match)) {
-                            $target = GedcomRecord::getInstance($match[1], $tree);
-                            if ($target) {
+                            $target = $fact->target();
+                            if ($target instanceof GedcomRecord) {
                                 echo '<div><a href="', e($target->url()), '">', $target->fullName(), '</a></div>';
                             } else {
                                 echo '<div class="error">', e($fact->value()), '</div>';
@@ -631,11 +640,6 @@ class FunctionsPrintFacts
                         $data .= ' style="display:block"';
                     }
                     $data .= ' class="source_citations">';
-                    // PUBL
-                    $publ = $source->facts(['PUBL'])->first();
-                    if ($publ instanceof Fact) {
-                        $data .= GedcomTag::getLabelValue('PUBL', $publ->value());
-                    }
                     $data .= self::printSourceStructure($tree, self::getSourceStructure($srec));
                     $data .= '<div class="indent">';
                     ob_start();
@@ -810,11 +814,6 @@ class FunctionsPrintFacts
                 echo '<td class="', $styleadd, '">';
                 if ($source) {
                     echo '<a href="', e($source->url()), '">', $source->fullName(), '</a>';
-                    // PUBL
-                    $publ = $source->facts(['PUBL'])->first();
-                    if ($publ instanceof Fact) {
-                        echo GedcomTag::getLabelValue('PUBL', $publ->value());
-                    }
                     // 2 RESN tags. Note, there can be more than one, such as "privacy" and "locked"
                     if (preg_match_all("/\n2 RESN (.+)/", $factrec, $rmatches)) {
                         foreach ($rmatches[1] as $rmatch) {
@@ -968,10 +967,10 @@ class FunctionsPrintFacts
         $tree    = $parent->tree();
 
         if ($fact->isPendingAddition()) {
-            $styleadd = ' new';
+            $styleadd = 'wt-new ';
             $can_edit = $level === 1 && $fact->canEdit();
         } elseif ($fact->isPendingDeletion()) {
-            $styleadd = ' old';
+            $styleadd = 'wt-old ';
             $can_edit = false;
         } else {
             $styleadd = '';
@@ -1050,7 +1049,7 @@ class FunctionsPrintFacts
                 $text = Filter::formatText($text, $tree);
             }
 
-            echo '<td class="optionbox', $styleadd, ' wrap">';
+            echo '<td class="', $styleadd, ' wrap">';
             echo $text;
 
             // 2 RESN tags. Note, there can be more than one, such as "privacy" and "locked"

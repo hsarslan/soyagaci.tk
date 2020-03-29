@@ -253,7 +253,7 @@ class LocationController extends AbstractAdminController
 
         $query = DB::table('places AS p0')
             ->where('p0.p_place', '=', $places[0])
-            ->select(['pl0.*']);
+            ->select(['p0.*']);
 
         array_shift($places);
 
@@ -328,8 +328,14 @@ class LocationController extends AbstractAdminController
             'parent_id'   => $parent_id,
             'lat'         => $lat,
             'lng'         => $lng,
-            'ref'         => $id,
             'data'        => $this->mapLocationData($id),
+            'provider'    => [
+                'url'     => 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                'options' => [
+                    'attribution' => '<a href="https://www.openstreetmap.org/copyright">&copy; OpenStreetMap</a> contributors',
+                    'max_zoom'    => 19
+                ]
+            ],
         ]);
     }
 

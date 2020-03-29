@@ -57,8 +57,9 @@ class SearchService
      *
      * @param TreeService $tree_service
      */
-    public function __construct(TreeService $tree_service)
-    {
+    public function __construct(
+        TreeService $tree_service
+    ) {
         $this->tree_service = $tree_service;
     }
 
@@ -125,6 +126,28 @@ class SearchService
     }
 
     /**
+     * @param Place $place
+     *
+     * @return Collection<Family>
+     */
+    public function searchFamiliesInPlace(Place $place): Collection
+    {
+        return DB::table('families')
+            ->join('placelinks', static function (JoinClause $query) {
+                $query
+                    ->on('families.f_file', '=', 'placelinks.pl_file')
+                    ->on('families.f_id', '=', 'placelinks.pl_gid');
+            })
+            ->where('f_file', '=', $place->tree()->id())
+            ->where('pl_p_id', '=', $place->id())
+            ->select(['families.*'])
+            ->get()
+            ->each($this->rowLimiter())
+            ->map($this->familyRowMapper())
+            ->filter(GedcomRecord::accessFilter());
+    }
+
+    /**
      * @param Tree[]   $trees
      * @param string[] $search
      *
@@ -171,6 +194,28 @@ class SearchService
         $this->whereSearch($query, 'n_full', $search);
 
         return $this->paginateQuery($query, $this->individualRowMapper(), GedcomRecord::accessFilter(), $offset, $limit);
+    }
+
+    /**
+     * @param Place $place
+     *
+     * @return Collection<Individual>
+     */
+    public function searchIndividualsInPlace(Place $place): Collection
+    {
+        return DB::table('individuals')
+            ->join('placelinks', static function (JoinClause $join) {
+                $join
+                    ->on('i_file', '=', 'pl_file')
+                    ->on('i_id', '=', 'pl_gid');
+            })
+            ->where('i_file', '=', $place->tree()->id())
+            ->where('pl_p_id', '=', $place->id())
+            ->select(['individuals.*'])
+            ->get()
+            ->each($this->rowLimiter())
+            ->map($this->individualRowMapper())
+            ->filter(GedcomRecord::accessFilter());
     }
 
     /**
@@ -933,7 +978,6 @@ class SearchService
         $query->whereIn($tree_id_field, $tree_ids);
     }
 
-
     /**
      * Find the media object that uses a particular media file.
      *
@@ -1015,7 +1059,7 @@ class SearchService
         return function (stdClass $row): Family {
             $tree = $this->tree_service->find((int) $row->f_file);
 
-            return Family::getInstance($row->f_id, $tree, $row->f_gedcom);
+            return Family::rowMapper($tree)($row);
         };
     }
 
@@ -1029,7 +1073,7 @@ class SearchService
         return function (stdClass $row): Individual {
             $tree = $this->tree_service->find((int) $row->i_file);
 
-            return Individual::getInstance($row->i_id, $tree, $row->i_gedcom);
+            return Individual::rowMapper($tree)($row);
         };
     }
 
@@ -1043,7 +1087,7 @@ class SearchService
         return function (stdClass $row): Media {
             $tree = $this->tree_service->find((int) $row->m_file);
 
-            return Media::getInstance($row->m_id, $tree, $row->m_gedcom);
+            return Media::rowMapper($tree)($row);
         };
     }
 
@@ -1057,7 +1101,7 @@ class SearchService
         return function (stdClass $row): Note {
             $tree = $this->tree_service->find((int) $row->o_file);
 
-            return Note::getInstance($row->o_id, $tree, $row->o_gedcom);
+            return Note::rowMapper($tree)($row);
         };
     }
 
@@ -1071,7 +1115,7 @@ class SearchService
         return function (stdClass $row): Repository {
             $tree = $this->tree_service->find((int) $row->o_file);
 
-            return Repository::getInstance($row->o_id, $tree, $row->o_gedcom);
+            return Repository::rowMapper($tree)($row);
         };
     }
 
@@ -1085,7 +1129,7 @@ class SearchService
         return function (stdClass $row): Source {
             $tree = $this->tree_service->find((int) $row->s_file);
 
-            return Source::getInstance($row->s_id, $tree, $row->s_gedcom);
+            return Source::rowMapper($tree)($row);
         };
     }
 
@@ -1096,10 +1140,10 @@ class SearchService
      */
     private function submitterRowMapper(): Closure
     {
-        return function (stdClass $row): GedcomRecord {
+        return function (stdClass $row): Submitter {
             $tree = $this->tree_service->find((int) $row->o_file);
 
-            return GedcomRecord::getInstance($row->o_id, $tree, $row->o_gedcom);
+            return Submitter::rowMapper($tree)($row);
         };
     }
 }

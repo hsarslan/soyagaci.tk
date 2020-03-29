@@ -35,12 +35,17 @@ use Throwable;
 
 use function app;
 use function dirname;
+use function error_get_last;
+use function ini_get;
 use function ob_end_clean;
 use function ob_get_level;
+use function register_shutdown_function;
 use function response;
 use function str_replace;
+use function strpos;
 use function view;
 
+use const E_ERROR;
 use const PHP_EOL;
 
 /**
@@ -72,6 +77,20 @@ class HandleExceptions implements MiddlewareInterface, StatusCodeInterface
      */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
+        // Fatal errors.  We may be out of memory, so do not create any variables.
+        register_shutdown_function(static function (): void {
+            if (error_get_last() !== null && error_get_last()['type'] & E_ERROR) {
+                // If PHP does not display the error, then we must display it.
+                if (ini_get('display_errors') !== '1') {
+                    echo error_get_last()['message'], '<br><br>', error_get_last()['file'] , ': ', error_get_last()['line'];
+                }
+                // Not our fault?
+                if (strpos(error_get_last()['file'], '/modules_v4/') !== false) {
+                    echo '<br><br>This is an error in a webtrees module.  Upgrade it or disable it.';
+                }
+            }
+        });
+
         try {
             return $handler->handle($request);
         } catch (HttpException $exception) {
@@ -139,15 +158,23 @@ class HandleExceptions implements MiddlewareInterface, StatusCodeInterface
         $default = Site::getPreference('DEFAULT_GEDCOM');
         $tree = $tree ?? $this->tree_service->all()[$default] ?? $this->tree_service->all()->first();
 
-        if ($request->getHeaderLine('X-Requested-With') !== '') {
+        $status_code = $exception->getCode();
+
+        // If this was a GET request, then we were probably fetching HTML to display, for
+        // example a chart or tab.
+        if (
+            $request->getHeaderLine('X-Requested-With') !== '' &&
+            $request->getMethod() === RequestMethodInterface::METHOD_GET
+        ) {
             $this->layout = 'layouts/ajax';
+            $status_code = StatusCodeInterface::STATUS_OK;
         }
 
         return $this->viewResponse('components/alert-danger', [
             'alert' => $exception->getMessage(),
             'title' => $exception->getMessage(),
             'tree'  => $tree,
-        ], $exception->getCode());
+        ], $status_code);
     }
 
     /**

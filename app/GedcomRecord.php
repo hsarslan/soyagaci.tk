@@ -30,12 +30,12 @@ use Illuminate\Database\Query\Expression;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Collection;
 use stdClass;
+use Throwable;
 use Transliterator;
 
 use function app;
 use function array_shift;
 use function assert;
-use function class_exists;
 use function count;
 use function date;
 use function e;
@@ -275,6 +275,14 @@ class GedcomRecord
                 $record = new Submitter($xref, $gedcom, $pending, $tree);
                 break;
 
+            case Submission::RECORD_TYPE:
+                $record = new Submission($xref, $gedcom, $pending, $tree);
+                break;
+
+            case Header::RECORD_TYPE:
+                $record = new Header($xref, $gedcom, $pending, $tree);
+                break;
+
             default:
                 $record = new self($xref, $gedcom, $pending, $tree);
                 break;
@@ -297,37 +305,17 @@ class GedcomRecord
     protected static function fetchGedcomRecord(string $xref, int $tree_id): ?string
     {
         // We don't know what type of object this is. Try each one in turn.
-        $data = Individual::fetchGedcomRecord($xref, $tree_id);
-        if ($data !== null) {
-            return $data;
-        }
-        $data = Family::fetchGedcomRecord($xref, $tree_id);
-        if ($data !== null) {
-            return $data;
-        }
-        $data = Source::fetchGedcomRecord($xref, $tree_id);
-        if ($data !== null) {
-            return $data;
-        }
-        $data = Repository::fetchGedcomRecord($xref, $tree_id);
-        if ($data !== null) {
-            return $data;
-        }
-        $data = Media::fetchGedcomRecord($xref, $tree_id);
-        if ($data !== null) {
-            return $data;
-        }
-        $data = Note::fetchGedcomRecord($xref, $tree_id);
-        if ($data !== null) {
-            return $data;
-        }
-        $data = Submitter::fetchGedcomRecord($xref, $tree_id);
-        if ($data !== null) {
-            return $data;
-        }
-
-        // Some other type of record...
-        return DB::table('other')
+        return
+            Individual::fetchGedcomRecord($xref, $tree_id) ??
+            Family::fetchGedcomRecord($xref, $tree_id) ??
+            Source::fetchGedcomRecord($xref, $tree_id) ??
+            Repository::fetchGedcomRecord($xref, $tree_id) ??
+            Media::fetchGedcomRecord($xref, $tree_id) ??
+            Note::fetchGedcomRecord($xref, $tree_id) ??
+            Submitter::fetchGedcomRecord($xref, $tree_id) ??
+            Submission::fetchGedcomRecord($xref, $tree_id) ??
+            Header::fetchGedcomRecord($xref, $tree_id) ??
+            DB::table('other')
             ->where('o_file', '=', $tree_id)
             ->where('o_id', '=', $xref)
             ->value('o_gedcom');
@@ -393,9 +381,12 @@ class GedcomRecord
     {
         $slug = strip_tags($this->fullName());
 
-        if (class_exists(Transliterator::class)) {
+        try {
             $transliterator = Transliterator::create('Any-Latin;Latin-ASCII');
             $slug           = $transliterator->transliterate($slug);
+        } catch (Throwable $ex) {
+            // ext-intl not installed?
+            // Transliteration algorithms not present in lib-icu?
         }
 
         $slug = preg_replace('/[^A-Za-z0-9]+/', '-', $slug);
@@ -1046,6 +1037,9 @@ class GedcomRecord
      */
     public function updateFact(string $fact_id, string $gedcom, bool $update_chan): void
     {
+        // Not all record types allow a CHAN event.
+        $update_chan = $update_chan && in_array(static::RECORD_TYPE, Gedcom::RECORDS_WITH_CHAN, true);
+
         // MSDOS line endings will break things in horrible ways
         $gedcom = preg_replace('/[\r\n]+/', "\n", $gedcom);
         $gedcom = trim($gedcom);
@@ -1119,6 +1113,9 @@ class GedcomRecord
      */
     public function updateRecord(string $gedcom, bool $update_chan): void
     {
+        // Not all record types allow a CHAN event.
+        $update_chan = $update_chan && in_array(static::RECORD_TYPE, Gedcom::RECORDS_WITH_CHAN, true);
+
         // MSDOS line endings will break things in horrible ways
         $gedcom = preg_replace('/[\r\n]+/', "\n", $gedcom);
         $gedcom = trim($gedcom);

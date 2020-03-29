@@ -24,6 +24,7 @@ use Fisharebest\Webtrees\Fact;
 use Fisharebest\Webtrees\Family;
 use Fisharebest\Webtrees\Gedcom;
 use Fisharebest\Webtrees\GedcomRecord;
+use Fisharebest\Webtrees\Header;
 use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Media;
 use Fisharebest\Webtrees\Source;
@@ -31,6 +32,21 @@ use Fisharebest\Webtrees\Tree;
 use Fisharebest\Webtrees\Webtrees;
 use Illuminate\Database\Capsule\Manager as DB;
 use Illuminate\Support\Collection;
+
+use function date;
+use function explode;
+use function fwrite;
+use function pathinfo;
+use function preg_match;
+use function preg_replace;
+use function preg_split;
+use function str_replace;
+use function strpos;
+use function strtolower;
+use function strtoupper;
+
+use const PATHINFO_EXTENSION;
+use const PREG_SPLIT_NO_EMPTY;
 
 /**
  * Class FunctionsExport - common functions
@@ -87,6 +103,13 @@ class FunctionsExport
      */
     public static function gedcomHeader(Tree $tree, string $char): string
     {
+        // Force a ".ged" suffix
+        $filename = $tree->name();
+
+        if (strtolower(pathinfo($filename, PATHINFO_EXTENSION)) !== 'ged') {
+            $filename .= '.ged';
+        }
+
         // Default values for a new header
         $HEAD = '0 HEAD';
         $SOUR = "\n1 SOUR " . Webtrees::NAME . "\n2 NAME " . Webtrees::NAME . "\n2 VERS " . Webtrees::VERSION;
@@ -94,22 +117,25 @@ class FunctionsExport
         $DATE = "\n1 DATE " . strtoupper(date('d M Y')) . "\n2 TIME " . date('H:i:s');
         $GEDC = "\n1 GEDC\n2 VERS 5.5.1\n2 FORM Lineage-Linked";
         $CHAR = "\n1 CHAR " . $char;
-        $FILE = "\n1 FILE " . $tree->name();
+        $FILE = "\n1 FILE " . $filename;
         $COPR = '';
         $LANG = '';
-        $SUBN = '';
-        $SUBM = "\n1 SUBM @SUBM@\n0 @SUBM@ SUBM\n1 NAME " . Auth::user()->userName(); // The SUBM record is mandatory
 
         // Preserve some values from the original header
-        $record = GedcomRecord::getInstance('HEAD', $tree) ?? new GedcomRecord('HEAD', '0 HEAD', null, $tree);
-        $fact   = $record->facts(['COPR'])->first();
+        $header = Header::getInstance('HEAD', $tree) ?? new Header('HEAD', '0 HEAD', null, $tree);
+
+        $fact   = $header->facts(['COPR'])->first();
+
         if ($fact instanceof Fact) {
             $COPR = "\n1 COPR " . $fact->value();
         }
-        $fact = $record->facts(['LANG'])->first();
+
+        $fact = $header->facts(['LANG'])->first();
+
         if ($fact instanceof Fact) {
             $LANG = "\n1 LANG " . $fact->value();
         }
+
         // Link to actual SUBM/SUBN records, if they exist
         $subn = DB::table('other')
             ->where('o_type', '=', 'SUBN')
@@ -117,16 +143,24 @@ class FunctionsExport
             ->value('o_id');
         if ($subn !== null) {
             $SUBN = "\n1 SUBN @{$subn}@";
+        } else {
+            $SUBN = '';
         }
+
         $subm = DB::table('other')
             ->where('o_type', '=', 'SUBM')
             ->where('o_file', '=', $tree->id())
             ->value('o_id');
         if ($subm !== null) {
-            $SUBM = "\n1 SUBM @{$subm}@";
+            $SUBM          = "\n1 SUBM @{$subm}@";
+            $new_submitter = '';
+        } else {
+            // The SUBM record is mandatory
+            $SUBM          = "\n1 SUBM @SUBM@";
+            $new_submitter = "\n0 @SUBM@ SUBM\n1 NAME " . Auth::user()->userName(); // The SUBM record is mandatory
         }
 
-        return $HEAD . $SOUR . $DEST . $DATE . $SUBM . $SUBN . $FILE . $COPR . $GEDC . $CHAR . $LANG . "\n";
+        return $HEAD . $SOUR . $DEST . $DATE . $SUBM . $SUBN . $FILE . $COPR . $GEDC . $CHAR . $LANG . $new_submitter . "\n";
     }
 
     /**
@@ -200,7 +234,7 @@ class FunctionsExport
 
         $other = DB::table('other')
             ->where('o_file', '=', $tree->id())
-            ->whereNotIn('o_type', ['HEAD', 'TRLR'])
+            ->whereNotIn('o_type', [Header::RECORD_TYPE, 'TRLR'])
             ->orderBy('o_id')
             ->get()
             ->map(GedcomRecord::rowMapper($tree))

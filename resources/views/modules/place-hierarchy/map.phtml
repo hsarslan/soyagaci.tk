@@ -34,7 +34,7 @@ use Fisharebest\Webtrees\View;
 <?php View::endpush() ?>
 
 <?php View::push('javascript') ?>
-<script type="application/javascript">
+<script>
     "use strict";
 
     window.WT_OSM = (function () {
@@ -98,7 +98,7 @@ use Fisharebest\Webtrees\View;
             })
             .addControl(new resetControl())
             .addControl(newZoomControl)
-            .addLayer(L.tileLayer.provider(provider.name, provider.options))
+            .addLayer(L.tileLayer(provider.url, provider.options));
         };
 
         /**
@@ -156,11 +156,9 @@ use Fisharebest\Webtrees\View;
         };
 
         /**
-         *
-         * @param elem
+         * @param   elem
          * @returns {$}
          */
-
         $.fn.scrollTo = function (elem) {
             let _this = $(this);
             _this.animate({
