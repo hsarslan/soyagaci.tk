@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -22,6 +22,7 @@ namespace Fisharebest\Webtrees\Module;
 use Aura\Router\RouterContainer;
 use Fig\Http\Message\RequestMethodInterface;
 use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\Factory;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Menu;
@@ -36,11 +37,13 @@ use function app;
 use function array_keys;
 use function assert;
 use function implode;
+use function intdiv;
 use function is_string;
 use function max;
 use function min;
 use function redirect;
 use function route;
+use function str_contains;
 
 /**
  * Class FanChartModule
@@ -193,7 +196,7 @@ class FanChartModule extends AbstractModule implements ModuleChartInterface, Req
         $xref = $request->getAttribute('xref');
         assert(is_string($xref));
 
-        $individual = Individual::getInstance($xref, $tree);
+        $individual = Factory::individual()->make($xref, $tree);
         $individual = Auth::checkIndividualAccess($individual, false, true);
 
         $style       = $request->getAttribute('style');
@@ -315,7 +318,10 @@ class FanChartModule extends AbstractModule implements ModuleChartInterface, Req
             // clean current generation area
             $deg2 = 360 + ($fandeg - 180) / 2;
             $deg1 = $deg2 - $fandeg;
-            imagefilledarc($image, (int) $cx, (int) $cy, (int) $rx, (int) $rx, (int) $deg1, (int) $deg2, $backgrounds['U'], IMG_ARC_PIE);
+
+            // The arc size must be an even number of pixels: https://bugs.php.net/bug.php?id=79763
+            $even_rx = 2 * intdiv(1 + (int) $rx, 2);
+            imagefilledarc($image, (int) $cx, (int) $cy, $even_rx, $even_rx, (int) $deg1, (int) $deg2, $backgrounds['U'], IMG_ARC_PIE);
             $rx -= 3;
 
             // calculate new angle
@@ -345,7 +351,9 @@ class FanChartModule extends AbstractModule implements ModuleChartInterface, Req
 
                     $background = $backgrounds[$person->sex()];
 
-                    imagefilledarc($image, (int) $cx, (int) $cy, (int) $rx, (int) $rx, (int) $deg1, (int) $deg2, $background, IMG_ARC_PIE);
+                    // The arc size must be an even number of pixels: https://bugs.php.net/bug.php?id=79763
+                    $even_rx = 2 * intdiv(1 + (int) $rx, 2);
+                    imagefilledarc($image, (int) $cx, (int) $cy, $even_rx, $even_rx, (int) $deg1, (int) $deg2, $background, IMG_ARC_PIE);
 
                     // split and center text by lines
                     $wmax = (int) ($angle * 7 / 7 * $scale);
@@ -506,7 +514,7 @@ class FanChartModule extends AbstractModule implements ModuleChartInterface, Req
         // do not split hebrew line
         $found = false;
         foreach ($RTLOrd as $ord) {
-            if (strpos($data, chr($ord)) !== false) {
+            if (str_contains($data, chr($ord))) {
                 $found = true;
             }
         }
@@ -566,7 +574,7 @@ class FanChartModule extends AbstractModule implements ModuleChartInterface, Req
     /**
      * This chart can display its output in a number of styles
      *
-     * @return array
+     * @return array<string>
      */
     protected function styles(): array
     {

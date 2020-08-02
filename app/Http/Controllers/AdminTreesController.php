@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -23,10 +23,12 @@ use Exception;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\Date;
+use Fisharebest\Webtrees\Factory;
 use Fisharebest\Webtrees\Family;
 use Fisharebest\Webtrees\FlashMessages;
 use Fisharebest\Webtrees\Functions\Functions;
 use Fisharebest\Webtrees\Gedcom;
+use Fisharebest\Webtrees\GedcomRecord;
 use Fisharebest\Webtrees\GedcomTag;
 use Fisharebest\Webtrees\Header;
 use Fisharebest\Webtrees\Http\RequestHandlers\GedcomRecordPage;
@@ -265,8 +267,14 @@ class AdminTreesController extends AbstractBaseController
         }
 
         foreach ($all_links as $xref1 => $links) {
+            // PHP converts array keys to integers.
+            $xref1 = (string) $xref1;
+
             $type1 = $records[$xref1]->type;
             foreach ($links as $xref2 => $type2) {
+                // PHP converts array keys to integers.
+                $xref2 = (string) $xref2;
+
                 $type3 = isset($records[$xref2]) ? $records[$xref2]->type : '';
                 if (!array_key_exists($xref2, $all_links)) {
                     if (array_key_exists(strtoupper($xref2), $upper_links)) {
@@ -792,7 +800,7 @@ class AdminTreesController extends AbstractBaseController
         // Split into separate fields
         $relatives_events = explode(',', $tree->getPreference('SHOW_RELATIVES_EVENTS'));
 
-        $pedigree_individual = Individual::getInstance($tree->getPreference('PEDIGREE_ROOT_ID'), $tree);
+        $pedigree_individual = Factory::individual()->make($tree->getPreference('PEDIGREE_ROOT_ID'), $tree);
 
         $members = $this->user_service->all()->filter(static function (UserInterface $user) use ($tree): bool {
             return Auth::isMember($tree, $user);
@@ -987,7 +995,7 @@ class AdminTreesController extends AbstractBaseController
         $xrefs = $this->duplicateXrefs($tree);
 
         foreach ($xrefs as $old_xref => $type) {
-            $new_xref = $tree->getNewXref();
+            $new_xref = Factory::xref()->make($type);
             switch ($type) {
                 case Individual::RECORD_TYPE:
                     DB::table('individuals')
@@ -1513,12 +1521,12 @@ class AdminTreesController extends AbstractBaseController
     }
 
     /**
-     * @param string $type
-     * @param array  $links
-     * @param string $xref1
-     * @param string $xref2
-     * @param string $link
-     * @param array  $reciprocal
+     * @param string     $type
+     * @param string[][] $links
+     * @param string     $xref1
+     * @param string     $xref2
+     * @param string     $link
+     * @param string[]   $reciprocal
      *
      * @return bool
      */
@@ -1634,7 +1642,7 @@ class AdminTreesController extends AbstractBaseController
     /**
      * @param Tree $tree
      *
-     * @return array
+     * @return array<string,array<GedcomRecord>>
      */
     private function duplicateRecords(Tree $tree): array
     {
@@ -1650,7 +1658,7 @@ class AdminTreesController extends AbstractBaseController
             ->pluck('xrefs')
             ->map(static function (string $xrefs) use ($tree): array {
                 return array_map(static function (string $xref) use ($tree): Source {
-                    return Source::getInstance($xref, $tree);
+                    return Factory::source()->make($xref, $tree);
                 }, explode(',', $xrefs));
             })
             ->all();
@@ -1670,7 +1678,7 @@ class AdminTreesController extends AbstractBaseController
             ->pluck('xrefs')
             ->map(static function (string $xrefs) use ($tree): array {
                 return array_map(static function (string $xref) use ($tree): Individual {
-                    return Individual::getInstance($xref, $tree);
+                    return Factory::individual()->make($xref, $tree);
                 }, explode(',', $xrefs));
             })
             ->all();
@@ -1684,7 +1692,7 @@ class AdminTreesController extends AbstractBaseController
             ->pluck('xrefs')
             ->map(static function (string $xrefs) use ($tree): array {
                 return array_map(static function (string $xref) use ($tree): Family {
-                    return Family::getInstance($xref, $tree);
+                    return Factory::family()->make($xref, $tree);
                 }, explode(',', $xrefs));
             })
             ->all();
@@ -1698,7 +1706,7 @@ class AdminTreesController extends AbstractBaseController
             ->pluck('xrefs')
             ->map(static function (string $xrefs) use ($tree): array {
                 return array_map(static function (string $xref) use ($tree): Media {
-                    return Media::getInstance($xref, $tree);
+                    return Factory::media()->make($xref, $tree);
                 }, explode(',', $xrefs));
             })
             ->all();
@@ -1770,7 +1778,7 @@ class AdminTreesController extends AbstractBaseController
      *
      * @param FilesystemInterface $data_filesystem
      *
-     * @return array
+     * @return array<string>
      */
     private function gedcomFiles(FilesystemInterface $data_filesystem): array
     {

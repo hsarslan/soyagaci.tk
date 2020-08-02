@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -20,10 +20,8 @@ declare(strict_types=1);
 namespace Fisharebest\Webtrees;
 
 use Closure;
-use Exception;
 use Fisharebest\Webtrees\Http\RequestHandlers\SubmissionPage;
 use Illuminate\Database\Capsule\Manager as DB;
-use stdClass;
 
 /**
  * A GEDCOM submission (SUBN) object.
@@ -39,18 +37,15 @@ class Submission extends GedcomRecord
     /**
      * A closure which will create a record from a database row.
      *
+     * @deprecated since 2.0.4.  Will be removed in 2.1.0 - Use Factory::submission()
+     *
      * @param Tree $tree
      *
      * @return Closure
      */
     public static function rowMapper(Tree $tree): Closure
     {
-        return static function (stdClass $row) use ($tree): Submission {
-            $submission = Submission::getInstance($row->o_id, $tree, $row->o_gedcom);
-            assert($submission instanceof Submission);
-
-            return $submission;
-        };
+        return Factory::submission()->mapper($tree);
     }
 
     /**
@@ -62,19 +57,13 @@ class Submission extends GedcomRecord
      * @param Tree        $tree
      * @param string|null $gedcom
      *
-     * @throws Exception
+     * @deprecated since 2.0.4.  Will be removed in 2.1.0 - Use Factory::submission()
      *
      * @return Submission|null
      */
     public static function getInstance(string $xref, Tree $tree, string $gedcom = null): ?Submission
     {
-        $record = parent::getInstance($xref, $tree, $gedcom);
-
-        if ($record instanceof self) {
-            return $record;
-        }
-
-        return null;
+        return Factory::submission()->make($xref, $tree, $gedcom);
     }
 
     /**
@@ -90,7 +79,7 @@ class Submission extends GedcomRecord
         return DB::table('other')
             ->where('o_id', '=', $xref)
             ->where('o_file', '=', $tree_id)
-            ->where('o_type', '=', self::RECORD_TYPE)
+            ->where('o_type', '=', static::RECORD_TYPE)
             ->value('o_gedcom');
     }
 
@@ -113,7 +102,7 @@ class Submission extends GedcomRecord
     public function extractNames(): void
     {
         $this->getAllNames[] = [
-            'type'   => self::RECORD_TYPE,
+            'type'   => static::RECORD_TYPE,
             'sort'   => I18N::translate('Submission'),
             'full'   => I18N::translate('Submission'),
             'fullNN' => I18N::translate('Submission'),

@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -19,6 +19,7 @@ declare(strict_types=1);
 
 namespace Fisharebest\Webtrees\Http\RequestHandlers;
 
+use Fisharebest\Webtrees\Factory;
 use Fisharebest\Webtrees\Services\SearchService;
 use Fisharebest\Webtrees\Submitter;
 use Fisharebest\Webtrees\Tree;
@@ -35,7 +36,7 @@ class Select2Submitter extends AbstractSelect2Handler
     protected $search_service;
 
     /**
-     * AutocompleteController constructor.
+     * Select2Submitter constructor.
      *
      * @param SearchService $search_service
      */
@@ -52,13 +53,14 @@ class Select2Submitter extends AbstractSelect2Handler
      * @param string $query
      * @param int    $offset
      * @param int    $limit
+     * @param string $at
      *
      * @return Collection<array<string,string>>
      */
-    protected function search(Tree $tree, string $query, int $offset, int $limit): Collection
+    protected function search(Tree $tree, string $query, int $offset, int $limit, string $at): Collection
     {
         // Search by XREF
-        $submitter = Submitter::getInstance($query, $tree);
+        $submitter = Factory::submitter()->make($query, $tree);
 
         if ($submitter instanceof Submitter) {
             $results = new Collection([$submitter]);
@@ -66,9 +68,9 @@ class Select2Submitter extends AbstractSelect2Handler
             $results = $this->search_service->searchSubmitters([$tree], [$query], $offset, $limit);
         }
 
-        return $results->map(static function (Submitter $submitter): array {
+        return $results->map(static function (Submitter $submitter) use ($at): array {
             return [
-                'id'    => $submitter->xref(),
+                'id'    => $at . $submitter->xref() . $at,
                 'text'  => view('selects/submitter', ['submitter' => $submitter]),
                 'title' => ' ',
             ];

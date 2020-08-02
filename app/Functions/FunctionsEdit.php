@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2017 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -24,6 +24,7 @@ use Fisharebest\Webtrees\Census\Census;
 use Fisharebest\Webtrees\Config;
 use Fisharebest\Webtrees\Date;
 use Fisharebest\Webtrees\Fact;
+use Fisharebest\Webtrees\Factory;
 use Fisharebest\Webtrees\Family;
 use Fisharebest\Webtrees\Gedcom;
 use Fisharebest\Webtrees\GedcomCode\GedcomCodeAdop;
@@ -43,15 +44,11 @@ use Fisharebest\Webtrees\Http\RequestHandlers\CreateSourceModal;
 use Fisharebest\Webtrees\Http\RequestHandlers\CreateSubmitterModal;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
-use Fisharebest\Webtrees\Media;
 use Fisharebest\Webtrees\Module\CensusAssistantModule;
-use Fisharebest\Webtrees\Note;
-use Fisharebest\Webtrees\Repository;
 use Fisharebest\Webtrees\Services\LocalizationService;
+use Fisharebest\Webtrees\Services\MessageService;
 use Fisharebest\Webtrees\Services\ModuleService;
 use Fisharebest\Webtrees\Services\UserService;
-use Fisharebest\Webtrees\Source;
-use Fisharebest\Webtrees\Submitter;
 use Fisharebest\Webtrees\Tree;
 use Psr\Http\Message\ServerRequestInterface;
 use Ramsey\Uuid\Uuid;
@@ -69,16 +66,18 @@ use function in_array;
 use function preg_match;
 use function preg_match_all;
 use function route;
-use function strpos;
-use function strstr;
+use function str_contains;
 use function strtolower;
 use function strtoupper;
 use function substr;
 use function trim;
+use function ucfirst;
 use function view;
 
 /**
  * Class FunctionsEdit - common functions for editing
+ *
+ * @deprecated since 2.0.6.  Will be removed in 2.1.0
  */
 class FunctionsEdit
 {
@@ -88,25 +87,14 @@ class FunctionsEdit
     /**
      * Function edit_language_checkboxes
      *
-     * @param string $parameter_name
-     * @param array  $accepted_languages
+     * @param string        $parameter_name
+     * @param array<string> $languages
      *
      * @return string
      */
-    public static function editLanguageCheckboxes($parameter_name, $accepted_languages): string
+    public static function editLanguageCheckboxes($parameter_name, $languages): string
     {
-        $html = '';
-        foreach (I18N::activeLocales() as $locale) {
-            $html .= '<div class="form-check">';
-            $html .= '<label title="' . $locale->languageTag() . '">';
-            $html .= '<input type="checkbox" name="' . $parameter_name . '[]" value="' . $locale->languageTag() . '"';
-            $html .= in_array($locale->languageTag(), $accepted_languages, true) ? ' checked>' : '>';
-            $html .= $locale->endonym();
-            $html .= '</label>';
-            $html .= '</div>';
-        }
-
-        return $html;
+        return view('edit/language-checkboxes', ['languages' => $languages]);
     }
 
     /**
@@ -116,12 +104,7 @@ class FunctionsEdit
      */
     public static function optionsAccessLevels(): array
     {
-        return [
-            Auth::PRIV_PRIVATE => I18N::translate('Show to visitors'),
-            Auth::PRIV_USER    => I18N::translate('Show to members'),
-            Auth::PRIV_NONE    => I18N::translate('Show to managers'),
-            Auth::PRIV_HIDE    => I18N::translate('Hide from everyone'),
-        ];
+        return Auth::accessLevelNames();
     }
 
     /**
@@ -156,13 +139,7 @@ class FunctionsEdit
      */
     public static function optionsContactMethods(): array
     {
-        return [
-            'messaging'  => I18N::translate('Internal messaging'),
-            'messaging2' => I18N::translate('Internal messaging with emails'),
-            'messaging3' => I18N::translate('webtrees sends emails with no storage'),
-            'mailto'     => I18N::translate('Mailto link'),
-            'none'       => I18N::translate('No contact'),
-        ];
+        return app(MessageService::class)->contactMethods();
     }
 
     /**
@@ -260,12 +237,7 @@ class FunctionsEdit
      */
     public static function optionsRestrictionsRule(): array
     {
-        return [
-            'none'         => I18N::translate('Show to visitors'),
-            'privacy'      => I18N::translate('Show to members'),
-            'confidential' => I18N::translate('Show to managers'),
-            'hidden'       => I18N::translate('Hide from everyone'),
-        ];
+        return Auth::privacyRuleNames();
     }
 
     /**
@@ -313,7 +285,7 @@ class FunctionsEdit
      */
     public static function addSimpleTag(Tree $tree, $tag, $upperlevel = '', $label = ''): string
     {
-        $localization_service = new LocalizationService();
+        $localization_service = app(LocalizationService::class);
 
         $request = app(ServerRequestInterface::class);
         $xref    = $request->getAttribute('xref', '');
@@ -351,7 +323,7 @@ class FunctionsEdit
             $value = trim($value, '@');
         }
 
-        if ($fact === 'REPO' || $fact === 'SOUR' || $fact === 'OBJE' || $fact === 'FAMC' || $fact === 'SUBM' || $fact === 'ASSO' || $fact === '_ASSO') {
+        if ($fact === 'REPO' || $fact === 'SOUR' || $fact === 'OBJE' || $fact === 'FAMC' || $fact === 'SUBM' || $fact === 'ASSO' || $fact === '_ASSO' || $fact === '_GOV') {
             $islink = true;
         }
 
@@ -419,7 +391,7 @@ class FunctionsEdit
 
         // Show names for spouses in MARR/HUSB/AGE and MARR/WIFE/AGE
         if ($fact === 'HUSB' || $fact === 'WIFE') {
-            $family = Family::getInstance($xref, $tree);
+            $family = Factory::family()->make($xref, $tree);
             if ($family instanceof Family) {
                 $spouse_link = $family->facts([$fact])->first();
                 if ($spouse_link instanceof Fact) {
@@ -444,29 +416,38 @@ class FunctionsEdit
                 ]);
 
                 $census_assistant = app(ModuleService::class)->findByInterface(CensusAssistantModule::class)->first();
-                $record           = Individual::getInstance($xref, $tree);
+                $record           = Factory::individual()->make($xref, $tree);
 
                 if ($census_assistant instanceof CensusAssistantModule && $record instanceof Individual) {
                     $html .= $census_assistant->createCensusAssistant($record);
                 }
             }
         } elseif ($fact === 'NPFX' || $fact === 'NSFX' || $fact === 'SPFX' || $fact === 'NICK') {
+            $html .= '<div class="input-group">';
             $html .= '<input class="form-control" type="text" id="' . $id . '" name="' . $name . '" value="' . e($value) . '" oninput="updatewholename()">';
+            $html .= view('edit/input-addon-keyboard', ['id' => $id]);
+            $html .= '</div>';
         } elseif ($fact === 'GIVN') {
+            $html .= '<div class="input-group">';
             $html .= '<input class="form-control" type="text" id="' . $id . '" name="' . $name . '" value="' . e($value) . '" data-autocomplete-type="GIVN" oninput="updatewholename()" autofocus>';
+            $html .= view('edit/input-addon-keyboard', ['id' => $id]);
+            $html .= '</div>';
         } elseif ($fact === 'SURN' || $fact === '_MARNM_SURN') {
+            $html .= '<div class="input-group">';
             $html .= '<input class="form-control" type="text" id="' . $id . '" name="' . $name . '" value="' . e($value) . '" data-autocomplete-type="SURN" oninput="updatewholename()">';
+            $html .= view('edit/input-addon-keyboard', ['id' => $id]);
+            $html .= '</div>';
         } elseif ($fact === 'ADOP') {
             $html .= view('components/select', ['id' => $id, 'name' => $name, 'selected' => $value, 'options' => GedcomCodeAdop::getValues()]);
         } elseif ($fact === 'LANG') {
             $html .= view('components/select', ['id' => $id, 'name' => $name, 'selected' => $value, 'options' => GedcomCodeLang::getValues()]);
         } elseif ($fact === 'ALIA') {
             $html .= '<div class="input-group">';
-            $html .= view('components/select-individual', ['id' => $id, 'name' => $name, 'individual' => Individual::getInstance($value, $tree), 'tree' => $tree]);
+            $html .= view('components/select-individual', ['id' => $id, 'name' => $name, 'individual' => Factory::individual()->make($value, $tree), 'tree' => $tree]);
             $html .= '</div>';
         } elseif ($fact === 'ASSO' || $fact === '_ASSO') {
             $html .= '<div class="input-group">';
-            $html .= view('components/select-individual', ['id' => $id, 'name' => $name, 'individual' => Individual::getInstance($value, $tree), 'tree' => $tree]);
+            $html .= view('components/select-individual', ['id' => $id, 'name' => $name, 'individual' => Factory::individual()->make($value, $tree), 'tree' => $tree]);
             $html .= '</div>';
             if ($level === '1') {
                 $html .= '<p class="small text-muted">' . I18N::translate('An associate is another individual who was involved with this individual, such as a friend or an employer.') . '</p>';
@@ -478,7 +459,7 @@ class FunctionsEdit
             $dmy = '"' . $localization_service->dateFormatToOrder(I18N::dateFormat()) . '"';
 
             $html .= '<div class="input-group">';
-            $html .= '<input class="form-control" type="text" id="' . $id . '" name="' . $name . '" value="' . e($value) . '" onchange="valid_date(this, ' . e($dmy) . ')" dir="ltr">';
+            $html .= '<input class="form-control" type="text" id="' . $id . '" name="' . $name . '" value="' . e($value) . '" onchange="webtrees.reformatDate(this, ' . e($dmy) . ')" dir="ltr">';
             $html .= view('edit/input-addon-calendar', ['id' => $id]);
             $html .= view('edit/input-addon-help', ['fact' => 'DATE']);
             $html .= '</div>';
@@ -488,12 +469,12 @@ class FunctionsEdit
             $html .=
                 '<div class="input-group">' .
                 '<div class="input-group-prepend"><button class="btn btn-secondary" type="button" data-toggle="modal" data-target="#modal-create-family" data-element-id="' . $id . '" title="' . I18N::translate('Create a family') . '">' . view('icons/add') . '</button></div>' .
-                view('components/select-family', ['id' => $id, 'name' => $name, 'family' => Family::getInstance($value, $tree), 'tree' => $tree]) .
+                view('components/select-family', ['id' => $id, 'name' => $name, 'family' => Factory::family()->make($value, $tree), 'tree' => $tree]) .
                 '</div>';
         } elseif ($fact === 'LATI') {
-            $html .= '<input class="form-control" type="text" id="' . $id . '" name="' . $name . '" value="' . e($value) . '" oninput="valid_lati_long(this, \'N\', \'S\')">';
+            $html .= '<input class="form-control" type="text" id="' . $id . '" name="' . $name . '" value="' . e($value) . '" oninput="webtrees.reformatLatitude(this)">';
         } elseif ($fact === 'LONG') {
-            $html .= '<input class="form-control" type="text" id="' . $id . '" name="' . $name . '" value="' . e($value) . '" oninput="valid_lati_long(this, \'E\', \'W\')">';
+            $html .= '<input class="form-control" type="text" id="' . $id . '" name="' . $name . '" value="' . e($value) . '" oninput="webtrees.reformatLongitude(this)">';
         } elseif ($fact === 'NOTE' && $islink) {
             $html .=
                 '<div class="input-group">' .
@@ -502,13 +483,13 @@ class FunctionsEdit
                 '' . view('icons/add') . '<' .
                 '/button>' .
                 '</div>' .
-                view('components/select-note', ['id' => $id, 'name' => $name, 'note' => Note::getInstance($value, $tree), 'tree' => $tree]) .
+                view('components/select-note', ['id' => $id, 'name' => $name, 'note' => Factory::note()->make($value, $tree), 'tree' => $tree]) .
                 '</div>';
         } elseif ($fact === 'OBJE') {
             $html .=
                 '<div class="input-group">' .
                 '<div class="input-group-prepend"><button class="btn btn-secondary" type="button" data-toggle="modal" data-href="' . e(route(CreateMediaObjectModal::class, ['tree' => $tree->name()])) . '" data-target="#wt-ajax-modal" data-select-id="' . $id . '" title="' . I18N::translate('Create a media object') . '">' . view('icons/add') . '</button></div>' .
-                view('components/select-media', ['id' => $id, 'name' => $name, 'media' => Media::getInstance($value, $tree), 'tree' => $tree]) .
+                view('components/select-media', ['id' => $id, 'name' => $name, 'media' => Factory::media()->make($value, $tree), 'tree' => $tree]) .
                 '</div>';
         } elseif ($fact === 'PAGE') {
             $html .= '<input ' . Html::attributes([
@@ -546,7 +527,7 @@ class FunctionsEdit
             $html .=
                 '<div class="input-group">' .
                 '<div class="input-group-prepend"><button class="btn btn-secondary" type="button" data-toggle="modal" data-href="' . e(route(CreateRepositoryModal::class, ['tree' => $tree->name()])) . '" data-target="#wt-ajax-modal" data-select-id="' . $id . '" title="' . I18N::translate('Create a repository') . '">' . view('icons/add') . '</button></div>' .
-                view('components/select-repository', ['id' => $id, 'name' => $name, 'repository' => Repository::getInstance($value, $tree), 'tree' => $tree]) .
+                view('components/select-repository', ['id' => $id, 'name' => $name, 'repository' => Factory::repository()->make($value, $tree), 'tree' => $tree]) .
                 '</div>';
         } elseif ($fact === 'RESN') {
             $html .= '<div class="input-group">';
@@ -555,15 +536,12 @@ class FunctionsEdit
             $html .= '</span>';
             $html .= '</div>';
         } elseif ($fact === 'SEX') {
-            if ($value !== 'M' && $value !== 'F') {
-                $value = 'U';
-            }
             $html .= view('components/radios-inline', ['name' => $name, 'options' => ['M' => I18N::translate('Male'), 'F' => I18N::translate('Female'), 'U' => I18N::translateContext('unknown gender', 'Unknown')], 'selected' => $value]);
         } elseif ($fact === 'SOUR') {
             $html .=
                 '<div class="input-group">' .
                 '<div class="input-group-prepend"><button class="btn btn-secondary" type="button" data-toggle="modal" data-href="' . e(route(CreateSourceModal::class, ['tree' => $tree->name()])) . '" data-target="#wt-ajax-modal" data-select-id="' . $id . '" title="' . I18N::translate('Create a source') . '">' . view('icons/add') . '</button></div>' .
-                view('components/select-source', ['id' => $id, 'name' => $name, 'source' => Source::getInstance($value, $tree), 'tree' => $tree]) .
+                view('components/select-source', ['id' => $id, 'name' => $name, 'source' => Factory::source()->make($value, $tree), 'tree' => $tree]) .
                 '</div>';
         } elseif ($fact === 'STAT') {
             $html .= view('components/select', ['id' => $id, 'name' => $name, 'selected' => $value, 'options' => GedcomCodeStat::statusNames($upperlevel)]);
@@ -571,7 +549,7 @@ class FunctionsEdit
             $html .=
                 '<div class="input-group">' .
                 '<div class="input-group-prepend"><button class="btn btn-secondary" type="button" data-toggle="modal" data-href="' . e(route(CreateSubmitterModal::class, ['tree' => $tree->name()])) . '" data-target="#wt-ajax-modal" data-select-id="' . $id . '" title="' . I18N::translate('Create a submitter') . '">' . view('icons/add') . '</button></div>' .
-                view('components/select-submitter', ['id' => $id, 'name' => $name, 'submitter' => Submitter::getInstance($value, $tree), 'tree' => $tree]) .
+                view('components/select-submitter', ['id' => $id, 'name' => $name, 'submitter' => Factory::submitter()->make($value, $tree), 'tree' => $tree]) .
                 '</div>';
         } elseif ($fact === 'TEMP') {
             $html .= view('components/select', ['id' => $id, 'name' => $name, 'selected' => $value, 'options' => self::optionsTemples()]);
@@ -622,18 +600,20 @@ class FunctionsEdit
             $html .= 'document.getElementById(\'' . $id . '\').style.display=\'none\'';
             $html .= '</script>';
             $html .= '<select id="' . $id . '_sel" oninput="document.getElementById(\'' . $id . '\').value=this.value" >';
-            foreach (['Unknown', 'Civil', 'Religious', 'Partners'] as $key) {
-                if ($key === 'Unknown') {
-                    $html .= '<option value="" ';
-                } else {
-                    $html .= '<option value="' . $key . '" ';
-                }
-                $a = strtolower($key);
-                $b = strtolower($value);
-                if ($b !== '' && strpos($a, $b) !== false || strpos($b, $a) !== false) {
+
+            $marriage_types = [
+                '' => '',
+                'Civil' => I18N::translate('Civil marriage'),
+                'Religious' => I18N::translate('Religious marriage'),
+                'Partners' => I18N::translate('Registered partnership'),
+            ];
+
+            foreach ($marriage_types as $key => $type_label) {
+                $html .= '<option value="' . $key . '" ';
+                if (strtolower($key) === strtolower($value)) {
                     $html .= 'selected';
                 }
-                $html .= '>' . GedcomTag::getLabel('MARR_' . strtoupper($key)) . '</option>';
+                $html .= '>' . $type_label . '</option>';
             }
             $html .= '</select>';
         }
@@ -737,7 +717,7 @@ class FunctionsEdit
 
         self::$tags = [];
 
-        $level0type = $record::RECORD_TYPE;
+        $level0type = $record->tag();
         $level1type = $fact->getTag();
 
         // List of tags we would expect at the next level
@@ -756,12 +736,12 @@ class FunctionsEdit
             ],
         ];
 
-        if ($record::RECORD_TYPE !== 'SOUR') {
+        if ($record->tag() !== 'SOUR') {
             //source citations within other records, i.e. n SOUR / +1 DATA / +2 TEXT
             $expected_subtags['DATA'][] = 'TEXT';
         } //else: source records themselves, i.e. 0 SOUR / 1 DATA don't get a 2 TEXT!
 
-        if ($record::RECORD_TYPE === 'SOUR') {
+        if ($record->tag() === 'SOUR') {
             //source records themselves, i.e. 0 SOUR / 1 DATA / 2 EVEN get a 3 DATE and a 3 PLAC
             $expected_subtags['EVEN'][] = 'DATE';
             $expected_subtags['EVEN'][] = 'PLAC';
@@ -770,7 +750,7 @@ class FunctionsEdit
         if ($record->tree()->getPreference('FULL_SOURCES')) {
             $expected_subtags['SOUR'][] = 'QUAY';
 
-            if ($record::RECORD_TYPE !== 'SOUR') {
+            if ($record->tag() !== 'SOUR') {
                 //source citations within other records, i.e. n SOUR / +1 DATA / +2 DATE
                 $expected_subtags['DATA'][] = 'DATE';
             } //else: source records themselves, i.e. 0 SOUR / 1 DATA don't get a 2 DATE!
@@ -827,17 +807,17 @@ class FunctionsEdit
 
             // Dates need different labels, depending on whether they are inside sources.
             if ($inSource && $type === 'DATE') {
-                echo self::addSimpleTag($tree, $subrecord, '', GedcomTag::getLabel($label, $record));
+                echo self::addSimpleTag($tree, $subrecord, '', GedcomTag::getLabel($label));
             } elseif (!$inSource && $type === 'DATE') {
-                echo self::addSimpleTag($tree, $subrecord, $level1type, GedcomTag::getLabel($label, $record));
+                echo self::addSimpleTag($tree, $subrecord, $level1type, GedcomTag::getLabel($label));
                 if ($level === 2) {
                     // We already have a date - no need to add one.
                     $add_date = false;
                 }
             } elseif ($type === 'STAT') {
-                echo self::addSimpleTag($tree, $subrecord, $level1type, GedcomTag::getLabel($label, $record));
+                echo self::addSimpleTag($tree, $subrecord, $level1type, GedcomTag::getLabel($label));
             } else {
-                echo self::addSimpleTag($tree, $subrecord, $level0type, GedcomTag::getLabel($label, $record));
+                echo self::addSimpleTag($tree, $subrecord, $level0type, GedcomTag::getLabel($label));
             }
 
             // Get a list of tags present at the next level
@@ -864,7 +844,7 @@ class FunctionsEdit
         if ($level1type !== '_PRIM') {
             //0 SOUR / 1 DATA doesn't get a 2 DATE!
             //0 SOUR / 1 DATA doesn't get a 2 EVEN here either, we rather handle this via cards/add-sour-data-even
-            if ($record::RECORD_TYPE !== 'SOUR') {
+            if ($record->tag() !== 'SOUR') {
                 self::insertMissingSubtags($tree, $level1type, $add_date);
             }
         }
@@ -884,7 +864,7 @@ class FunctionsEdit
         // handle  MARRiage TYPE
         $type_val = '';
         if (substr($level1tag, 0, 5) === 'MARR_') {
-            $type_val  = substr($level1tag, 5);
+            $type_val  = ucfirst(strtolower(substr($level1tag, 5)));
             $level1tag = 'MARR';
         }
 
@@ -896,10 +876,11 @@ class FunctionsEdit
                 if ($key === 'TYPE') {
                     echo self::addSimpleTag($tree, '2 TYPE ' . $type_val, $level1tag);
                 } elseif ($level1tag === '_TODO' && $key === 'DATE') {
-                    echo self::addSimpleTag($tree, '2 ' . $key . ' ' . strtoupper(date('d M Y')), $level1tag);
+                    $today = strtoupper(date('d M Y'));
+                    echo self::addSimpleTag($tree, '2 ' . $key . ' ' . $today, $level1tag);
                 } elseif ($level1tag === '_TODO' && $key === '_WT_USER') {
                     echo self::addSimpleTag($tree, '2 ' . $key . ' ' . Auth::user()->userName(), $level1tag);
-                } elseif ($level1tag === 'NAME' && strstr($tree->getPreference('ADVANCED_NAME_FACTS'), $key) !== false) {
+                } elseif ($level1tag === 'NAME' && str_contains($tree->getPreference('ADVANCED_NAME_FACTS'), $key)) {
                     echo self::addSimpleTag($tree, '2 ' . $key, $level1tag);
                 } elseif ($level1tag !== 'NAME') {
                     echo self::addSimpleTag($tree, '2 ' . $key, $level1tag);

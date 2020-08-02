@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -27,8 +27,8 @@ use Fisharebest\Webtrees\Exceptions\MediaNotFoundException;
 use Fisharebest\Webtrees\Exceptions\NoteNotFoundException;
 use Fisharebest\Webtrees\Exceptions\RepositoryNotFoundException;
 use Fisharebest\Webtrees\Exceptions\SourceNotFoundException;
+use Fisharebest\Webtrees\Factory;
 use Fisharebest\Webtrees\Family;
-use Fisharebest\Webtrees\Functions\FunctionsExport;
 use Fisharebest\Webtrees\Gedcom;
 use Fisharebest\Webtrees\GedcomRecord;
 use Fisharebest\Webtrees\Http\RequestHandlers\FamilyPage;
@@ -43,35 +43,42 @@ use Fisharebest\Webtrees\Media;
 use Fisharebest\Webtrees\Menu;
 use Fisharebest\Webtrees\Note;
 use Fisharebest\Webtrees\Repository;
+use Fisharebest\Webtrees\Services\GedcomExportService;
 use Fisharebest\Webtrees\Services\UserService;
 use Fisharebest\Webtrees\Session;
 use Fisharebest\Webtrees\Source;
 use Fisharebest\Webtrees\Tree;
+use Illuminate\Support\Collection;
 use League\Flysystem\Filesystem;
 use League\Flysystem\FilesystemInterface;
-use League\Flysystem\MountManager;
 use League\Flysystem\ZipArchive\ZipArchiveAdapter;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
+use RuntimeException;
 
 use function app;
 use function array_filter;
 use function array_keys;
 use function array_map;
+use function array_search;
 use function assert;
+use function fopen;
 use function in_array;
 use function is_string;
 use function key;
 use function preg_match_all;
 use function redirect;
+use function rewind;
 use function route;
 use function str_replace;
+use function stream_get_meta_data;
 use function strip_tags;
-use function sys_get_temp_dir;
-use function tempnam;
-use function utf8_decode;
+use function tmpfile;
+use function uasort;
+
+use const PREG_SET_ORDER;
 
 /**
  * Class ClippingsCartModule
@@ -82,30 +89,33 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
 
     // Routes that have a record which can be added to the clipboard
     private const ROUTES_WITH_RECORDS = [
-        'Family' => FamilyPage::class,
+        'Family'     => FamilyPage::class,
         'Individual' => IndividualPage::class,
-        'Media' => MediaPage::class,
-        'Note' => NotePage::class,
+        'Media'      => MediaPage::class,
+        'Note'       => NotePage::class,
         'Repository' => RepositoryPage::class,
-        'Source' => SourcePage::class,
+        'Source'     => SourcePage::class,
     ];
 
     /** @var int The default access level for this module.  It can be changed in the control panel. */
     protected $access_level = Auth::PRIV_USER;
 
-    /**
-     * @var UserService
-     */
+    /** @var GedcomExportService */
+    private $gedcom_export_service;
+
+    /** @var UserService */
     private $user_service;
 
     /**
      * ClippingsCartModule constructor.
      *
-     * @param UserService $user_service
+     * @param GedcomExportService $gedcom_export_service
+     * @param UserService         $user_service
      */
-    public function __construct(UserService $user_service)
+    public function __construct(GedcomExportService $gedcom_export_service, UserService $user_service)
     {
-        $this->user_service = $user_service;
+        $this->gedcom_export_service = $gedcom_export_service;
+        $this->user_service          = $user_service;
     }
 
     /**
@@ -211,27 +221,39 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
         $params = (array) $request->getParsedBody();
 
         $privatize_export = $params['privatize_export'];
-        $convert          = (bool) ($params['convert'] ?? false);
+
+        if ($privatize_export === 'none' && !Auth::isManager($tree)) {
+            $privatize_export = 'member';
+        }
+
+        if ($privatize_export === 'gedadmin' && !Auth::isManager($tree)) {
+            $privatize_export = 'member';
+        }
+
+        if ($privatize_export === 'user' && !Auth::isMember($tree)) {
+            $privatize_export = 'visitor';
+        }
+
+        $convert = (bool) ($params['convert'] ?? false);
 
         $cart = Session::get('cart', []);
 
         $xrefs = array_keys($cart[$tree->name()] ?? []);
+        $xrefs = array_map('strval', $xrefs); // PHP converts numeric keys to integers.
 
         // Create a new/empty .ZIP file
         $temp_zip_file  = stream_get_meta_data(tmpfile())['uri'];
         $zip_adapter    = new ZipArchiveAdapter($temp_zip_file);
         $zip_filesystem = new Filesystem($zip_adapter);
 
-        $manager = new MountManager([
-            'media' => $tree->mediaFilesystem($data_filesystem),
-            'zip'   => $zip_filesystem,
-        ]);
+        $media_filesystem = $tree->mediaFilesystem($data_filesystem);
 
         // Media file prefix
         $path = $tree->getPreference('MEDIA_DIRECTORY');
 
-        // GEDCOM file header
-        $filetext = FunctionsExport::gedcomHeader($tree, $convert ? 'ANSI' : 'UTF-8');
+        $encoding = $convert ? 'ANSI' : 'UTF-8';
+
+        $records = new Collection();
 
         switch ($privatize_export) {
             case 'gedadmin':
@@ -250,7 +272,7 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
         }
 
         foreach ($xrefs as $xref) {
-            $object = GedcomRecord::getInstance($xref, $tree);
+            $object = Factory::gedcomRecord()->make($xref, $tree);
             // The object may have been deleted since we added it to the cart....
             if ($object instanceof  GedcomRecord) {
                 $record = $object->privatizeGedcom($access_level);
@@ -275,24 +297,21 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
                 }
 
                 if ($object instanceof Individual || $object instanceof Family) {
-                    $filetext .= $record . "\n";
-                    $filetext .= "1 SOUR @WEBTREES@\n";
-                    $filetext .= '2 PAGE ' . $object->url() . "\n";
+                    $records->add($record . "\n1 SOUR @WEBTREES@\n2 PAGE " . $object->url());
                 } elseif ($object instanceof Source) {
-                    $filetext .= $record . "\n";
-                    $filetext .= '1 NOTE ' . $object->url() . "\n";
+                    $records->add($record . "\n1 NOTE " . $object->url());
                 } elseif ($object instanceof Media) {
                     // Add the media files to the archive
                     foreach ($object->mediaFiles() as $media_file) {
-                        $from = 'media://' . $media_file->filename();
-                        $to   = 'zip://' . $path . $media_file->filename();
-                        if (!$media_file->isExternal() && $manager->has($from)) {
-                            $manager->copy($from, $to);
+                        $from = $media_file->filename();
+                        $to   = $path . $media_file->filename();
+                        if (!$media_file->isExternal() && $media_filesystem->has($from) && !$zip_filesystem->has($to)) {
+                            $zip_filesystem->writeStream($to, $media_filesystem->readStream($from));
                         }
                     }
-                    $filetext .= $record . "\n";
+                    $records->add($record);
                 } else {
-                    $filetext .= $record . "\n";
+                    $records->add($record);
                 }
             }
         }
@@ -300,22 +319,25 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
         $base_url = $request->getAttribute('base_url');
 
         // Create a source, to indicate the source of the data.
-        $filetext .= "0 @WEBTREES@ SOUR\n1 TITL " . $base_url . "\n";
+        $record = "0 @WEBTREES@ SOUR\n1 TITL " . $base_url;
         $author   = $this->user_service->find((int) $tree->getPreference('CONTACT_USER_ID'));
         if ($author !== null) {
-            $filetext .= '1 AUTH ' . $author->realName() . "\n";
+            $record .= "\n1 AUTH " . $author->realName();
         }
-        $filetext .= "0 TRLR\n";
+        $records->add($record);
 
-        // Make sure the preferred line endings are used
-        $filetext = strtr($filetext, ["\n" => Gedcom::EOL]);
+        $stream = fopen('php://temp', 'wb+');
 
-        if ($convert) {
-            $filetext = utf8_decode($filetext);
+        if ($stream === false) {
+            throw new RuntimeException('Failed to create temporary stream');
         }
+
+        // We have already applied privacy filtering, so do not do it again.
+        $this->gedcom_export_service->export($tree, $stream, false, $encoding, Auth::PRIV_HIDE, $path, $records);
+        rewind($stream);
 
         // Finally add the GEDCOM file to the .ZIP file.
-        $zip_filesystem->write('clippings.ged', $filetext);
+        $zip_filesystem->writeStream('clippings.ged', $stream);
 
         // Need to force-close ZipArchive filesystems.
         $zip_adapter->getArchive()->close();
@@ -431,7 +453,7 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
 
         $xref = $request->getQueryParams()['xref'];
 
-        $family = Family::getInstance($xref, $tree);
+        $family = Factory::family()->make($xref, $tree);
 
         if ($family === null) {
             throw new FamilyNotFoundException();
@@ -483,7 +505,7 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
         $xref   = $params['xref'];
         $option = $params['option'];
 
-        $family = Family::getInstance($xref, $tree);
+        $family = Factory::family()->make($xref, $tree);
 
         if ($family === null) {
             throw new FamilyNotFoundException();
@@ -569,7 +591,7 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
 
         $xref = $request->getQueryParams()['xref'];
 
-        $individual = Individual::getInstance($xref, $tree);
+        $individual = Factory::individual()->make($xref, $tree);
 
         if ($individual === null) {
             throw new IndividualNotFoundException();
@@ -633,7 +655,7 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
         $xref   = $params['xref'];
         $option = $params['option'];
 
-        $individual = Individual::getInstance($xref, $tree);
+        $individual = Factory::individual()->make($xref, $tree);
 
         if ($individual === null) {
             throw new IndividualNotFoundException();
@@ -684,6 +706,8 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
         $this->addRecordToCart($individual);
 
         foreach ($individual->childFamilies() as $family) {
+            $this->addRecordToCart($family);
+
             foreach ($family->spouses() as $parent) {
                 $this->addAncestorsToCart($parent);
             }
@@ -699,6 +723,7 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
     {
         foreach ($individual->childFamilies() as $family) {
             $this->addFamilyAndChildrenToCart($family);
+
             foreach ($family->spouses() as $parent) {
                 $this->addAncestorFamiliesToCart($parent);
             }
@@ -717,7 +742,7 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
 
         $xref = $request->getQueryParams()['xref'];
 
-        $media = Media::getInstance($xref, $tree);
+        $media = Factory::media()->make($xref, $tree);
 
         if ($media === null) {
             throw new MediaNotFoundException();
@@ -762,7 +787,7 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
 
         $xref = $request->getQueryParams()['xref'];
 
-        $media = Media::getInstance($xref, $tree);
+        $media = Factory::media()->make($xref, $tree);
 
         if ($media === null) {
             throw new MediaNotFoundException();
@@ -785,7 +810,7 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
 
         $xref = $request->getQueryParams()['xref'];
 
-        $note = Note::getInstance($xref, $tree);
+        $note = Factory::note()->make($xref, $tree);
 
         if ($note === null) {
             throw new NoteNotFoundException();
@@ -830,7 +855,7 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
 
         $xref = $request->getQueryParams()['xref'];
 
-        $note = Note::getInstance($xref, $tree);
+        $note = Factory::note()->make($xref, $tree);
 
         if ($note === null) {
             throw new NoteNotFoundException();
@@ -853,7 +878,7 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
 
         $xref = $request->getQueryParams()['xref'];
 
-        $repository = Repository::getInstance($xref, $tree);
+        $repository = Factory::repository()->make($xref, $tree);
 
         if ($repository === null) {
             throw new RepositoryNotFoundException();
@@ -898,7 +923,7 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
 
         $xref = $request->getQueryParams()['xref'];
 
-        $repository = Repository::getInstance($xref, $tree);
+        $repository = Factory::repository()->make($xref, $tree);
 
         if ($repository === null) {
             throw new RepositoryNotFoundException();
@@ -921,7 +946,7 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
 
         $xref = $request->getQueryParams()['xref'];
 
-        $source = Source::getInstance($xref, $tree);
+        $source = Factory::source()->make($xref, $tree);
 
         if ($source === null) {
             throw new SourceNotFoundException();
@@ -970,7 +995,7 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
         $xref   = $params['xref'];
         $option = $params['option'];
 
-        $source = Source::getInstance($xref, $tree);
+        $source = Factory::source()->make($xref, $tree);
 
         if ($source === null) {
             throw new SourceNotFoundException();
@@ -1002,10 +1027,11 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
         $cart = Session::get('cart', []);
 
         $xrefs = array_keys($cart[$tree->name()] ?? []);
+        $xrefs = array_map('strval', $xrefs); // PHP converts numeric keys to integers.
 
         // Fetch all the records in the cart.
         $records = array_map(static function (string $xref) use ($tree): ?GedcomRecord {
-            return GedcomRecord::getInstance($xref, $tree);
+            return Factory::gedcomRecord()->make($xref, $tree);
         }, $xrefs);
 
         // Some records may have been deleted after they were added to the cart.
@@ -1013,7 +1039,7 @@ class ClippingsCartModule extends AbstractModule implements ModuleMenuInterface
 
         // Group and sort.
         uasort($records, static function (GedcomRecord $x, GedcomRecord $y): int {
-            return $x::RECORD_TYPE <=> $y::RECORD_TYPE ?: GedcomRecord::nameComparator()($x, $y);
+            return $x->tag() <=> $y->tag() ?: GedcomRecord::nameComparator()($x, $y);
         });
 
         return $records;

@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -21,7 +21,7 @@ namespace Fisharebest\Webtrees\Statistics\Repository;
 
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Carbon;
-use Fisharebest\Webtrees\Functions\FunctionsDate;
+use Fisharebest\Webtrees\Factory;
 use Fisharebest\Webtrees\Functions\FunctionsPrintLists;
 use Fisharebest\Webtrees\Gedcom;
 use Fisharebest\Webtrees\GedcomRecord;
@@ -46,6 +46,7 @@ use Illuminate\Database\Capsule\Manager as DB;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Database\Query\JoinClause;
+use stdClass;
 
 use function array_key_exists;
 use function array_slice;
@@ -771,7 +772,7 @@ class IndividualRepository implements IndividualRepositoryInterface
      * @param int    $year1
      * @param int    $year2
      *
-     * @return array|string
+     * @return array<stdClass>
      */
     public function statsAgeQuery(string $related = 'BIRT', string $sex = 'BOTH', int $year1 = -1, int $year2 = -1)
     {
@@ -830,7 +831,7 @@ class IndividualRepository implements IndividualRepositoryInterface
         }
 
         /** @var Individual $individual */
-        $individual = Individual::rowMapper($this->tree)($row);
+        $individual = Factory::individual()->mapper($this->tree)($row);
 
         if (!$individual->canShow()) {
             return I18N::translate('This information is private and cannot be shown.');
@@ -942,21 +943,24 @@ class IndividualRepository implements IndividualRepositoryInterface
     /**
      * Returns the calculated age the time of event.
      *
-     * @param int $age The age from the database record
+     * @param int $days The age from the database record
      *
      * @return string
      */
-    private function calculateAge(int $age): string
+    private function calculateAge(int $days): string
     {
-        if ((int) ($age / 365.25) > 0) {
-            $result = (int) ($age / 365.25) . 'y';
-        } elseif ((int) ($age / 30.4375) > 0) {
-            $result = (int) ($age / 30.4375) . 'm';
-        } else {
-            $result = $age . 'd';
+        if ($days < 31) {
+            return I18N::plural('%s day', '%s days', $days, I18N::number($days));
         }
 
-        return FunctionsDate::getAgeAtEvent($result);
+        if ($days < 365) {
+            $months = (int) ($days / 30.5);
+            return I18N::plural('%s month', '%s months', $months, I18N::number($months));
+        }
+
+        $years = (int) ($days / 365.25);
+
+        return I18N::plural('%s year', '%s years', $years, I18N::number($years));
     }
 
     /**
@@ -965,7 +969,7 @@ class IndividualRepository implements IndividualRepositoryInterface
      * @param string $sex
      * @param int    $total
      *
-     * @return array
+     * @return array<array<string,mixed>>
      */
     private function topTenOldestQuery(string $sex, int $total): array
     {
@@ -981,7 +985,7 @@ class IndividualRepository implements IndividualRepositoryInterface
         $top10 = [];
         foreach ($rows as $row) {
             /** @var Individual $individual */
-            $individual = Individual::rowMapper($this->tree)($row);
+            $individual = Factory::individual()->mapper($this->tree)($row);
 
             if ($individual->canShow()) {
                 $top10[] = [
@@ -1096,7 +1100,7 @@ class IndividualRepository implements IndividualRepositoryInterface
      * @param string $sex   "M", "F" or "BOTH"
      * @param int    $total
      *
-     * @return array
+     * @return array<array<string,mixed>>
      */
     private function topTenOldestAliveQuery(string $sex, int $total): array
     {
@@ -1123,7 +1127,7 @@ class IndividualRepository implements IndividualRepositoryInterface
             ->select(['individuals.*'])
             ->take($total)
             ->get()
-            ->map(Individual::rowMapper($this->tree))
+            ->map(Factory::individual()->mapper($this->tree))
             ->filter(GedcomRecord::accessFilter())
             ->map(function (Individual $individual): array {
                 return [
@@ -1525,7 +1529,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalRecords(): string
     {
@@ -1533,7 +1537,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalIndividuals(): string
     {
@@ -1561,7 +1565,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalSexMales(): string
     {
@@ -1569,7 +1573,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalSexFemales(): string
     {
@@ -1577,7 +1581,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalSexUnknown(): string
     {
@@ -1585,7 +1589,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalFamilies(): string
     {
@@ -1613,7 +1617,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalRepositories(): string
     {
@@ -1621,7 +1625,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalSources(): string
     {
@@ -1629,7 +1633,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalNotes(): string
     {
@@ -1637,7 +1641,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalIndividualsPercentage(): string
     {
@@ -1648,7 +1652,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalFamiliesPercentage(): string
     {
@@ -1659,7 +1663,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalRepositoriesPercentage(): string
     {
@@ -1670,7 +1674,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalSourcesPercentage(): string
     {
@@ -1681,7 +1685,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalNotesPercentage(): string
     {
@@ -1692,7 +1696,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalLivingPercentage(): string
     {
@@ -1703,7 +1707,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalDeceasedPercentage(): string
     {
@@ -1714,7 +1718,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalSexMalesPercentage(): string
     {
@@ -1725,7 +1729,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalSexFemalesPercentage(): string
     {
@@ -1736,7 +1740,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalSexUnknownPercentage(): string
     {
@@ -1852,7 +1856,11 @@ class IndividualRepository implements IndividualRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @param string|null $color_female
+     * @param string|null $color_male
+     * @param string|null $color_unknown
+     *
+     * @return string
      */
     public function chartSex(
         string $color_female = null,

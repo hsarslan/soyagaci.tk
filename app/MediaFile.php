@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -19,16 +19,18 @@ declare(strict_types=1);
 
 namespace Fisharebest\Webtrees;
 
+use Fisharebest\Webtrees\Http\RequestHandlers\MediaFileDownload;
+use Fisharebest\Webtrees\Http\RequestHandlers\MediaFileThumbnail;
 use League\Flysystem\Adapter\Local;
 use League\Flysystem\FileNotFoundException;
 use League\Flysystem\Filesystem;
 use League\Flysystem\FilesystemInterface;
 use League\Glide\Signatures\SignatureFactory;
 
-use function extension_loaded;
 use function getimagesize;
 use function intdiv;
 use function pathinfo;
+use function str_contains;
 use function strtolower;
 
 use const PATHINFO_EXTENSION;
@@ -40,34 +42,6 @@ use const PATHINFO_EXTENSION;
  */
 class MediaFile
 {
-    private const MIME_TYPES = [
-        'bmp'  => 'image/bmp',
-        'doc'  => 'application/msword',
-        'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'ged'  => 'text/x-gedcom',
-        'gif'  => 'image/gif',
-        'html' => 'text/html',
-        'htm'  => 'text/html',
-        'jpe'  => 'image/jpeg',
-        'jpeg' => 'image/jpeg',
-        'jpg'  => 'image/jpeg',
-        'mov'  => 'video/quicktime',
-        'mp3'  => 'audio/mpeg',
-        'mp4'  => 'video/mp4',
-        'ogv'  => 'video/ogg',
-        'pdf'  => 'application/pdf',
-        'png'  => 'image/png',
-        'rar'  => 'application/x-rar-compressed',
-        'swf'  => 'application/x-shockwave-flash',
-        'svg'  => 'image/svg',
-        'tiff' => 'image/tiff',
-        'tif'  => 'image/tiff',
-        'xls'  => 'application/vnd-ms-excel',
-        'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'wmv'  => 'video/x-ms-wmv',
-        'zip'  => 'application/zip',
-    ];
-
     private const SUPPORTED_IMAGE_MIME_TYPES = [
         'image/gif',
         'image/jpeg',
@@ -245,7 +219,7 @@ class MediaFile
      */
     public function isExternal(): bool
     {
-        return strpos($this->multimedia_file_refn, '://') !== false;
+        return str_contains($this->multimedia_file_refn, '://');
     }
 
     /**
@@ -261,19 +235,11 @@ class MediaFile
     {
         // Sign the URL, to protect against mass-resize attacks.
         $glide_key = Site::getPreference('glide-key');
+
         if ($glide_key === '') {
             $glide_key = bin2hex(random_bytes(128));
             Site::setPreference('glide-key', $glide_key);
         }
-
-        if (Auth::accessLevel($this->media->tree()) > $this->media->tree()->getPreference('SHOW_NO_WATERMARK')) {
-            $mark = 'watermark.png';
-        } else {
-            $mark = '';
-        }
-
-        // Automatic rotation only works when the php-exif library is loaded.
-        $orientation = extension_loaded('exif') ? 'or' : 0;
 
         $params = [
             'xref'      => $this->media->xref(),
@@ -282,18 +248,23 @@ class MediaFile
             'w'         => $width,
             'h'         => $height,
             'fit'       => $fit,
-            'mark'      => $mark,
-            'markh'     => '100h',
-            'markw'     => '100w',
-            'markalpha' => 25,
-            'or'        => $orientation,
+            'or'        => 'or',
+            'q'         => 45,
         ];
 
-        $signature = SignatureFactory::create($glide_key)->generateSignature('', $params);
+        if (Auth::accessLevel($this->media->tree()) > $this->media->tree()->getPreference('SHOW_NO_WATERMARK')) {
+            $params += [
+                'mark'      => 'watermark.png',
+                'markh'     => '100h',
+                'markw'     => '100w',
+                'markpos'   => 'center',
+                'markalpha' => 25,
+            ];
+        }
 
-        $params = ['route' => '/media-thumbnail', 's' => $signature] + $params;
+        $params['s'] = SignatureFactory::create($glide_key)->generateSignature('', $params);
 
-        return route('media-thumbnail', $params);
+        return route(MediaFileThumbnail::class, $params);
     }
 
     /**
@@ -314,7 +285,7 @@ class MediaFile
     {
         $extension = strtolower(pathinfo($this->multimedia_file_refn, PATHINFO_EXTENSION));
 
-        return self::MIME_TYPES[$extension] ?? 'application/octet-stream';
+        return Mime::TYPES[$extension] ?? Mime::DEFAULT_TYPE;
     }
 
     /**
@@ -326,7 +297,7 @@ class MediaFile
      */
     public function downloadUrl(string $disposition): string
     {
-        return route('media-download', [
+        return route(MediaFileDownload::class, [
             'xref'        => $this->media->xref(),
             'tree'        => $this->media->tree()->name(),
             'fact_id'     => $this->fact_id,
@@ -416,6 +387,8 @@ class MediaFile
      * What file extension is used by this file?
      *
      * @return string
+     *
+     * @deprecated since 2.0.4.  Will be removed in 2.1.0
      */
     public function extension(): string
     {

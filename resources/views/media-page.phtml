@@ -114,24 +114,34 @@ use Illuminate\Support\Collection;
                         <td class="d-flex justify-content-between">
                             <div>
                                 <?php if ($media_file->isExternal()) : ?>
-                                    <?= GedcomTag::getLabelValue('URL', $media_file->filename()) ?>
+                                    <?= GedcomTag::getLabelValue('URL', e($media_file->filename())) ?>
                                 <?php elseif (Auth::isEditor($media->tree())) :?>
                                     <?php if (!$media_file->fileExists($data_filesystem)) : ?>
                                         <p class="alert alert-danger">
-                                            <?= I18N::translate('The file “%s” does not exist.', $media_file->filename()) ?>
+                                            <?= I18N::translate('The file “%s” does not exist.', e($media_file->filename())) ?>
                                         </p>
                                     <?php endif ?>
-                                    <?= GedcomTag::getLabelValue('FILE', $media_file->filename()) ?>
+                                    <?= GedcomTag::getLabelValue('FILE', e($media_file->filename())) ?>
                                 <?php endif ?>
 
                                 <?= GedcomTag::getLabelValue('TITL', e($media_file->title())) ?>
-                                <?= GedcomTag::getLabelValue('TYPE', e($media_file->type())) ?>
+                                <?= GedcomTag::getLabelValue('TYPE', GedcomTag::getFileFormTypeValue(e($media_file->type()))) ?>
                                 <?= GedcomTag::getLabelValue('FORM', e($media_file->format())) ?>
                             </div>
 
                             <div>
                                 <?php if (!$media_file->isExternal()) : ?>
-                                    <?= $media_file->displayImage(200, 150, 'contain', []) ?>
+                                    <?php if (explode('/', $media_file->mimeType())[0] === 'audio') : ?>
+                                    <audio controls>
+                                        <source src="<?= e($media_file->downloadUrl('inline')) ?>" type="<?= $media_file->mimeType() ?>">
+                                    </audio>
+                                    <?php elseif (explode('/', $media_file->mimeType())[0] === 'video') : ?>
+                                        <video controls width="300">
+                                            <source src="<?= e($media_file->downloadUrl('inline')) ?>" type="<?= $media_file->mimeType() ?>">
+                                        </video>
+                                    <?php else : ?>
+                                        <?= $media_file->displayImage(200, 150, 'contain', []) ?>
+                                    <?php endif ?>
                                     <?php if ($media->tree()->getPreference('SHOW_MEDIA_DOWNLOAD') >= Auth::accessLevel($media->tree()) && $media_file->fileExists($data_filesystem)) : ?>
                                         <br>
                                         <a href="<?= e($media_file->downloadUrl('attachment')) ?>">
@@ -144,14 +154,12 @@ use Illuminate\Support\Collection;
                     </tr>
                 <?php endforeach ?>
                 <?php foreach ($facts as $fact) : ?>
-                    <?php if ($fact->getTag() !== 'FILE') : ?>
-                        <?php FunctionsPrintFacts::printFact($fact, $media) ?>
-                    <?php endif ?>
+                    <?php FunctionsPrintFacts::printFact($fact, $media) ?>
                 <?php endforeach ?>
                 <?php if ($media->canEdit()) : ?>
                     <?= view('edit/paste-fact-row', ['record' => $media, 'facts' => $clipboard_facts]) ?>
 
-                    <?php FunctionsPrint::printAddNewFact($media, $facts, 'OBJE') ?>
+                    <?php FunctionsPrint::printAddNewFact($media, $facts, Media::RECORD_TYPE) ?>
                     <tr>
                         <th>
                             <?= I18N::translate('Source') ?>

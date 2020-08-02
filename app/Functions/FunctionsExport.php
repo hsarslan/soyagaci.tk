@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -21,6 +21,7 @@ namespace Fisharebest\Webtrees\Functions;
 
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Fact;
+use Fisharebest\Webtrees\Factory;
 use Fisharebest\Webtrees\Family;
 use Fisharebest\Webtrees\Gedcom;
 use Fisharebest\Webtrees\GedcomRecord;
@@ -40,6 +41,7 @@ use function pathinfo;
 use function preg_match;
 use function preg_replace;
 use function preg_split;
+use function str_contains;
 use function str_replace;
 use function strpos;
 use function strtolower;
@@ -50,6 +52,8 @@ use const PREG_SPLIT_NO_EMPTY;
 
 /**
  * Class FunctionsExport - common functions
+ *
+ * @deprecated since 2.0.5.  Will be removed in 2.1.0
  */
 class FunctionsExport
 {
@@ -110,11 +114,14 @@ class FunctionsExport
             $filename .= '.ged';
         }
 
+        $today = strtoupper(date('d M Y'));
+        $now   = date('H:i:s');
+
         // Default values for a new header
         $HEAD = '0 HEAD';
         $SOUR = "\n1 SOUR " . Webtrees::NAME . "\n2 NAME " . Webtrees::NAME . "\n2 VERS " . Webtrees::VERSION;
         $DEST = "\n1 DEST DISKETTE";
-        $DATE = "\n1 DATE " . strtoupper(date('d M Y')) . "\n2 TIME " . date('H:i:s');
+        $DATE = "\n1 DATE " . $today . "\n2 TIME " . $now;
         $GEDC = "\n1 GEDC\n2 VERS 5.5.1\n2 FORM Lineage-Linked";
         $CHAR = "\n1 CHAR " . $char;
         $FILE = "\n1 FILE " . $filename;
@@ -122,7 +129,7 @@ class FunctionsExport
         $LANG = '';
 
         // Preserve some values from the original header
-        $header = Header::getInstance('HEAD', $tree) ?? new Header('HEAD', '0 HEAD', null, $tree);
+        $header = Factory::header()->make('HEAD', $tree) ?? Factory::header()->new('HEAD', '0 HEAD', null, $tree);
 
         $fact   = $header->facts(['COPR'])->first();
 
@@ -176,15 +183,15 @@ class FunctionsExport
         if ($path && preg_match('/\n1 FILE (.+)/', $rec, $match)) {
             $old_file_name = $match[1];
             // Don’t modify external links
-            if (strpos($old_file_name, '://') === false) {
+            if (!str_contains($old_file_name, '://')) {
                 // Adding a windows path? Convert the slashes.
-                if (strpos($path, '\\') !== false) {
+                if (str_contains($path, '\\')) {
                     $new_file_name = preg_replace('~/+~', '\\', $old_file_name);
                 } else {
                     $new_file_name = $old_file_name;
                 }
                 // Path not present - add it.
-                if (strpos($new_file_name, $path) === false) {
+                if (!str_contains($new_file_name, $path)) {
                     $new_file_name = $path . $new_file_name;
                 }
                 $rec = str_replace("\n1 FILE " . $old_file_name, "\n1 FILE " . $new_file_name, $rec);
@@ -215,7 +222,7 @@ class FunctionsExport
             ->where('m_file', '=', $tree->id())
             ->orderBy('m_id')
             ->get()
-            ->map(Media::rowMapper($tree))
+            ->map(Factory::media()->mapper($tree))
             ->map(static function (Media $record) use ($access_level): string {
                 return $record->privatizeGedcom($access_level);
             })
@@ -227,7 +234,7 @@ class FunctionsExport
             ->where('s_file', '=', $tree->id())
             ->orderBy('s_id')
             ->get()
-            ->map(Source::rowMapper($tree))
+            ->map(Factory::source()->mapper($tree))
             ->map(static function (Source $record) use ($access_level): string {
                 return $record->privatizeGedcom($access_level);
             });
@@ -237,7 +244,7 @@ class FunctionsExport
             ->whereNotIn('o_type', [Header::RECORD_TYPE, 'TRLR'])
             ->orderBy('o_id')
             ->get()
-            ->map(GedcomRecord::rowMapper($tree))
+            ->map(Factory::gedcomRecord()->mapper($tree))
             ->map(static function (GedcomRecord $record) use ($access_level): string {
                 return $record->privatizeGedcom($access_level);
             });
@@ -246,7 +253,7 @@ class FunctionsExport
             ->where('i_file', '=', $tree->id())
             ->orderBy('i_id')
             ->get()
-            ->map(Individual::rowMapper($tree))
+            ->map(Factory::individual()->mapper($tree))
             ->map(static function (Individual $record) use ($access_level): string {
                 return $record->privatizeGedcom($access_level);
             });
@@ -255,7 +262,7 @@ class FunctionsExport
             ->where('f_file', '=', $tree->id())
             ->orderBy('f_id')
             ->get()
-            ->map(Family::rowMapper($tree))
+            ->map(Factory::family()->mapper($tree))
             ->map(static function (Family $record) use ($access_level): string {
                 return $record->privatizeGedcom($access_level);
             });

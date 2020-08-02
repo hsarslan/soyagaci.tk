@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -21,14 +21,14 @@ namespace Fisharebest\Webtrees\Module;
 
 use Aura\Router\RouterContainer;
 use Fig\Http\Message\RequestMethodInterface;
-use Fig\Http\Message\StatusCodeInterface;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Fact;
+use Fisharebest\Webtrees\Factory;
 use Fisharebest\Webtrees\Functions\Functions;
 use Fisharebest\Webtrees\Gedcom;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
-use Fisharebest\Webtrees\Location;
+use Fisharebest\Webtrees\PlaceLocation;
 use Fisharebest\Webtrees\Menu;
 use Fisharebest\Webtrees\Services\ChartService;
 use Fisharebest\Webtrees\Tree;
@@ -43,7 +43,6 @@ use function count;
 use function intdiv;
 use function is_string;
 use function redirect;
-use function response;
 use function route;
 use function strip_tags;
 use function ucfirst;
@@ -201,8 +200,8 @@ class PedigreeMapModule extends AbstractModule implements ModuleChartInterface, 
         $xref = $request->getAttribute('xref');
         assert(is_string($xref));
 
-        $individual  = Individual::getInstance($xref, $tree);
-        $individual  = Auth::checkIndividualAccess($individual);
+        $individual  = Factory::individual()->make($xref, $tree);
+        $individual  = Auth::checkIndividualAccess($individual, false, true);
 
         $user        = $request->getAttribute('user');
         $generations = (int) $request->getAttribute('generations');
@@ -264,7 +263,7 @@ class PedigreeMapModule extends AbstractModule implements ModuleChartInterface, 
         $sosa_points = [];
 
         foreach ($facts as $sosa => $fact) {
-            $location = new Location($fact->place()->gedcomName());
+            $location = new PlaceLocation($fact->place()->gedcomName());
 
             // Use the co-ordinates from the fact (if they exist).
             $latitude  = $fact->latitude();
@@ -306,7 +305,7 @@ class PedigreeMapModule extends AbstractModule implements ModuleChartInterface, 
                     'properties' => [
                         'polyline'  => $polyline,
                         'iconcolor' => $color,
-                        'tooltip'   => strip_tags($fact->place()->fullName()),
+                        'tooltip'   => $fact->place()->gedcomName(),
                         'summary'   => view('modules/pedigree-map/events', [
                             'fact'         => $fact,
                             'relationship' => ucfirst($this->getSosaName($sosa)),
@@ -325,7 +324,7 @@ class PedigreeMapModule extends AbstractModule implements ModuleChartInterface, 
      * @param ServerRequestInterface $request
      * @param ChartService           $chart_service
      *
-     * @return array
+     * @return array<Fact>
      */
     private function getPedigreeMapFacts(ServerRequestInterface $request, ChartService $chart_service): array
     {
@@ -334,16 +333,15 @@ class PedigreeMapModule extends AbstractModule implements ModuleChartInterface, 
 
         $generations = (int) $request->getAttribute('generations');
         $xref        = $request->getAttribute('xref');
-        $individual  = Individual::getInstance($xref, $tree);
+        $individual  = Factory::individual()->make($xref, $tree);
         $ancestors   = $chart_service->sosaStradonitzAncestors($individual, $generations);
         $facts       = [];
         foreach ($ancestors as $sosa => $person) {
             if ($person->canShow()) {
                 $birth = $person->facts(Gedcom::BIRTH_EVENTS, true)
-                    ->filter(static function (Fact $fact): bool {
+                    ->first(static function (Fact $fact): bool {
                         return $fact->place()->gedcomName() !== '';
-                    })
-                    ->first();
+                    });
 
                 if ($birth instanceof Fact) {
                     $facts[$sosa] = $birth;

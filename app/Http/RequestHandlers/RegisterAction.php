@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -87,23 +87,23 @@ class RegisterAction extends AbstractBaseController
 
         $params = (array) $request->getParsedBody();
 
-        $comments  = $params['comments'] ?? '';
-        $email     = $params['email'] ?? '';
-        $password  = $params['password'] ?? '';
-        $realname  = $params['realname'] ?? '';
-        $username  = $params['username'] ?? '';
+        $comment  = $params['comment'] ?? '';
+        $email    = $params['email'] ?? '';
+        $password = $params['password'] ?? '';
+        $realname = $params['realname'] ?? '';
+        $username = $params['username'] ?? '';
 
         try {
             if ($this->captcha_service->isRobot($request)) {
                 throw new Exception(I18N::translate('Please try again.'));
             }
 
-            $this->doValidateRegistration($request, $username, $email, $realname, $comments, $password);
+            $this->doValidateRegistration($request, $username, $email, $realname, $comment, $password);
         } catch (Exception $ex) {
             FlashMessages::addMessage($ex->getMessage(), 'danger');
 
             return redirect(route(RegisterPage::class, [
-                'comments' => $comments,
+                'comment'  => $comment,
                 'email'    => $email,
                 'realname' => $realname,
                 'username' => $username,
@@ -122,7 +122,7 @@ class RegisterAction extends AbstractBaseController
         $user->setPreference(User::PREF_TIMESTAMP_REGISTERED, date('U'));
         $user->setPreference(User::PREF_VERIFICATION_TOKEN, $token);
         $user->setPreference(User::PREF_CONTACT_METHOD, 'messaging2');
-        $user->setPreference(User::PREF_NEW_ACCOUNT_COMMENT, $comments);
+        $user->setPreference(User::PREF_NEW_ACCOUNT_COMMENT, $comment);
         $user->setPreference(User::PREF_IS_VISIBLE_ONLINE, '1');
         $user->setPreference(User::PREF_AUTO_ACCEPT_EDITS, '');
         $user->setPreference(User::PREF_IS_ADMINISTRATOR, '');
@@ -133,8 +133,8 @@ class RegisterAction extends AbstractBaseController
 
         $verify_url = route(VerifyEmail::class, [
             'username' => $user->userName(),
-            'token' => $token,
-            'tree' => $tree instanceof Tree ? $tree->name() : null,
+            'token'    => $token,
+            'tree'     => $tree instanceof Tree ? $tree->name() : null,
         ]);
 
         // Send a verification message to the user.
@@ -157,14 +157,14 @@ class RegisterAction extends AbstractBaseController
 
             $body_text = view('emails/register-notify-text', [
                 'user'     => $user,
-                'comments' => $comments,
+                'comments' => $comment,
                 'base_url' => $base_url,
                 'tree'     => $tree,
             ]);
 
             $body_html = view('emails/register-notify-html', [
                 'user'     => $user,
-                'comments' => $comments,
+                'comments' => $comment,
                 'base_url' => $base_url,
                 'tree'     => $tree,
             ]);

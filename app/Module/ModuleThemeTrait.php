@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -22,9 +22,11 @@ namespace Fisharebest\Webtrees\Module;
 use Aura\Router\Route;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Fact;
+use Fisharebest\Webtrees\Factory;
 use Fisharebest\Webtrees\Gedcom;
 use Fisharebest\Webtrees\Http\RequestHandlers\AccountEdit;
 use Fisharebest\Webtrees\Http\RequestHandlers\ControlPanel;
+use Fisharebest\Webtrees\Http\RequestHandlers\HomePage;
 use Fisharebest\Webtrees\Http\RequestHandlers\LoginPage;
 use Fisharebest\Webtrees\Http\RequestHandlers\Logout;
 use Fisharebest\Webtrees\Http\RequestHandlers\PendingChanges;
@@ -52,16 +54,6 @@ use function view;
  */
 trait ModuleThemeTrait
 {
-    /**
-     * @return string
-     */
-    abstract public function name(): string;
-
-    /**
-     * @return string
-     */
-    abstract public function title(): string;
-
     /**
      * A sentence describing what this module does.
      *
@@ -302,7 +294,8 @@ trait ModuleThemeTrait
     {
         if (Auth::check()) {
             $parameters = [
-                'data-post-url' => route(Logout::class),
+                'data-post-url'   => route(Logout::class),
+                'data-reload-url' => route(HomePage::class)
             ];
 
             return new Menu(I18N::translate('Sign out'), '#', 'menu-logout', $parameters);
@@ -334,7 +327,7 @@ trait ModuleThemeTrait
      */
     public function menuMyIndividualRecord(Tree $tree): ?Menu
     {
-        $record = Individual::getInstance($tree->getUserPreference(Auth::user(), User::PREF_TREE_ACCOUNT_XREF), $tree);
+        $record = Factory::individual()->make($tree->getUserPreference(Auth::user(), User::PREF_TREE_ACCOUNT_XREF), $tree);
 
         if ($record) {
             return new Menu(I18N::translate('My individual record'), $record->url(), 'menu-myrecord');

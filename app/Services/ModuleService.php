@@ -27,6 +27,7 @@ use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Module\AhnentafelReportModule;
 use Fisharebest\Webtrees\Module\AlbumModule;
 use Fisharebest\Webtrees\Module\AncestorsChartModule;
+use Fisharebest\Webtrees\Module\AustrianHistoricEvents;
 use Fisharebest\Webtrees\Module\AustrianPresidents;
 use Fisharebest\Webtrees\Module\BingWebmasterToolsModule;
 use Fisharebest\Webtrees\Module\BirthDeathMarriageReportModule;
@@ -63,15 +64,16 @@ use Fisharebest\Webtrees\Module\FamilyTreeFavoritesModule;
 use Fisharebest\Webtrees\Module\FamilyTreeNewsModule;
 use Fisharebest\Webtrees\Module\FamilyTreeStatisticsModule;
 use Fisharebest\Webtrees\Module\FanChartModule;
-use Fisharebest\Webtrees\Module\FrenchHistory;
 use Fisharebest\Webtrees\Module\FixCemeteryTag;
 use Fisharebest\Webtrees\Module\FixDuplicateLinks;
 use Fisharebest\Webtrees\Module\FixMissingDeaths;
 use Fisharebest\Webtrees\Module\FixMissingMarriedNames;
 use Fisharebest\Webtrees\Module\FixNameSlashesAndSpaces;
+use Fisharebest\Webtrees\Module\FixNameTags;
 use Fisharebest\Webtrees\Module\FixPlaceNames;
 use Fisharebest\Webtrees\Module\FixPrimaryTag;
 use Fisharebest\Webtrees\Module\FixSearchAndReplace;
+use Fisharebest\Webtrees\Module\FrenchHistory;
 use Fisharebest\Webtrees\Module\FrequentlyAskedQuestionsModule;
 use Fisharebest\Webtrees\Module\GoogleAnalyticsModule;
 use Fisharebest\Webtrees\Module\GoogleWebmasterToolsModule;
@@ -144,13 +146,16 @@ use Fisharebest\Webtrees\Module\LanguageSpanish;
 use Fisharebest\Webtrees\Module\LanguageSundanese;
 use Fisharebest\Webtrees\Module\LanguageSwahili;
 use Fisharebest\Webtrees\Module\LanguageSwedish;
+use Fisharebest\Webtrees\Module\LanguageTagalog;
 use Fisharebest\Webtrees\Module\LanguageTamil;
 use Fisharebest\Webtrees\Module\LanguageTatar;
 use Fisharebest\Webtrees\Module\LanguageThai;
 use Fisharebest\Webtrees\Module\LanguageTurkish;
 use Fisharebest\Webtrees\Module\LanguageUkranian;
+use Fisharebest\Webtrees\Module\LanguageUrdu;
 use Fisharebest\Webtrees\Module\LanguageVietnamese;
 use Fisharebest\Webtrees\Module\LanguageYiddish;
+use Fisharebest\Webtrees\Module\RedirectLegacyUrlsModule;
 use Fisharebest\Webtrees\Module\LifespansChartModule;
 use Fisharebest\Webtrees\Module\ListsMenuModule;
 use Fisharebest\Webtrees\Module\LoggedInUsersModule;
@@ -224,11 +229,12 @@ use Fisharebest\Webtrees\Tree;
 use Fisharebest\Webtrees\Webtrees;
 use Illuminate\Database\Capsule\Manager as DB;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 use stdClass;
 use Throwable;
 
 use function app;
+use function str_contains;
+use function strlen;
 
 /**
  * Functions for managing and maintaining modules.
@@ -276,6 +282,7 @@ class ModuleService
         'GEDFact_assistant'       => CensusAssistantModule::class,
         'ahnentafel_report'       => AhnentafelReportModule::class,
         'ancestors_chart'         => AncestorsChartModule::class,
+        'austrian-history'        => AustrianHistoricEvents::class,
         'austrian-presidents'     => AustrianPresidents::class,
         'bdm_report'              => BirthDeathMarriageReportModule::class,
         'bing-webmaster-tools'    => BingWebmasterToolsModule::class,
@@ -316,6 +323,7 @@ class ModuleService
         'fix-ceme-tag'            => FixCemeteryTag::class,
         'fix-duplicate-links'     => FixDuplicateLinks::class,
         'fix-name-slashes-spaces' => FixNameSlashesAndSpaces::class,
+        'fix-name-tags'           => FixNameTags::class,
         'fix-place-names'         => FixPlaceNames::class,
         'fix-prim-tag'            => FixPrimaryTag::class,
         'fix-search-and-replace'  => FixSearchAndReplace::class,
@@ -391,13 +399,16 @@ class ModuleService
         'language-sw'             => LanguageSwahili::class,
         'language-ta'             => LanguageTamil::class,
         'language-th'             => LanguageThai::class,
+        'language-tl'             => LanguageTagalog::class,
         'language-tr'             => LanguageTurkish::class,
         'language-tt'             => LanguageTatar::class,
         'language-uk'             => LanguageUkranian::class,
+        'language-ur'             => LanguageUrdu::class,
         'language-vi'             => LanguageVietnamese::class,
         'language-yi'             => LanguageYiddish::class,
         'language-zh-Hans'        => LanguageChineseSimplified::class,
         'language-zh-Hant'        => LanguageChineseTraditional::class,
+        'legacy-urls'             => RedirectLegacyUrlsModule::class,
         'lifespans_chart'         => LifespansChartModule::class,
         'lightbox'                => AlbumModule::class,
         'lists-menu'              => ListsMenuModule::class,
@@ -609,7 +620,13 @@ class ModuleService
                 // This also allows us to ignore modules called "foo.example" and "foo.disable"
                 $module_name = basename(dirname($filename));
 
-                return !Str::contains($module_name, ['.', ' ', '[', ']']) && Str::length($module_name) <= 30;
+                foreach (['.', ' ', '[', ']'] as $character) {
+                    if (str_contains($module_name, $character)) {
+                        return false;
+                    }
+                }
+
+                return strlen($module_name) <= 30;
             })
             ->map(static function (string $filename): ?ModuleCustomInterface {
                 try {

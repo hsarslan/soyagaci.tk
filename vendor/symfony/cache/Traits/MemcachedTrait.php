@@ -223,7 +223,7 @@ trait MemcachedTrait
     /**
      * {@inheritdoc}
      */
-    protected function doSave(array $values, $lifetime)
+    protected function doSave(array $values, int $lifetime)
     {
         if (!$values = $this->marshaller->marshall($values, $failed)) {
             return $failed;
@@ -303,7 +303,7 @@ trait MemcachedTrait
             return $result;
         }
 
-        throw new CacheException(sprintf('MemcachedAdapter client error: %s.', strtolower($this->client->getResultMessage())));
+        throw new CacheException('MemcachedAdapter client error: '.strtolower($this->client->getResultMessage()));
     }
 
     private function getClient(): \Memcached

@@ -23,13 +23,13 @@ use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Carbon;
 use Fisharebest\Webtrees\Exceptions\HttpNotFoundException;
 use Fisharebest\Webtrees\FlashMessages;
-use Fisharebest\Webtrees\Functions\FunctionsEdit;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Log;
 use Fisharebest\Webtrees\Module\ModuleLanguageInterface;
 use Fisharebest\Webtrees\Module\ModuleThemeInterface;
 use Fisharebest\Webtrees\Services\DatatablesService;
 use Fisharebest\Webtrees\Services\EmailService;
+use Fisharebest\Webtrees\Services\MessageService;
 use Fisharebest\Webtrees\Services\ModuleService;
 use Fisharebest\Webtrees\Services\TreeService;
 use Fisharebest\Webtrees\Services\UserService;
@@ -57,6 +57,9 @@ class UsersController extends AbstractAdminController
     /** @var EmailService */
     private $email_service;
 
+    /** @var MessageService */
+    private $message_service;
+
     /** @var ModuleService */
     private $module_service;
 
@@ -71,6 +74,7 @@ class UsersController extends AbstractAdminController
      *
      * @param DatatablesService $datatables_service
      * @param EmailService      $email_service
+     * @param MessageService    $message_service
      * @param ModuleService     $module_service
      * @param TreeService       $tree_service
      * @param UserService       $user_service
@@ -78,12 +82,14 @@ class UsersController extends AbstractAdminController
     public function __construct(
         DatatablesService $datatables_service,
         EmailService $email_service,
+        MessageService $message_service,
         ModuleService $module_service,
         TreeService $tree_service,
         UserService $user_service
     ) {
         $this->datatables_service = $datatables_service;
         $this->email_service      = $email_service;
+        $this->message_service    = $message_service;
         $this->module_service     = $module_service;
         $this->tree_service       = $tree_service;
         $this->user_service       = $user_service;
@@ -175,9 +181,10 @@ class UsersController extends AbstractAdminController
         $search_columns = ['user_name', 'real_name', 'email'];
         $sort_columns   = [];
 
-        $callback = static function (stdClass $row) use ($languages, $user): array {
+        $callback = function (stdClass $row) use ($languages, $user): array {
+            $row_user = $this->user_service->find($row->user_id);
             $datum = [
-                view('admin/users-table-options', ['row' => $row, 'user' => $user]),
+                view('admin/users-table-options', ['row' => $row, 'self' => $user, 'user' => $row_user]),
                 $row->user_id,
                 '<span dir="auto">' . e($row->user_name) . '</span>',
                 '<span dir="auto">' . e($row->real_name) . '</span>',
@@ -244,7 +251,7 @@ class UsersController extends AbstractAdminController
             });
 
         return $this->viewResponse('admin/users-edit', [
-            'contact_methods'  => FunctionsEdit::optionsContactMethods(),
+            'contact_methods'  => $this->message_service->contactMethods(),
             'default_language' => I18N::languageTag(),
             'languages'        => $languages->all(),
             'roles'            => $this->roles(),

@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -32,6 +32,7 @@ use Fisharebest\Webtrees\Http\Middleware\LoadRoutes;
 use Fisharebest\Webtrees\Http\Middleware\NoRouteFound;
 use Fisharebest\Webtrees\Http\Middleware\PhpEnvironment;
 use Fisharebest\Webtrees\Http\Middleware\ReadConfigIni;
+use Fisharebest\Webtrees\Http\Middleware\RegisterFactories;
 use Fisharebest\Webtrees\Http\Middleware\Router;
 use Fisharebest\Webtrees\Http\Middleware\SecurityHeaders;
 use Fisharebest\Webtrees\Http\Middleware\UpdateDatabaseSchema;
@@ -54,6 +55,10 @@ use Psr\Http\Message\UriFactoryInterface;
 use function app;
 use function error_reporting;
 use function set_error_handler;
+
+use const E_ALL;
+use const E_DEPRECATED;
+use const E_USER_DEPRECATED;
 
 /**
  * Definitions for the webtrees application.
@@ -83,7 +88,7 @@ class Webtrees
     public const DEBUG = self::STABILITY !== '';
 
     // We want to know about all PHP errors during development, and fewer in production.
-    public const ERROR_REPORTING = self::DEBUG ? E_ALL | E_STRICT | E_NOTICE | E_DEPRECATED : E_ALL;
+    public const ERROR_REPORTING = self::DEBUG ? E_ALL : E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED;
 
     // The name of the application.
     public const NAME = 'webtrees';
@@ -91,17 +96,20 @@ class Webtrees
     // Required version of database tables/columns/indexes/etc.
     public const SCHEMA_VERSION = 44;
 
-    // e.g. "dev", "alpha", "beta", etc.
-    public const STABILITY = 'dev';
+    // e.g. "-dev", "-alpha", "-beta", etc.
+    public const STABILITY = '-dev';
 
     // Version number
-    public const VERSION = '2.0.4' . (self::STABILITY === '' ? '' : '-') . self::STABILITY;
+    public const VERSION = '2.0.8' . self::STABILITY;
 
     // Project website.
-    public const URL = 'https://www.webtrees.net/';
+    public const URL = 'https://webtrees.net/';
+
+    // FAQ linnks
+    public const URL_FAQ_EMAIL = 'https://webtrees.net/faq/email';
 
     // Project website.
-    public const GEDCOM_PDF = 'https://webtrees.github.io/downloads/gedcom-551.pdf';
+    public const GEDCOM_PDF = 'https://webtrees.net/downloads/gedcom-551.pdf';
 
     private const MIDDLEWARE = [
         PhpEnvironment::class,
@@ -119,6 +127,7 @@ class Webtrees
         UseFilesystem::class,
         UseSession::class,
         UseLanguage::class,
+        RegisterFactories::class,
         CheckForMaintenanceMode::class,
         UseTheme::class,
         DoHousekeeping::class,

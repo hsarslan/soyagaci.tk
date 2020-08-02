@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -22,6 +22,7 @@ namespace Fisharebest\Webtrees\Module;
 use Aura\Router\RouterContainer;
 use Fig\Http\Message\RequestMethodInterface;
 use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\Factory;
 use Fisharebest\Webtrees\Functions\FunctionsEdit;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
@@ -193,7 +194,7 @@ class PedigreeChartModule extends AbstractModule implements ModuleChartInterface
         $xref = $request->getAttribute('xref');
         assert(is_string($xref));
 
-        $individual = Individual::getInstance($xref, $tree);
+        $individual = Factory::individual()->make($xref, $tree);
         $individual = Auth::checkIndividualAccess($individual, false, true);
 
         $ajax        = $request->getQueryParams()['ajax'] ?? '';
@@ -262,9 +263,10 @@ class PedigreeChartModule extends AbstractModule implements ModuleChartInterface
         return $this->viewResponse('modules/pedigree-chart/page', [
             'ajax_url'           => $ajax_url,
             'generations'        => $generations,
-            'generation_options' => $this->generationOptions(),
             'individual'         => $individual,
             'module'             => $this->name(),
+            'max_generations'    => self::MAXIMUM_GENERATIONS,
+            'min_generations'    => self::MINIMUM_GENERATIONS,
             'style'              => $style,
             'styles'             => $this->styles(),
             'title'              => $this->chartTitle($individual),
@@ -369,14 +371,6 @@ class PedigreeChartModule extends AbstractModule implements ModuleChartInterface
         ]);
 
         return '<a class="dropdown-item" href="' . e($url) . '" title="' . strip_tags($title) . '">' . $text . '</a>';
-    }
-
-    /**
-     * @return string[]
-     */
-    protected function generationOptions(): array
-    {
-        return FunctionsEdit::numericOptions(range(self::MINIMUM_GENERATIONS, self::MAXIMUM_GENERATIONS));
     }
 
     /**

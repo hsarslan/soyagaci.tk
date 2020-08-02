@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -22,12 +22,12 @@ namespace Fisharebest\Webtrees\Http\Controllers;
 use Exception;
 use Fig\Http\Message\StatusCodeInterface;
 use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\Factory;
 use Fisharebest\Webtrees\FlashMessages;
-use Fisharebest\Webtrees\GedcomRecord;
 use Fisharebest\Webtrees\Html;
 use Fisharebest\Webtrees\Http\RequestHandlers\TreePage;
 use Fisharebest\Webtrees\I18N;
-use Fisharebest\Webtrees\Media;
+use Fisharebest\Webtrees\MediaFile;
 use Fisharebest\Webtrees\Services\MediaFileService;
 use Fisharebest\Webtrees\Services\PendingChangesService;
 use Fisharebest\Webtrees\Tree;
@@ -44,7 +44,7 @@ use function is_string;
 /**
  * Controller for edit forms and responses.
  */
-class EditMediaController extends AbstractEditController
+class EditMediaController extends AbstractBaseController
 {
     /** @var MediaFileService */
     private $media_file_service;
@@ -80,7 +80,7 @@ class EditMediaController extends AbstractEditController
         assert($data_filesystem instanceof FilesystemInterface);
 
         $xref  = $request->getQueryParams()['xref'];
-        $media = Media::getInstance($xref, $tree);
+        $media = Factory::media()->make($xref, $tree);
 
         try {
             $media = Auth::checkMediaAccess($media);
@@ -113,16 +113,12 @@ class EditMediaController extends AbstractEditController
         assert($tree instanceof Tree);
 
         $xref  = $request->getQueryParams()['xref'];
-        $media = Media::getInstance($xref, $tree);
+        $media = Factory::media()->make($xref, $tree);
 
         $params = (array) $request->getParsedBody();
 
         $title = $params['title'];
         $type  = $params['type'];
-
-        // Tidy whitespace
-        $type  = trim(preg_replace('/\s+/', ' ', $type));
-        $title = trim(preg_replace('/\s+/', ' ', $title));
 
         if ($media === null || $media->isPendingDeletion() || !$media->canEdit()) {
             return redirect(route(TreePage::class, ['tree' => $tree->name()]));
@@ -136,13 +132,7 @@ class EditMediaController extends AbstractEditController
             return redirect($media->url());
         }
 
-        $gedcom = '1 FILE ' . $file;
-        if ($type !== '') {
-            $gedcom .= "\n2 FORM\n3 TYPE " . $type;
-        }
-        if ($title !== '') {
-            $gedcom .= "\n2 TITL " . $title;
-        }
+        $gedcom = $this->media_file_service->createMediaFileGedcom($file, $type, $title, '');
 
         $media->createFact($gedcom, true);
 
@@ -170,7 +160,7 @@ class EditMediaController extends AbstractEditController
         $params  = $request->getQueryParams();
         $xref    = $params['xref'];
         $fact_id = $params['fact_id'];
-        $media   = Media::getInstance($xref, $tree);
+        $media   = Factory::media()->make($xref, $tree);
 
         try {
             $media = Auth::checkMediaAccess($media);
@@ -222,9 +212,9 @@ class EditMediaController extends AbstractEditController
         $remote   = $params['remote'];
         $title    = $params['title'];
         $type     = $params['type'];
-        $media    = Media::getInstance($xref, $tree);
+        $media    = Factory::media()->make($xref, $tree);
 
-        // Tidy whitespace
+        // Tidy non-printing characters
         $type  = trim(preg_replace('/\s+/', ' ', $type));
         $title = trim(preg_replace('/\s+/', ' ', $title));
 
@@ -233,13 +223,11 @@ class EditMediaController extends AbstractEditController
             return redirect(route(TreePage::class, ['tree' => $tree->name()]));
         }
 
-        // Find the fact we are editing.
-        $media_file = null;
-        foreach ($media->mediaFiles() as $tmp) {
-            if ($tmp->factId() === $fact_id) {
-                $media_file = $tmp;
-            }
-        }
+        // Find the fact to edit
+        $media_file = $media->mediaFiles()
+            ->first(static function (MediaFile $media_file) use ($fact_id): bool {
+                return $media_file->factId() === $fact_id;
+            });
 
         // Media file does not exist?
         if ($media_file === null) {
@@ -286,7 +274,7 @@ class EditMediaController extends AbstractEditController
             }
         }
 
-        $gedcom = $this->media_file_service->createMediaFileGedcom($file, $type, $title);
+        $gedcom = $this->media_file_service->createMediaFileGedcom($file, $type, $title, '');
 
         $media->updateFact($fact_id, $gedcom, true);
 
@@ -336,30 +324,10 @@ class EditMediaController extends AbstractEditController
         $title  = $params['title'];
         $note   = $params['note'];
 
-        if (preg_match('/\.([a-zA-Z0-9]+)$/', $file, $match)) {
-            $format = ' ' . $match[1];
-        } else {
-            $format = '';
-        }
-
-        $gedcom = "0 @@ OBJE\n1 FILE " . $file . "\n2 FORM " . $format;
-
-        if ($type !== '') {
-            $gedcom .= "\n3 TYPE " . $type;
-        }
-
-        if ($title !== '') {
-            $gedcom .= "\n2 TITL " . $title;
-        }
-
-        // Convert HTML line endings to GEDCOM continuations
-        $note = strtr($note, ["\r\n" => "\n2 CONT "]);
-
-        if ($note !== '') {
-            $gedcom .= "\n1 NOTE " . $note;
-        }
+        $gedcom = "0 @@ OBJE\n" . $this->media_file_service->createMediaFileGedcom($file, $type, $title, $note);
 
         $media_object = $tree->createRecord($gedcom);
+
         // Accept the new record.  Rejecting it would leave the filesystem out-of-sync with the genealogy
         $this->pending_changes_service->acceptRecord($media_object);
 
@@ -376,8 +344,8 @@ class EditMediaController extends AbstractEditController
         $tree = $request->getAttribute('tree');
         assert($tree instanceof Tree);
 
-        $xref = $request->getQueryParams()['xref'];
-        $media = Media::getInstance($xref, $tree);
+        $xref  = $request->getQueryParams()['xref'];
+        $media = Factory::media()->make($xref, $tree);
 
         return response(view('modals/link-media-to-individual', [
             'media' => $media,
@@ -397,7 +365,7 @@ class EditMediaController extends AbstractEditController
 
         $xref = $request->getQueryParams()['xref'];
 
-        $media = Media::getInstance($xref, $tree);
+        $media = Factory::media()->make($xref, $tree);
 
         return response(view('modals/link-media-to-family', [
             'media' => $media,
@@ -417,7 +385,7 @@ class EditMediaController extends AbstractEditController
 
         $xref = $request->getQueryParams()['xref'];
 
-        $media = Media::getInstance($xref, $tree);
+        $media = Factory::media()->make($xref, $tree);
 
         return response(view('modals/link-media-to-source', [
             'media' => $media,
@@ -442,8 +410,8 @@ class EditMediaController extends AbstractEditController
 
         $link = $params['link'];
 
-        $media  = Media::getInstance($xref, $tree);
-        $record = GedcomRecord::getInstance($link, $tree);
+        $media  = Factory::media()->make($xref, $tree);
+        $record = Factory::gedcomRecord()->make($link, $tree);
 
         $record->createFact('1 OBJE @' . $xref . '@', true);
 

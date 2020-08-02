@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -19,7 +19,6 @@ declare(strict_types=1);
 
 namespace Fisharebest\Webtrees\Http\Middleware;
 
-use Fisharebest\Webtrees\Exceptions\HttpServerErrorException;
 use Fisharebest\Webtrees\Webtrees;
 use Illuminate\Database\Capsule\Manager as DB;
 use Illuminate\Database\Query\Builder;
@@ -30,20 +29,18 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use RuntimeException;
+
+use function addcslashes;
+use function trigger_error;
+
+use const E_USER_DEPRECATED;
 
 /**
  * Middleware to connect to the database.
  */
 class UseDatabase implements MiddlewareInterface
 {
-    // The following errors are likely to be caused by server issues, not by webtrees.
-    private const SERVER_ERRORS = [
-        'mysql'  => [1203],
-        'pgsql'  => [],
-        'sqlite' => [],
-        'sqlsvr' => [],
-    ];
-
     /**
      * @param ServerRequestInterface  $request
      * @param RequestHandlerInterface $handler
@@ -63,6 +60,15 @@ class UseDatabase implements MiddlewareInterface
 
         $capsule = new DB();
 
+        // Newer versions of webtrees support utf8mb4.  Older ones only support 3-byte utf8
+        if ($driver === 'mysql' && $request->getAttribute('mysql_utf8mb4') === '1') {
+            $charset   = 'utf8mb4';
+            $collation = 'utf8mb4_unicode_ci';
+        } else {
+            $charset   = 'utf8';
+            $collation = 'utf8_unicode_ci';
+        }
+
         $capsule->addConnection([
             'driver'                  => $driver,
             'host'                    => $request->getAttribute('dbhost'),
@@ -77,15 +83,15 @@ class UseDatabase implements MiddlewareInterface
                 PDO::ATTR_STRINGIFY_FETCHES => true,
             ],
             // For MySQL
-            'charset'                 => 'utf8',
-            'collation'               => 'utf8_unicode_ci',
+            'charset'                 => $charset,
+            'collation'               => $collation,
             'timezone'                => '+00:00',
             'engine'                  => 'InnoDB',
             'modes'                   => [
                 'ANSI',
                 'STRICT_ALL_TABLES',
                 // Use SQL injection(!) to override MAX_JOIN_SIZE setting.
-                "', SQL_BIG_SELECTS=1, @dummy='"
+                "', SQL_BIG_SELECTS=1, @foobar='"
             ],
             // For SQLite
             'foreign_key_constraints' => true,
@@ -95,24 +101,20 @@ class UseDatabase implements MiddlewareInterface
 
         Builder::macro('whereContains', function ($column, string $search, string $boolean = 'and'): Builder {
             // Assertion helps static analysis tools understand where we will be using this closure.
-            assert($this instanceof Builder, new LogicException());
+            assert($this instanceof Builder);
 
-            $search = strtr($search, ['\\' => '\\\\', '%' => '\\%', '_' => '\\_', ' ' => '%']);
+            trigger_error('Builder::whereContains() is deprecated. Use LIKE.', E_USER_DEPRECATED);
 
-            return $this->where($column, 'LIKE', '%' . $search . '%', $boolean);
+            return $this->where($column, 'LIKE', '%' . addcslashes($search, '\\%_') . '%', $boolean);
         });
 
         try {
-            return $handler->handle($request);
+            // Eager-load the connection, to prevent database credentials appearing in error logs.
+            DB::connection()->getPdo();
         } catch (PDOException $exception) {
-            if (in_array($exception->errorInfo[1], self::SERVER_ERRORS[$driver], true)) {
-                $message = 'A database error occurred.  This is most likely caused by an issue with your server.' . PHP_EOL . PHP_EOL;
-                $message .= $exception->getMessage() . PHP_EOL . PHP_EOL;
-                $message .= $exception->getFile() . ':' . $exception->getLine();
-                throw new HttpServerErrorException($message);
-            }
-
-            throw $exception;
+            throw new RuntimeException($exception->getMessage());
         }
+
+        return $handler->handle($request);
     }
 }

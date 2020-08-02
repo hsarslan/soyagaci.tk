@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -21,15 +21,18 @@ namespace Fisharebest\Webtrees\Functions;
 
 use Fisharebest\Webtrees\Date;
 use Fisharebest\Webtrees\Exceptions\GedcomErrorException;
+use Fisharebest\Webtrees\Factory;
 use Fisharebest\Webtrees\Family;
 use Fisharebest\Webtrees\Gedcom;
 use Fisharebest\Webtrees\GedcomTag;
 use Fisharebest\Webtrees\Header;
 use Fisharebest\Webtrees\Individual;
+use Fisharebest\Webtrees\Location;
 use Fisharebest\Webtrees\Media;
 use Fisharebest\Webtrees\Note;
 use Fisharebest\Webtrees\Place;
 use Fisharebest\Webtrees\Repository;
+use Fisharebest\Webtrees\Services\GedcomService;
 use Fisharebest\Webtrees\Soundex;
 use Fisharebest\Webtrees\Source;
 use Fisharebest\Webtrees\Submission;
@@ -37,10 +40,18 @@ use Fisharebest\Webtrees\Submitter;
 use Fisharebest\Webtrees\Tree;
 use Illuminate\Database\Capsule\Manager as DB;
 use Illuminate\Database\Query\JoinClause;
-use PDOException;
 
+use function array_intersect_key;
+use function array_map;
+use function array_unique;
 use function date;
-use function strpos;
+use function preg_match_all;
+use function str_contains;
+use function str_starts_with;
+use function strtoupper;
+use function trim;
+
+use const PREG_SET_ORDER;
 
 /**
  * Class FunctionsImport - common functions
@@ -55,8 +66,11 @@ class FunctionsImport
      *
      * @return string
      */
-    public static function reformatRecord($rec, Tree $tree): string
+    public static function reformatRecord(string $rec, Tree $tree): string
     {
+        $gedcom_service = app(GedcomService::class);
+        assert($gedcom_service instanceof GedcomService);
+
         // Strip out mac/msdos line endings
         $rec = preg_replace("/[\r\n]+/", "\n", $rec);
 
@@ -67,137 +81,17 @@ class FunctionsImport
         $newrec = '';
         foreach ($matches as $n => $match) {
             [, $level, $xref, $tag, $data] = $match;
-            $tag = strtoupper($tag); // Tags should always be upper case
+
+            $tag = $gedcom_service->canonicalTag($tag);
+
             switch ($tag) {
-                // Convert PhpGedView tags to WT
-                case '_PGVU':
-                    $tag = '_WT_USER';
-                    break;
-                case '_PGV_OBJS':
-                    $tag = '_WT_OBJE_SORT';
-                    break;
-                // Convert FTM-style "TAG_FORMAL_NAME" into "TAG".
-                case 'ABBREVIATION':
-                    $tag = 'ABBR';
-                    break;
-                case 'ADDRESS':
-                    $tag = 'ADDR';
-                    break;
-                case 'ADDRESS1':
-                    $tag = 'ADR1';
-                    break;
-                case 'ADDRESS2':
-                    $tag = 'ADR2';
-                    break;
-                case 'ADDRESS3':
-                    $tag = 'ADR3';
-                    break;
-                case 'ADOPTION':
-                    $tag = 'ADOP';
-                    break;
-                case 'ADULT_CHRISTENING':
-                    $tag = 'CHRA';
-                    break;
                 case 'AFN':
                     // AFN values are upper case
                     $data = strtoupper($data);
                     break;
-                case 'AGENCY':
-                    $tag = 'AGNC';
-                    break;
-                case 'ALIAS':
-                    $tag = 'ALIA';
-                    break;
-                case 'ANCESTORS':
-                    $tag = 'ANCE';
-                    break;
-                case 'ANCES_INTEREST':
-                    $tag = 'ANCI';
-                    break;
-                case 'ANNULMENT':
-                    $tag = 'ANUL';
-                    break;
-                case 'ASSOCIATES':
-                    $tag = 'ASSO';
-                    break;
-                case 'AUTHOR':
-                    $tag = 'AUTH';
-                    break;
-                case 'BAPTISM':
-                    $tag = 'BAPM';
-                    break;
-                case 'BAPTISM_LDS':
-                    $tag = 'BAPL';
-                    break;
-                case 'BAR_MITZVAH':
-                    $tag = 'BARM';
-                    break;
-                case 'BAS_MITZVAH':
-                    $tag = 'BASM';
-                    break;
-                case 'BIRTH':
-                    $tag = 'BIRT';
-                    break;
-                case 'BLESSING':
-                    $tag = 'BLES';
-                    break;
-                case 'BURIAL':
-                    $tag = 'BURI';
-                    break;
-                case 'CALL_NUMBER':
-                    $tag = 'CALN';
-                    break;
-                case 'CASTE':
-                    $tag = 'CAST';
-                    break;
-                case 'CAUSE':
-                    $tag = 'CAUS';
-                    break;
-                case 'CENSUS':
-                    $tag = 'CENS';
-                    break;
-                case 'CHANGE':
-                    $tag = 'CHAN';
-                    break;
-                case 'CHARACTER':
-                    $tag = 'CHAR';
-                    break;
-                case 'CHILD':
-                    $tag = 'CHIL';
-                    break;
-                case 'CHILDREN_COUNT':
-                    $tag = 'NCHI';
-                    break;
-                case 'CHRISTENING':
-                    $tag = 'CHR';
-                    break;
-                case 'CONCATENATION':
-                    $tag = 'CONC';
-                    break;
-                case 'CONFIRMATION':
-                    $tag = 'CONF';
-                    break;
-                case 'CONFIRMATION_LDS':
-                    $tag = 'CONL';
-                    break;
-                case 'CONTINUED':
-                    $tag = 'CONT';
-                    break;
-                case 'COPYRIGHT':
-                    $tag = 'COPR';
-                    break;
-                case 'CORPORATE':
-                    $tag = 'CORP';
-                    break;
-                case 'COUNTRY':
-                    $tag = 'CTRY';
-                    break;
-                case 'CREMATION':
-                    $tag = 'CREM';
-                    break;
                 case 'DATE':
                     // Preserve text from INT dates
-                    if (strpos($data, '(') !== false) {
+                    if (str_contains($data, '(')) {
                         [$date, $text] = explode('(', $data, 2);
                         $text = ' (' . $text;
                     } else {
@@ -238,187 +132,29 @@ class FunctionsImport
                     // Append the "INT" text
                     $data = $date . $text;
                     break;
-                case 'DEATH':
-                    $tag = 'DEAT';
-                    break;
-                case '_DEATH_OF_SPOUSE':
-                    $tag = '_DETS';
-                    break;
-                case '_DEGREE':
-                    $tag = '_DEG';
-                    break;
-                case 'DESCENDANTS':
-                    $tag = 'DESC';
-                    break;
-                case 'DESCENDANT_INT':
-                    $tag = 'DESI';
-                    break;
-                case 'DESTINATION':
-                    $tag = 'DEST';
-                    break;
-                case 'DIVORCE':
-                    $tag = 'DIV';
-                    break;
-                case 'DIVORCE_FILED':
-                    $tag = 'DIVF';
-                    break;
-                case 'EDUCATION':
-                    $tag = 'EDUC';
-                    break;
-                case 'EMIGRATION':
-                    $tag = 'EMIG';
-                    break;
-                case 'ENDOWMENT':
-                    $tag = 'ENDL';
-                    break;
-                case 'ENGAGEMENT':
-                    $tag = 'ENGA';
-                    break;
-                case 'EVENT':
-                    $tag = 'EVEN';
-                    break;
-                case 'FACSIMILE':
-                    $tag = 'FAX';
-                    break;
-                case 'FAMILY':
-                    $tag = 'FAM';
-                    break;
-                case 'FAMILY_CHILD':
-                    $tag = 'FAMC';
-                    break;
-                case 'FAMILY_FILE':
-                    $tag = 'FAMF';
-                    break;
-                case 'FAMILY_SPOUSE':
-                    $tag = 'FAMS';
-                    break;
-                case 'FIRST_COMMUNION':
-                    $tag = 'FCOM';
-                    break;
                 case '_FILE':
                     $tag = 'FILE';
                     break;
-                case 'FORMAT':
                 case 'FORM':
-                    $tag = 'FORM';
                     // Consistent commas
                     $data = preg_replace('/ *, */', ', ', $data);
                     break;
-                case 'GEDCOM':
-                    $tag = 'GEDC';
-                    break;
-                case 'GIVEN_NAME':
-                    $tag = 'GIVN';
-                    break;
-                case 'GRADUATION':
-                    $tag = 'GRAD';
-                    break;
-                case 'HEADER':
                 case 'HEAD':
-                    $tag = 'HEAD';
                     // HEAD records don't have an XREF or DATA
                     if ($level === '0') {
                         $xref = '';
                         $data = '';
                     }
                     break;
-                case 'HUSBAND':
-                    $tag = 'HUSB';
-                    break;
-                case 'IDENT_NUMBER':
-                    $tag = 'IDNO';
-                    break;
-                case 'IMMIGRATION':
-                    $tag = 'IMMI';
-                    break;
-                case 'INDIVIDUAL':
-                    $tag = 'INDI';
-                    break;
-                case 'LANGUAGE':
-                    $tag = 'LANG';
-                    break;
-                case 'LATITUDE':
-                    $tag = 'LATI';
-                    break;
-                case 'LONGITUDE':
-                    $tag = 'LONG';
-                    break;
-                case 'MARRIAGE':
-                    $tag = 'MARR';
-                    break;
-                case 'MARRIAGE_BANN':
-                    $tag = 'MARB';
-                    break;
-                case 'MARRIAGE_COUNT':
-                    $tag = 'NMR';
-                    break;
-                case 'MARRIAGE_CONTRACT':
-                    $tag = 'MARC';
-                    break;
-                case 'MARRIAGE_LICENSE':
-                    $tag = 'MARL';
-                    break;
-                case 'MARRIAGE_SETTLEMENT':
-                    $tag = 'MARS';
-                    break;
-                case 'MEDIA':
-                    $tag = 'MEDI';
-                    break;
-                case '_MEDICAL':
-                    $tag = '_MDCL';
-                    break;
-                case '_MILITARY_SERVICE':
-                    $tag = '_MILT';
-                    break;
                 case 'NAME':
-                    // Tidy up whitespace
+                    // Tidy up non-printing characters
                     $data = preg_replace('/  +/', ' ', trim($data));
                     break;
-                case 'NAME_PREFIX':
-                    $tag = 'NPFX';
-                    break;
-                case 'NAME_SUFFIX':
-                    $tag = 'NSFX';
-                    break;
-                case 'NATIONALITY':
-                    $tag = 'NATI';
-                    break;
-                case 'NATURALIZATION':
-                    $tag = 'NATU';
-                    break;
-                case 'NICKNAME':
-                    $tag = 'NICK';
-                    break;
-                case 'OBJECT':
-                    $tag = 'OBJE';
-                    break;
-                case 'OCCUPATION':
-                    $tag = 'OCCU';
-                    break;
-                case 'ORDINANCE':
-                    $tag = 'ORDI';
-                    break;
-                case 'ORDINATION':
-                    $tag = 'ORDN';
-                    break;
-                case 'PEDIGREE':
                 case 'PEDI':
-                    $tag = 'PEDI';
                     // PEDI values are lower case
                     $data = strtolower($data);
                     break;
-                case 'PHONE':
-                    $tag = 'PHON';
-                    break;
-                case 'PHONETIC':
-                    $tag = 'FONE';
-                    break;
-                case 'PHY_DESCRIPTION':
-                    $tag = 'DSCR';
-                    break;
-                case 'PLACE':
                 case 'PLAC':
-                    $tag = 'PLAC';
                     // Consistent commas
                     $data = preg_replace('/ *[,，،] */u', ', ', $data);
                     // The Master Genealogist stores LAT/LONG data in the PLAC field, e.g. Pennsylvania, USA, 395945N0751013W
@@ -430,118 +166,32 @@ class FunctionsImport
                             ($level + 2) . ' LONG ' . ($match[9] . round($match[6] + ($match[7] / 60) + ($match[8] / 3600), 4));
                     }
                     break;
-                case 'POSTAL_CODE':
-                    $tag = 'POST';
-                    break;
-                case 'PROBATE':
-                    $tag = 'PROB';
-                    break;
-                case 'PROPERTY':
-                    $tag = 'PROP';
-                    break;
-                case 'PUBLICATION':
-                    $tag = 'PUBL';
-                    break;
-                case 'QUALITY_OF_DATA':
-                    $tag = 'QUAL';
-                    break;
-                case 'REC_FILE_NUMBER':
-                    $tag = 'RFN';
-                    break;
-                case 'REC_ID_NUMBER':
-                    $tag = 'RIN';
-                    break;
-                case 'REFERENCE':
-                    $tag = 'REFN';
-                    break;
-                case 'RELATIONSHIP':
-                    $tag = 'RELA';
-                    break;
-                case 'RELIGION':
-                    $tag = 'RELI';
-                    break;
-                case 'REPOSITORY':
-                    $tag = 'REPO';
-                    break;
-                case 'RESIDENCE':
-                    $tag = 'RESI';
-                    break;
-                case 'RESTRICTION':
                 case 'RESN':
-                    $tag = 'RESN';
                     // RESN values are lower case (confidential, privacy, locked, none)
                     $data = strtolower($data);
                     if ($data === 'invisible') {
                         $data = 'confidential'; // From old versions of Legacy.
                     }
                     break;
-                case 'RETIREMENT':
-                    $tag = 'RETI';
-                    break;
-                case 'ROMANIZED':
-                    $tag = 'ROMN';
-                    break;
-                case 'SEALING_CHILD':
-                    $tag = 'SLGC';
-                    break;
-                case 'SEALING_SPOUSE':
-                    $tag = 'SLGS';
-                    break;
-                case 'SOC_SEC_NUMBER':
-                    $tag = 'SSN';
-                    break;
                 case 'SEX':
                     $data = strtoupper($data);
                     break;
-                case 'SOURCE':
-                    $tag = 'SOUR';
-                    break;
-                case 'STATE':
-                    $tag = 'STAE';
-                    break;
-                case 'STATUS':
                 case 'STAT':
-                    $tag = 'STAT';
                     if ($data === 'CANCELLED') {
                         // PhpGedView mis-spells this tag - correct it.
                         $data = 'CANCELED';
                     }
                     break;
-                case 'SUBMISSION':
-                    $tag = 'SUBN';
-                    break;
-                case 'SUBMITTER':
-                    $tag = 'SUBM';
-                    break;
-                case 'SURNAME':
-                    $tag = 'SURN';
-                    break;
-                case 'SURN_PREFIX':
-                    $tag = 'SPFX';
-                    break;
-                case 'TEMPLE':
                 case 'TEMP':
-                    $tag = 'TEMP';
                     // Temple codes are upper case
                     $data = strtoupper($data);
                     break;
-                case 'TITLE':
-                    $tag = 'TITL';
-                    break;
-                case 'TRAILER':
                 case 'TRLR':
-                    $tag = 'TRLR';
                     // TRLR records don't have an XREF or DATA
                     if ($level === '0') {
                         $xref = '';
                         $data = '';
                     }
-                    break;
-                case 'VERSION':
-                    $tag = 'VERS';
-                    break;
-                case 'WEB':
-                    $tag = 'WWW';
                     break;
             }
             // Suppress "Y", for facts/events with a DATE or PLAC
@@ -560,14 +210,10 @@ class FunctionsImport
             switch ($tag) {
                 default:
                     // Remove tabs and multiple/leading/trailing spaces
-                    if (strpos($data, "\t") !== false) {
-                        $data = str_replace("\t", ' ', $data);
-                    }
-                    if (substr($data, 0, 1) === ' ' || substr($data, -1, 1) === ' ') {
-                        $data = trim($data);
-                    }
-                    while (strpos($data, '  ')) {
-                        $data = str_replace('  ', ' ', $data);
+                    $data = strtr($data, ["\t" => ' ']);
+                    $data = trim($data, ' ');
+                    while (str_contains($data, '  ')) {
+                        $data = strtr($data, ['  ' => ' ']);
                     }
                     $newrec .= ($newrec ? "\n" : '') . $level . ' ' . ($level === '0' && $xref ? $xref . ' ' : '') . $tag . ($data === '' && $tag !== 'NOTE' ? '' : ' ' . $data);
                     break;
@@ -580,7 +226,7 @@ class FunctionsImport
                 case 'FILE':
                     // Strip off the user-defined path prefix
                     $GEDCOM_MEDIA_PATH = $tree->getPreference('GEDCOM_MEDIA_PATH');
-                    if ($GEDCOM_MEDIA_PATH && strpos($data, $GEDCOM_MEDIA_PATH) === 0) {
+                    if ($GEDCOM_MEDIA_PATH !== '' && str_starts_with($data, $GEDCOM_MEDIA_PATH)) {
                         $data = substr($data, strlen($GEDCOM_MEDIA_PATH));
                     }
                     // convert backslashes in filenames to forward slashes
@@ -609,7 +255,7 @@ class FunctionsImport
      * @return void
      * @throws GedcomErrorException
      */
-    public static function importRecord($gedrec, Tree $tree, $update): void
+    public static function importRecord(string $gedrec, Tree $tree, bool $update): void
     {
         $tree_id = $tree->id();
 
@@ -625,7 +271,7 @@ class FunctionsImport
         if (preg_match('/^0 @(' . Gedcom::REGEX_XREF . ')@ (' . Gedcom::REGEX_TAG . ')/', $gedrec, $match)) {
             [, $xref, $type] = $match;
             // check for a _UID, if the record doesn't have one, add one
-            if ($tree->getPreference('GENERATE_UIDS') && !strpos($gedrec, "\n1 _UID ")) {
+            if ($tree->getPreference('GENERATE_UIDS') === '1' && !str_contains($gedrec, "\n1 _UID ")) {
                 $gedrec .= "\n1 _UID " . GedcomTag::createUid();
             }
         } elseif (preg_match('/0 (HEAD|TRLR)/', $gedrec, $match)) {
@@ -638,12 +284,19 @@ class FunctionsImport
         // If the user has downloaded their GEDCOM data (containing media objects) and edited it
         // using an application which does not support (and deletes) media objects, then add them
         // back in.
-        if ($tree->getPreference('keep_media') && $xref) {
+        if ($tree->getPreference('keep_media')) {
             $old_linked_media = DB::table('link')
                 ->where('l_from', '=', $xref)
                 ->where('l_file', '=', $tree_id)
                 ->where('l_type', '=', 'OBJE')
                 ->pluck('l_to');
+
+            // Delete these links - so that we do not insert them again in updateLinks()
+            DB::table('link')
+                ->where('l_from', '=', $xref)
+                ->where('l_file', '=', $tree_id)
+                ->where('l_type', '=', 'OBJE')
+                ->delete();
 
             foreach ($old_linked_media as $media_id) {
                 $gedrec .= "\n1 OBJE @" . $media_id . '@';
@@ -655,7 +308,7 @@ class FunctionsImport
 
         switch ($type) {
             case Individual::RECORD_TYPE:
-                $record = new Individual($xref, $gedrec, null, $tree);
+                $record = Factory::individual()->new($xref, $gedrec, null, $tree);
 
                 if (preg_match('/\n1 RIN (.+)/', $gedrec, $match)) {
                     $rin = $match[1];
@@ -728,6 +381,7 @@ class FunctionsImport
             case Note::RECORD_TYPE:
             case Submission::RECORD_TYPE:
             case Submitter::RECORD_TYPE:
+            case Location::RECORD_TYPE:
                 DB::table('other')->insert([
                     'o_id'     => $xref,
                     'o_file'   => $tree_id,
@@ -738,8 +392,9 @@ class FunctionsImport
 
             case Header::RECORD_TYPE:
                 // Force HEAD records to have a creation date.
-                if (strpos($gedrec, "\n1 DATE ") === false) {
-                    $gedrec .= "\n1 DATE " . date('j M Y');
+                if (!str_contains($gedrec, "\n1 DATE ")) {
+                    $today = strtoupper(date('d M Y'));
+                    $gedrec .= "\n1 DATE " . $today;
                 }
 
                 DB::table('other')->insert([
@@ -752,7 +407,7 @@ class FunctionsImport
 
 
             case Media::RECORD_TYPE:
-                $record = new Media($xref, $gedrec, null, $tree);
+                $record = Factory::media()->new($xref, $gedrec, null, $tree);
 
                 DB::table('media')->insert([
                     'm_id'     => $xref,
@@ -797,6 +452,9 @@ class FunctionsImport
      */
     public static function updatePlaces(string $xref, Tree $tree, string $gedrec): void
     {
+        // Insert all new rows together
+        $rows = [];
+
         preg_match_all('/^[2-9] PLAC (.+)/m', $gedrec, $matches);
 
         $places = array_unique($matches[1]);
@@ -805,22 +463,21 @@ class FunctionsImport
             $place = new Place($place_name, $tree);
 
             // Calling Place::id() will create the entry in the database, if it doesn't already exist.
-            // Link the place to the record
             while ($place->id() !== 0) {
-                try {
-                    DB::table('placelinks')->insert([
-                        'pl_p_id' => $place->id(),
-                        'pl_gid'  => $xref,
-                        'pl_file' => $tree->id(),
-                    ]);
-                } catch (PDOException $ex) {
-                    // Already linked this place - so presumably also any parent places.
-                    break;
-                }
+                $rows[] = [
+                    'pl_p_id' => $place->id(),
+                    'pl_gid'  => $xref,
+                    'pl_file' => $tree->id(),
+                ];
 
                 $place = $place->parent();
             }
         }
+
+        // array_unique doesn't work with arrays of arrays
+        $rows = array_intersect_key($rows, array_unique(array_map('serialize', $rows)));
+
+        DB::table('placelinks')->insert($rows);
     }
 
     /**
@@ -832,44 +489,47 @@ class FunctionsImport
      *
      * @return void
      */
-    public static function updateDates($xref, $ged_id, $gedrec): void
+    public static function updateDates(string $xref, int $ged_id, string $gedrec): void
     {
-        if (strpos($gedrec, '2 DATE ') && preg_match_all("/\n1 (\w+).*(?:\n[2-9].*)*(?:\n2 DATE (.+))(?:\n[2-9].*)*/", $gedrec, $matches, PREG_SET_ORDER)) {
-            foreach ($matches as $match) {
-                $fact = $match[1];
-                if (($fact === 'FACT' || $fact === 'EVEN') && preg_match("/\n2 TYPE ([A-Z]{3,5})/", $match[0], $tmatch)) {
-                    $fact = $tmatch[1];
-                }
-                $date = new Date($match[2]);
-                DB::table('dates')->insert([
-                    'd_day'        => $date->minimumDate()->day,
-                    'd_month'      => $date->minimumDate()->format('%O'),
-                    'd_mon'        => $date->minimumDate()->month,
-                    'd_year'       => $date->minimumDate()->year,
-                    'd_julianday1' => $date->minimumDate()->minimumJulianDay(),
-                    'd_julianday2' => $date->minimumDate()->maximumJulianDay(),
-                    'd_fact'       => $fact,
-                    'd_gid'        => $xref,
-                    'd_file'       => $ged_id,
-                    'd_type'       => $date->minimumDate()->format('%@'),
-                ]);
+        // Insert all new rows together
+        $rows = [];
 
-                if ($date->minimumDate() !== $date->maximumDate()) {
-                    DB::table('dates')->insert([
-                        'd_day'        => $date->maximumDate()->day,
-                        'd_month'      => $date->maximumDate()->format('%O'),
-                        'd_mon'        => $date->maximumDate()->month,
-                        'd_year'       => $date->maximumDate()->year,
-                        'd_julianday1' => $date->maximumDate()->minimumJulianDay(),
-                        'd_julianday2' => $date->maximumDate()->maximumJulianDay(),
-                        'd_fact'       => $fact,
-                        'd_gid'        => $xref,
-                        'd_file'       => $ged_id,
-                        'd_type'       => $date->minimumDate()->format('%@'),
-                    ]);
-                }
-            }
+        preg_match_all("/\n1 (\w+).*(?:\n[2-9].*)*(?:\n2 DATE (.+))(?:\n[2-9].*)*/", $gedrec, $matches, PREG_SET_ORDER);
+
+        foreach ($matches as $match) {
+            $fact = $match[1];
+            $date = new Date($match[2]);
+            $rows[] = [
+                'd_day'        => $date->minimumDate()->day,
+                'd_month'      => $date->minimumDate()->format('%O'),
+                'd_mon'        => $date->minimumDate()->month,
+                'd_year'       => $date->minimumDate()->year,
+                'd_julianday1' => $date->minimumDate()->minimumJulianDay(),
+                'd_julianday2' => $date->minimumDate()->maximumJulianDay(),
+                'd_fact'       => $fact,
+                'd_gid'        => $xref,
+                'd_file'       => $ged_id,
+                'd_type'       => $date->minimumDate()->format('%@'),
+            ];
+
+            $rows[] = [
+                'd_day'        => $date->maximumDate()->day,
+                'd_month'      => $date->maximumDate()->format('%O'),
+                'd_mon'        => $date->maximumDate()->month,
+                'd_year'       => $date->maximumDate()->year,
+                'd_julianday1' => $date->maximumDate()->minimumJulianDay(),
+                'd_julianday2' => $date->maximumDate()->maximumJulianDay(),
+                'd_fact'       => $fact,
+                'd_gid'        => $xref,
+                'd_file'       => $ged_id,
+                'd_type'       => $date->minimumDate()->format('%@'),
+            ];
         }
+
+        // array_unique doesn't work with arrays of arrays
+        $rows = array_intersect_key($rows, array_unique(array_map('serialize', $rows)));
+
+        DB::table('dates')->insert($rows);
     }
 
     /**
@@ -881,27 +541,24 @@ class FunctionsImport
      *
      * @return void
      */
-    public static function updateLinks($xref, $ged_id, $gedrec): void
+    public static function updateLinks(string $xref, int $ged_id, string $gedrec): void
     {
-        if (preg_match_all('/^\d+ (' . Gedcom::REGEX_TAG . ') @(' . Gedcom::REGEX_XREF . ')@/m', $gedrec, $matches, PREG_SET_ORDER)) {
-            $data = [];
-            foreach ($matches as $match) {
-                // Include each link once only.
-                if (!in_array($match[1] . $match[2], $data, true)) {
-                    $data[] = $match[1] . $match[2];
-                    try {
-                        DB::table('link')->insert([
-                            'l_from' => $xref,
-                            'l_to'   => $match[2],
-                            'l_type' => $match[1],
-                            'l_file' => $ged_id,
-                        ]);
-                    } catch (PDOException $ex) {
-                        // Ignore any errors, which may be caused by "duplicates" that differ on case/collation, e.g. "S1" and "s1"
-                    }
-                }
-            }
+        // Insert all new rows together
+        $rows = [];
+
+        preg_match_all('/^\d+ (' . Gedcom::REGEX_TAG . ') @(' . Gedcom::REGEX_XREF . ')@/m', $gedrec, $matches, PREG_SET_ORDER);
+
+        foreach ($matches as $match) {
+            // Take care of "duplicates" that differ on case/collation, e.g. "SOUR @S1@" and "SOUR @s1@"
+            $rows[$match[1] . strtoupper($match[2])] = [
+                'l_from' => $xref,
+                'l_to'   => $match[2],
+                'l_type' => $match[1],
+                'l_file' => $ged_id,
+            ];
         }
+
+        DB::table('link')->insert($rows);
     }
 
     /**
@@ -913,8 +570,11 @@ class FunctionsImport
      *
      * @return void
      */
-    public static function updateNames($xref, $ged_id, Individual $record): void
+    public static function updateNames(string $xref, int $ged_id, Individual $record): void
     {
+        // Insert all new rows together
+        $rows = [];
+
         foreach ($record->getAllNames() as $n => $name) {
             if ($name['givn'] === '@P.N.') {
                 $soundex_givn_std = null;
@@ -932,7 +592,7 @@ class FunctionsImport
                 $soundex_surn_dm  = Soundex::daitchMokotoff($name['surname']);
             }
 
-            DB::table('name')->insert([
+            $rows[] = [
                 'n_file'             => $ged_id,
                 'n_id'               => $xref,
                 'n_num'              => $n,
@@ -946,8 +606,10 @@ class FunctionsImport
                 'n_soundex_surn_std' => $soundex_surn_std,
                 'n_soundex_givn_dm'  => $soundex_givn_dm,
                 'n_soundex_surn_dm'  => $soundex_surn_dm,
-            ]);
+            ];
         }
+
+        DB::table('name')->insert($rows);
     }
 
     /**
@@ -958,7 +620,7 @@ class FunctionsImport
      *
      * @return string
      */
-    public static function convertInlineMedia(Tree $tree, $gedrec): string
+    public static function convertInlineMedia(Tree $tree, string $gedrec): string
     {
         while (preg_match('/\n1 OBJE(?:\n[2-9].+)+/', $gedrec, $match)) {
             $gedrec = str_replace($match[0], self::createMediaObject(1, $match[0], $tree), $gedrec);
@@ -982,7 +644,7 @@ class FunctionsImport
      *
      * @return string
      */
-    public static function createMediaObject($level, $gedrec, Tree $tree): string
+    public static function createMediaObject(int $level, string $gedrec, Tree $tree): string
     {
         if (preg_match('/\n\d FILE (.+)/', $gedrec, $file_match)) {
             $file = $file_match[1];
@@ -1004,7 +666,7 @@ class FunctionsImport
             ->value('m_id');
 
         if ($xref === null) {
-            $xref = $tree->getNewXref();
+            $xref = Factory::xref()->make(Media::RECORD_TYPE);
             // renumber the lines
             $gedrec = preg_replace_callback('/\n(\d+)/', static function (array $m) use ($level): string {
                 return "\n" . ($m[1] - $level);
@@ -1022,7 +684,7 @@ class FunctionsImport
             $gedrec = preg_replace('/\n1 FILE (.+)\n1 FORM (.+)\n1 TITL (.+)/', "\n1 FILE $1\n2 FORM $2\n2 TITL $3", $gedrec);
 
             // Create new record
-            $record = new Media($xref, $gedrec, null, $tree);
+            $record = Factory::media()->new($xref, $gedrec, null, $tree);
 
             DB::table('media')->insert([
                 'm_id'     => $xref,
@@ -1055,7 +717,7 @@ class FunctionsImport
      * @return void
      * @throws GedcomErrorException
      */
-    public static function updateRecord($gedrec, Tree $tree, bool $delete): void
+    public static function updateRecord(string $gedrec, Tree $tree, bool $delete): void
     {
         if (preg_match('/^0 @(' . Gedcom::REGEX_XREF . ')@ (' . Gedcom::REGEX_TAG . ')/', $gedrec, $match)) {
             [, $gid, $type] = $match;

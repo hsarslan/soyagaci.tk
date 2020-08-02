@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -21,21 +21,21 @@ namespace Fisharebest\Webtrees\Http\RequestHandlers;
 
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
-use Fisharebest\Webtrees\Family;
+use Fisharebest\Webtrees\Factory;
 use Fisharebest\Webtrees\Html;
 use Fisharebest\Webtrees\Http\ViewResponseTrait;
 use Fisharebest\Webtrees\I18N;
-use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Module\ModuleReportInterface;
 use Fisharebest\Webtrees\Report\ReportParserSetup;
+use Fisharebest\Webtrees\Services\LocalizationService;
 use Fisharebest\Webtrees\Services\ModuleService;
-use Fisharebest\Webtrees\Source;
 use Fisharebest\Webtrees\Tree;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
 use function assert;
+use function e;
 use function redirect;
 use function route;
 
@@ -46,18 +46,21 @@ class ReportSetupPage implements RequestHandlerInterface
 {
     use ViewResponseTrait;
 
-    /**
-     * @var ModuleService
-     */
+    /** @var LocalizationService */
+    private $localization_service;
+
+    /** @var ModuleService */
     private $module_service;
 
     /**
      * ReportEngineController constructor.
      *
-     * @param ModuleService $module_service
+     * @param LocalizationService $localization_service
+     * @param ModuleService       $module_service
      */
-    public function __construct(ModuleService $module_service)
+    public function __construct(LocalizationService $localization_service, ModuleService $module_service)
     {
+        $this->localization_service = $localization_service;
         $this->module_service = $module_service;
     }
 
@@ -111,7 +114,7 @@ class ReportSetupPage implements RequestHandlerInterface
                     $input['control'] = view('components/select-individual', [
                         'id'         => 'input-' . $n,
                         'name'       => 'vars[' . $input['name'] . ']',
-                        'individual' => Individual::getInstance($xref, $tree),
+                        'individual' => Factory::individual()->make($xref, $tree),
                         'tree'       => $tree,
                         'required'   => true,
                     ]);
@@ -121,7 +124,7 @@ class ReportSetupPage implements RequestHandlerInterface
                     $input['control'] = view('components/select-family', [
                         'id'       => 'input-' . $n,
                         'name'     => 'vars[' . $input['name'] . ']',
-                        'family'   => Family::getInstance($xref, $tree),
+                        'family'   => Factory::family()->make($xref, $tree),
                         'tree'     => $tree,
                         'required' => true,
                     ]);
@@ -131,20 +134,24 @@ class ReportSetupPage implements RequestHandlerInterface
                     $input['control'] = view('components/select-source', [
                         'id'       => 'input-' . $n,
                         'name'     => 'vars[' . $input['name'] . ']',
-                        'family'   => Source::getInstance($xref, $tree),
+                        'family'   => Factory::source()->make($xref, $tree),
                         'tree'     => $tree,
                         'required' => true,
                     ]);
                     break;
 
                 case 'DATE':
+                    // Need to know if the user prefers DMY/MDY/YMD so we can validate dates properly.
+                    $dmy = $this->localization_service->dateFormatToOrder(I18N::dateFormat());
+
                     $attributes += [
-                        'type'  => 'text',
-                        'value' => $input['default'],
-                        'dir'   => 'ltr',
+                        'type'     => 'text',
+                        'value'    => $input['default'],
+                        'dir'      => 'ltr',
+                        'onchange' => 'webtrees.reformatDate(this, "' . $dmy . '")'
                     ];
                     $input['control'] = '<input ' . Html::attributes($attributes) . '>';
-                    $input['extra']   = '<a href="#" title="' . I18N::translate('Select a date') . '" class ="btn btn-link" onclick="' . e('return calendarWidget("calendar-widget-' . $n . '", "input-' . $n . '");') . '">' . view('icons/calendar') . '</a>' .
+                    $input['extra']   = '<a href="#" title="' . I18N::translate('Select a date') . '" class ="btn btn-link" onclick="' . e('return webtrees.calendarWidget("calendar-widget-' . $n . '", "input-' . $n . '");') . '">' . view('icons/calendar') . '</a>' .
                         '<div id="calendar-widget-' . $n . '" style="position:absolute;visibility:hidden;background-color:white;z-index:1000;"></div>';
                     break;
 
@@ -188,8 +195,13 @@ class ReportSetupPage implements RequestHandlerInterface
             $inputs[] = $input;
         }
 
+        $destination = $user->getPreference('default-report-destination', 'view');
+        $format      = $user->getPreference('default-report-format', 'PDF');
+
         return $this->viewResponse('report-setup-page', [
             'description' => $description,
+            'destination' => $destination,
+            'format'      => $format,
             'inputs'      => $inputs,
             'report'      => $report,
             'title'       => $title,

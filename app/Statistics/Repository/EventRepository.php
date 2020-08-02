@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -21,9 +21,9 @@ namespace Fisharebest\Webtrees\Statistics\Repository;
 
 use Fisharebest\Webtrees\Date;
 use Fisharebest\Webtrees\Fact;
+use Fisharebest\Webtrees\Factory;
 use Fisharebest\Webtrees\Functions\FunctionsPrint;
 use Fisharebest\Webtrees\Gedcom;
-use Fisharebest\Webtrees\GedcomRecord;
 use Fisharebest\Webtrees\GedcomTag;
 use Fisharebest\Webtrees\Header;
 use Fisharebest\Webtrees\I18N;
@@ -32,6 +32,7 @@ use Fisharebest\Webtrees\Tree;
 use Illuminate\Database\Capsule\Manager as DB;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
+use stdClass;
 
 /**
  * A repository providing methods for event related statistics.
@@ -73,7 +74,7 @@ class EventRepository implements EventRepositoryInterface
     /**
      * Returns the total number of a given list of events (with dates).
      *
-     * @param array $events The list of events to count (e.g. BIRT, DEAT, ...)
+     * @param array<string> $events The list of events to count (e.g. BIRT, DEAT, ...)
      *
      * @return int
      */
@@ -87,7 +88,7 @@ class EventRepository implements EventRepositoryInterface
             'CHAN',
         ];
 
-        if ($events) {
+        if ($events !== []) {
             $types = [];
 
             foreach ($events as $type) {
@@ -98,7 +99,7 @@ class EventRepository implements EventRepositoryInterface
                 }
             }
 
-            if ($types) {
+            if ($types !== []) {
                 $query->whereIn('d_fact', $types);
             }
         }
@@ -108,7 +109,9 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @param string[] $events
+     *
+     * @return string
      */
     public function totalEvents(array $events = []): string
     {
@@ -118,7 +121,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalEventsBirth(): string
     {
@@ -126,7 +129,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalBirths(): string
     {
@@ -134,7 +137,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalEventsDeath(): string
     {
@@ -142,7 +145,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalDeaths(): string
     {
@@ -150,7 +153,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalEventsMarriage(): string
     {
@@ -158,7 +161,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalMarriages(): string
     {
@@ -166,7 +169,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalEventsDivorce(): string
     {
@@ -174,7 +177,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalDivorces(): string
     {
@@ -184,7 +187,7 @@ class EventRepository implements EventRepositoryInterface
     /**
      * Retursn the list of common facts used query the data.
      *
-     * @return array
+     * @return array<string>
      */
     private function getCommonFacts(): array
     {
@@ -198,7 +201,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function totalEventsOther(): string
     {
@@ -217,9 +220,9 @@ class EventRepository implements EventRepositoryInterface
      *
      * @param string $direction The sorting direction of the query (To return first or last record)
      *
-     * @return Model|Builder|object|null
+     * @return stdClass|null
      */
-    private function eventQuery(string $direction)
+    private function eventQuery(string $direction): ?stdClass
     {
         return DB::table('dates')
             ->select(['d_gid as id', 'd_year as year', 'd_fact AS fact', 'd_type AS type'])
@@ -245,7 +248,7 @@ class EventRepository implements EventRepositoryInterface
         $result = I18N::translate('This information is not available.');
 
         if ($row) {
-            $record = GedcomRecord::getInstance($row->id, $this->tree);
+            $record = Factory::gedcomRecord()->make($row->id, $this->tree);
 
             if ($record && $record->canShow()) {
                 $result = $record->formatList();
@@ -258,7 +261,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function firstEvent(): string
     {
@@ -266,7 +269,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function lastEvent(): string
     {
@@ -293,7 +296,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function firstEventYear(): string
     {
@@ -301,7 +304,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function lastEventYear(): string
     {
@@ -336,7 +339,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function firstEventType(): string
     {
@@ -344,7 +347,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function lastEventType(): string
     {
@@ -363,7 +366,7 @@ class EventRepository implements EventRepositoryInterface
         $row = $this->eventQuery($direction);
 
         if ($row) {
-            $record = GedcomRecord::getInstance($row->id, $this->tree);
+            $record = Factory::gedcomRecord()->make($row->id, $this->tree);
 
             if ($record) {
                 return '<a href="' . e($record->url()) . '">' . $record->fullName() . '</a>';
@@ -374,7 +377,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function firstEventName(): string
     {
@@ -382,7 +385,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function lastEventName(): string
     {
@@ -401,7 +404,7 @@ class EventRepository implements EventRepositoryInterface
         $row = $this->eventQuery($direction);
 
         if ($row) {
-            $record = GedcomRecord::getInstance($row->id, $this->tree);
+            $record = Factory::gedcomRecord()->make($row->id, $this->tree);
             $fact   = null;
 
             if ($record) {
@@ -417,7 +420,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function firstEventPlace(): string
     {
@@ -425,7 +428,7 @@ class EventRepository implements EventRepositoryInterface
     }
 
     /**
-     * @inheritDoc
+     * @return string
      */
     public function lastEventPlace(): string
     {

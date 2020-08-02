@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -20,14 +20,17 @@ declare(strict_types=1);
 namespace Fisharebest\Webtrees\Http\Controllers\Admin;
 
 use Fisharebest\Webtrees\Exceptions\HttpNotFoundException;
+use Fisharebest\Webtrees\Factory;
 use Fisharebest\Webtrees\FlashMessages;
 use Fisharebest\Webtrees\Functions\Functions;
 use Fisharebest\Webtrees\Html;
 use Fisharebest\Webtrees\Http\RequestHandlers\DeletePath;
+use Fisharebest\Webtrees\Http\RequestHandlers\MediaFileUnused;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Log;
 use Fisharebest\Webtrees\Media;
 use Fisharebest\Webtrees\MediaFile;
+use Fisharebest\Webtrees\Mime;
 use Fisharebest\Webtrees\Services\DatatablesService;
 use Fisharebest\Webtrees\Services\MediaFileService;
 use Fisharebest\Webtrees\Services\TreeService;
@@ -36,7 +39,6 @@ use Illuminate\Database\Capsule\Manager as DB;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Database\Query\JoinClause;
-use Illuminate\Support\Str;
 use League\Flysystem\FilesystemInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -46,7 +48,6 @@ use Throwable;
 
 use function assert;
 use function e;
-use function explode;
 use function getimagesize;
 use function ini_get;
 use function intdiv;
@@ -55,6 +56,7 @@ use function preg_match;
 use function redirect;
 use function route;
 use function str_replace;
+use function str_starts_with;
 use function strlen;
 use function substr;
 use function trim;
@@ -168,9 +170,8 @@ class MediaController extends AbstractAdminController
 
         // Convert a row from the database into a row for datatables
         $callback = function (stdClass $row): array {
-            /** @var Media $media */
             $tree = $this->tree_service->find((int) $row->m_file);
-            $media = Media::getInstance($row->m_id, $tree, $row->m_gedcom);
+            $media = Factory::media()->make($row->m_id, $tree, $row->m_gedcom);
             assert($media instanceof Media);
 
             $media_files = $media->mediaFiles()
@@ -249,10 +250,10 @@ class MediaController extends AbstractAdminController
                 $sort_columns = [0 => 0];
 
                 $callback = function (array $row) use ($data_filesystem, $media_trees): array {
-                    $mime_type = $data_filesystem->getMimeType($row[0]);
+                    $mime_type = $data_filesystem->getMimeType($row[0]) ?: Mime::DEFAULT_TYPE;
 
-                    if (explode('/', $mime_type)[0] === 'image') {
-                        $url = route('unused-media-thumbnail', [
+                    if (str_starts_with($mime_type, 'image/')) {
+                        $url = route(MediaFileUnused::class, [
                             'path' => $row[0],
                             'w'    => 100,
                             'h'    => 100,
@@ -265,7 +266,7 @@ class MediaController extends AbstractAdminController
                     // Form to create new media object in each tree
                     $create_form = '';
                     foreach ($media_trees as $media_tree => $media_directory) {
-                        if (Str::startsWith($row[0], $media_directory)) {
+                        if (str_starts_with($row[0], $media_directory)) {
                             $tmp         = substr($row[0], strlen($media_directory));
                             $create_form .=
                                 '<p><a href="#" data-toggle="modal" data-target="#modal-create-media-from-file" data-file="' . e($tmp) . '" data-url="' . e(route('create-media-from-file', ['tree' => $media_tree])) . '" onclick="document.getElementById(\'modal-create-media-from-file-form\').action=this.dataset.url; document.getElementById(\'file\').value=this.dataset.file;">' . I18N::translate('Create') . '</a> — ' . e($media_tree) . '<p>';
@@ -317,6 +318,9 @@ class MediaController extends AbstractAdminController
         }
         foreach ($media->linkedRepositories('OBJE') as $link) {
             // Invalid GEDCOM - you cannot link a REPO to an OBJE
+            $linked[] = '<a href="' . e($link->url()) . '">' . $link->fullName() . '</a>';
+        }
+        foreach ($media->linkedLocations('OBJE') as $link) {
             $linked[] = '<a href="' . e($link->url()) . '">' . $link->fullName() . '</a>';
         }
         if ($linked !== []) {

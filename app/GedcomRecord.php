@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -29,10 +29,10 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Collection;
-use stdClass;
 use Throwable;
 use Transliterator;
 
+use function addcslashes;
 use function app;
 use function array_shift;
 use function assert;
@@ -48,9 +48,9 @@ use function preg_replace;
 use function preg_replace_callback;
 use function preg_split;
 use function route;
+use function str_contains;
 use function str_pad;
 use function strip_tags;
-use function strpos;
 use function strtoupper;
 use function trim;
 
@@ -66,22 +66,24 @@ class GedcomRecord
 
     protected const ROUTE_NAME = GedcomRecordPage::class;
 
-    /** @var GedcomRecord[][] Allow getInstance() to return references to existing objects */
-    public static $gedcom_record_cache;
-    /** @var stdClass[][] Fetch all pending edits in one database query */
-    public static $pending_record_cache;
     /** @var string The record identifier */
     protected $xref;
+
     /** @var Tree  The family tree to which this record belongs */
     protected $tree;
+
     /** @var string  GEDCOM data (before any pending edits) */
     protected $gedcom;
+
     /** @var string|null  GEDCOM data (after any pending edits) */
     protected $pending;
+
     /** @var Fact[] facts extracted from $gedcom/$pending */
     protected $facts;
+
     /** @var string[][] All the names of this individual */
     protected $getAllNames;
+
     /** @var int|null Cached result */
     protected $getPrimaryName;
     /** @var int|null Cached result */
@@ -109,18 +111,15 @@ class GedcomRecord
     /**
      * A closure which will create a record from a database row.
      *
+     * @deprecated since 2.0.4.  Will be removed in 2.1.0 - Use Factory::gedcomRecord()
+     *
      * @param Tree $tree
      *
      * @return Closure
      */
     public static function rowMapper(Tree $tree): Closure
     {
-        return static function (stdClass $row) use ($tree): GedcomRecord {
-            $record = GedcomRecord::getInstance($row->o_id, $tree, $row->o_gedcom);
-            assert($record instanceof GedcomRecord);
-
-            return $record;
-        };
+        return Factory::gedcomRecord()->mapper($tree);
     }
 
     /**
@@ -178,147 +177,29 @@ class GedcomRecord
      * we just receive the XREF. For bulk records (such as lists
      * and search results) we can receive the GEDCOM data as well.
      *
+     * @deprecated since 2.0.4.  Will be removed in 2.1.0 - Use Factory::gedcomRecord()
+     *
      * @param string      $xref
      * @param Tree        $tree
      * @param string|null $gedcom
      *
      * @return GedcomRecord|Individual|Family|Source|Repository|Media|Note|Submitter|null
-     * @throws Exception
      */
     public static function getInstance(string $xref, Tree $tree, string $gedcom = null)
     {
-        $tree_id = $tree->id();
-
-        // Is this record already in the cache?
-        if (isset(self::$gedcom_record_cache[$xref][$tree_id])) {
-            return self::$gedcom_record_cache[$xref][$tree_id];
-        }
-
-        // Do we need to fetch the record from the database?
-        if ($gedcom === null) {
-            $gedcom = static::fetchGedcomRecord($xref, $tree_id);
-        }
-
-        // If we can edit, then we also need to be able to see pending records.
-        if (Auth::isEditor($tree)) {
-            if (!isset(self::$pending_record_cache[$tree_id])) {
-                // Fetch all pending records in one database query
-                self::$pending_record_cache[$tree_id] = [];
-                $rows                                 = DB::table('change')
-                    ->where('gedcom_id', '=', $tree_id)
-                    ->where('status', '=', 'pending')
-                    ->orderBy('change_id')
-                    ->select(['xref', 'new_gedcom'])
-                    ->get();
-
-                foreach ($rows as $row) {
-                    self::$pending_record_cache[$tree_id][$row->xref] = $row->new_gedcom;
-                }
-            }
-
-            $pending = self::$pending_record_cache[$tree_id][$xref] ?? null;
-        } else {
-            // There are no pending changes for this record
-            $pending = null;
-        }
-
-        // No such record exists
-        if ($gedcom === null && $pending === null) {
-            return null;
-        }
-
-        // No such record, but a pending creation exists
-        if ($gedcom === null) {
-            $gedcom = '';
-        }
-
-        // Create the object
-        if (preg_match('/^0 @(' . Gedcom::REGEX_XREF . ')@ (' . Gedcom::REGEX_TAG . ')/', $gedcom . $pending, $match)) {
-            $xref = $match[1]; // Collation - we may have requested I123 and found i123
-            $type = $match[2];
-        } elseif (preg_match('/^0 (HEAD|TRLR)/', $gedcom . $pending, $match)) {
-            $xref = $match[1];
-            $type = $match[1];
-        } elseif ($gedcom . $pending) {
-            throw new Exception('Unrecognized GEDCOM record: ' . $gedcom);
-        } else {
-            // A record with both pending creation and pending deletion
-            $type = static::RECORD_TYPE;
-        }
-
-        switch ($type) {
-            case Individual::RECORD_TYPE:
-                $record = new Individual($xref, $gedcom, $pending, $tree);
-                break;
-
-            case Family::RECORD_TYPE:
-                $record = new Family($xref, $gedcom, $pending, $tree);
-                break;
-
-            case Source::RECORD_TYPE:
-                $record = new Source($xref, $gedcom, $pending, $tree);
-                break;
-
-            case Media::RECORD_TYPE:
-                $record = new Media($xref, $gedcom, $pending, $tree);
-                break;
-
-            case Repository::RECORD_TYPE:
-                $record = new Repository($xref, $gedcom, $pending, $tree);
-                break;
-
-            case Note::RECORD_TYPE:
-                $record = new Note($xref, $gedcom, $pending, $tree);
-                break;
-
-            case Submitter::RECORD_TYPE:
-                $record = new Submitter($xref, $gedcom, $pending, $tree);
-                break;
-
-            case Submission::RECORD_TYPE:
-                $record = new Submission($xref, $gedcom, $pending, $tree);
-                break;
-
-            case Header::RECORD_TYPE:
-                $record = new Header($xref, $gedcom, $pending, $tree);
-                break;
-
-            default:
-                $record = new self($xref, $gedcom, $pending, $tree);
-                break;
-        }
-
-        // Store it in the cache
-        self::$gedcom_record_cache[$xref][$tree_id] = $record;
-
-        return $record;
+        return Factory::gedcomRecord()->make($xref, $tree, $gedcom);
     }
 
     /**
-     * Fetch data from the database
+     * Get the GEDCOM tag for this record.
      *
-     * @param string $xref
-     * @param int    $tree_id
-     *
-     * @return string|null
+     * @return string
      */
-    protected static function fetchGedcomRecord(string $xref, int $tree_id): ?string
+    public function tag(): string
     {
-        // We don't know what type of object this is. Try each one in turn.
-        return
-            Individual::fetchGedcomRecord($xref, $tree_id) ??
-            Family::fetchGedcomRecord($xref, $tree_id) ??
-            Source::fetchGedcomRecord($xref, $tree_id) ??
-            Repository::fetchGedcomRecord($xref, $tree_id) ??
-            Media::fetchGedcomRecord($xref, $tree_id) ??
-            Note::fetchGedcomRecord($xref, $tree_id) ??
-            Submitter::fetchGedcomRecord($xref, $tree_id) ??
-            Submission::fetchGedcomRecord($xref, $tree_id) ??
-            Header::fetchGedcomRecord($xref, $tree_id) ??
-            DB::table('other')
-            ->where('o_file', '=', $tree_id)
-            ->where('o_id', '=', $xref)
-            ->value('o_gedcom');
+        preg_match('/^0 @[^@]*@ (\w+)/', $this->gedcom(), $match);
+
+        return $match[1] ?? static::RECORD_TYPE;
     }
 
     /**
@@ -459,7 +340,7 @@ class GedcomRecord
             return true;
         }
 
-        return Auth::isEditor($this->tree) && strpos($this->gedcom, "\n1 RESN locked") === false;
+        return Auth::isEditor($this->tree) && !str_contains($this->gedcom, "\n1 RESN locked");
     }
 
     /**
@@ -739,7 +620,7 @@ class GedcomRecord
             ->where('l_to', '=', $this->xref)
             ->select(['individuals.*'])
             ->get()
-            ->map(Individual::rowMapper($this->tree))
+            ->map(Factory::individual()->mapper($this->tree))
             ->filter(self::accessFilter());
     }
 
@@ -763,7 +644,7 @@ class GedcomRecord
             ->where('l_to', '=', $this->xref)
             ->select(['families.*'])
             ->get()
-            ->map(Family::rowMapper($this->tree))
+            ->map(Factory::family()->mapper($this->tree))
             ->filter(self::accessFilter());
     }
 
@@ -787,7 +668,7 @@ class GedcomRecord
             ->where('l_to', '=', $this->xref)
             ->select(['sources.*'])
             ->get()
-            ->map(Source::rowMapper($this->tree))
+            ->map(Factory::source()->mapper($this->tree))
             ->filter(self::accessFilter());
     }
 
@@ -811,7 +692,7 @@ class GedcomRecord
             ->where('l_to', '=', $this->xref)
             ->select(['media.*'])
             ->get()
-            ->map(Media::rowMapper($this->tree))
+            ->map(Factory::media()->mapper($this->tree))
             ->filter(self::accessFilter());
     }
 
@@ -831,12 +712,12 @@ class GedcomRecord
                     ->on('l_from', '=', 'o_id');
             })
             ->where('o_file', '=', $this->tree->id())
-            ->where('o_type', '=', 'NOTE')
+            ->where('o_type', '=', Note::RECORD_TYPE)
             ->where('l_type', '=', $link)
             ->where('l_to', '=', $this->xref)
             ->select(['other.*'])
             ->get()
-            ->map(Note::rowMapper($this->tree))
+            ->map(Factory::note()->mapper($this->tree))
             ->filter(self::accessFilter());
     }
 
@@ -856,15 +737,40 @@ class GedcomRecord
                     ->on('l_from', '=', 'o_id');
             })
             ->where('o_file', '=', $this->tree->id())
-            ->where('o_type', '=', 'REPO')
+            ->where('o_type', '=', Repository::RECORD_TYPE)
             ->where('l_type', '=', $link)
             ->where('l_to', '=', $this->xref)
             ->select(['other.*'])
             ->get()
-            ->map(Repository::rowMapper($this->tree))
+            ->map(Factory::repository()->mapper($this->tree))
             ->filter(self::accessFilter());
     }
 
+    /**
+     * Find locations linked to this record.
+     *
+     * @param string $link
+     *
+     * @return Collection<Location>
+     */
+    public function linkedLocations(string $link): Collection
+    {
+        return DB::table('other')
+            ->join('link', static function (JoinClause $join): void {
+                $join
+                    ->on('l_file', '=', 'o_file')
+                    ->on('l_from', '=', 'o_id');
+            })
+            ->where('o_file', '=', $this->tree->id())
+            ->where('o_type', '=', Location::RECORD_TYPE)
+            ->where('l_type', '=', $link)
+            ->where('l_to', '=', $this->xref)
+            ->select(['other.*'])
+            ->get()
+            ->map(Factory::location()->mapper($this->tree))
+            ->filter(self::accessFilter());
+    }
+    
     /**
      * Get all attributes (e.g. DATE or PLAC) from an event (e.g. BIRT or MARR).
      * This is used to display multiple events on the individual/family lists.
@@ -1061,25 +967,26 @@ class GedcomRecord
         [$new_gedcom] = explode("\n", $old_gedcom, 2);
 
         // Replacing (or deleting) an existing fact
-        foreach ($this->facts([], false, Auth::PRIV_HIDE) as $fact) {
-            if (!$fact->isPendingDeletion()) {
-                if ($fact->id() === $fact_id) {
-                    if ($gedcom !== '') {
-                        $new_gedcom .= "\n" . $gedcom;
-                    }
-                    $fact_id = 'NOT A VALID FACT ID'; // Only replace/delete one copy of a duplicate fact
-                } elseif ($fact->getTag() !== 'CHAN' || !$update_chan) {
-                    $new_gedcom .= "\n" . $fact->gedcom();
+        foreach ($this->facts([], false, Auth::PRIV_HIDE, true) as $fact) {
+            if ($fact->id() === $fact_id) {
+                if ($gedcom !== '') {
+                    $new_gedcom .= "\n" . $gedcom;
                 }
+                $fact_id = 'NOT A VALID FACT ID'; // Only replace/delete one copy of a duplicate fact
+            } elseif ($fact->getTag() !== 'CHAN' || !$update_chan) {
+                $new_gedcom .= "\n" . $fact->gedcom();
             }
-        }
-        if ($update_chan) {
-            $new_gedcom .= "\n1 CHAN\n2 DATE " . strtoupper(date('d M Y')) . "\n3 TIME " . date('H:i:s') . "\n2 _WT_USER " . Auth::user()->userName();
         }
 
         // Adding a new fact
         if ($fact_id === '') {
             $new_gedcom .= "\n" . $gedcom;
+        }
+
+        if ($update_chan && !str_contains($new_gedcom, "\n1 CHAN")) {
+            $today = strtoupper(date('d M Y'));
+            $now   = date('H:i:s');
+            $new_gedcom .= "\n1 CHAN\n2 DATE " . $today . "\n3 TIME " . $now . "\n2 _WT_USER " . Auth::user()->userName();
         }
 
         if ($new_gedcom !== $old_gedcom) {
@@ -1123,7 +1030,9 @@ class GedcomRecord
         // Update the CHAN record
         if ($update_chan) {
             $gedcom = preg_replace('/\n1 CHAN(\n[2-9].*)*/', '', $gedcom);
-            $gedcom .= "\n1 CHAN\n2 DATE " . date('d M Y') . "\n3 TIME " . date('H:i:s') . "\n2 _WT_USER " . Auth::user()->userName();
+            $today = strtoupper(date('d M Y'));
+            $now   = date('H:i:s');
+            $gedcom .= "\n1 CHAN\n2 DATE " . $today . "\n3 TIME " . $now . "\n2 _WT_USER " . Auth::user()->userName();
         }
 
         // Create a pending change
@@ -1173,10 +1082,6 @@ class GedcomRecord
             app(PendingChangesService::class)->acceptRecord($this);
         }
 
-        // Clear the cache
-        self::$gedcom_record_cache  = [];
-        self::$pending_record_cache = [];
-
         Log::addEditLog('Delete: ' . static::RECORD_TYPE . ' ' . $this->xref, $this->tree);
     }
 
@@ -1215,10 +1120,12 @@ class GedcomRecord
      */
     public function linkingRecords(): array
     {
+        $like = addcslashes($this->xref(), '\\%_');
+
         $union = DB::table('change')
             ->where('gedcom_id', '=', $this->tree()->id())
-            ->whereContains('new_gedcom', '@' . $this->xref() . '@')
-            ->where('new_gedcom', 'NOT LIKE', '0 @' . $this->xref() . '@%')
+            ->where('new_gedcom', 'LIKE', '%@' . $like . '@%')
+            ->where('new_gedcom', 'NOT LIKE', '0 @' . $like . '@%')
             ->whereIn('change_id', function (Builder $query): void {
                 $query->select(new Expression('MAX(change_id)'))
                     ->from('change')
@@ -1236,7 +1143,7 @@ class GedcomRecord
             ->pluck('l_from');
 
         return $xrefs->map(function (string $xref): GedcomRecord {
-            $record = GedcomRecord::getInstance($xref, $this->tree);
+            $record = Factory::gedcomRecord()->make($xref, $this->tree);
             assert($record instanceof GedcomRecord);
 
             return $record;
@@ -1308,9 +1215,9 @@ class GedcomRecord
      * ['full'] = the name as specified in the record, e.g. 'Vincent van Gogh' or 'John Unknown'
      * ['sort'] = a sortable version of the name (not for display), e.g. 'Gogh, Vincent' or '@N.N., John'
      *
-     * @param int        $level
-     * @param string     $fact_type
-     * @param Collection $facts
+     * @param int              $level
+     * @param string           $fact_type
+     * @param Collection<Fact> $facts
      *
      * @return void
      */
@@ -1322,7 +1229,7 @@ class GedcomRecord
             if (preg_match_all("/^{$level} ({$fact_type}) (.+)((\n[{$sublevel}-9].+)*)/m", $fact->gedcom(), $matches, PREG_SET_ORDER)) {
                 foreach ($matches as $match) {
                     // Treat 1 NAME / 2 TYPE married the same as _MARNM
-                    if ($match[1] === 'NAME' && strpos($match[3], "\n2 TYPE married") !== false) {
+                    if ($match[1] === 'NAME' && str_contains($match[3], "\n2 TYPE married")) {
                         $this->addName('_MARNM', $match[2], $fact->gedcom());
                     } else {
                         $this->addName($match[1], $match[2], $fact->gedcom());
@@ -1396,13 +1303,13 @@ class GedcomRecord
         }
 
         // Does this record have a RESN?
-        if (strpos($this->gedcom, "\n1 RESN confidential") !== false) {
+        if (str_contains($this->gedcom, "\n1 RESN confidential")) {
             return Auth::PRIV_NONE >= $access_level;
         }
-        if (strpos($this->gedcom, "\n1 RESN privacy") !== false) {
+        if (str_contains($this->gedcom, "\n1 RESN privacy")) {
             return Auth::PRIV_USER >= $access_level;
         }
-        if (strpos($this->gedcom, "\n1 RESN none") !== false) {
+        if (str_contains($this->gedcom, "\n1 RESN none")) {
             return true;
         }
 

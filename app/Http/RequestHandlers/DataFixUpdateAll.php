@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -24,7 +24,6 @@ use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Module\ModuleDataFixInterface;
 use Fisharebest\Webtrees\Services\DataFixService;
 use Fisharebest\Webtrees\Services\ModuleService;
-use Fisharebest\Webtrees\Services\TimeoutService;
 use Fisharebest\Webtrees\Tree;
 use Illuminate\Support\Collection;
 use Psr\Http\Message\ResponseInterface;
@@ -82,7 +81,7 @@ class DataFixUpdateAll implements RequestHandlerInterface
         $rows   = $module->recordsToFix($tree, $params);
 
         if ($rows->isEmpty()) {
-            return response('Nothing to do.');
+            return response([]);
         }
 
         $start = $request->getQueryParams()['start'] ?? '';
@@ -105,7 +104,7 @@ class DataFixUpdateAll implements RequestHandlerInterface
             $module->updateRecord($record, $params);
         }
 
-        return response('');
+        return response();
     }
 
     /**
@@ -134,11 +133,11 @@ class DataFixUpdateAll implements RequestHandlerInterface
                 $start = $chunk->first()->xref;
                 $end   = $chunk->last()->xref;
                 $url   = route(self::class, [
-                    'tree'     => $tree->name(),
-                    'data_fix' => $module->name(),
-                    'start'    => $start,
-                    'end'      => $end,
-                ] + $params);
+                        'tree'     => $tree->name(),
+                        'data_fix' => $module->name(),
+                        'start'    => $start,
+                        'end'      => $end,
+                    ] + $params);
 
                 return (object) [
                     'url'      => $url,

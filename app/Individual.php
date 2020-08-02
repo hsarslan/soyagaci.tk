@@ -20,13 +20,12 @@ declare(strict_types=1);
 namespace Fisharebest\Webtrees;
 
 use Closure;
-use Exception;
 use Fisharebest\ExtCalendar\GregorianCalendar;
-use Fisharebest\Webtrees\GedcomCode\GedcomCodePedi;
 use Fisharebest\Webtrees\Http\RequestHandlers\IndividualPage;
 use Illuminate\Database\Capsule\Manager as DB;
 use Illuminate\Support\Collection;
-use stdClass;
+
+use function preg_match;
 
 /**
  * A GEDCOM individual (INDI) object.
@@ -49,27 +48,15 @@ class Individual extends GedcomRecord
     /**
      * A closure which will create a record from a database row.
      *
+     * @deprecated since 2.0.4.  Will be removed in 2.1.0 - Use Factory::individual()
+     *
      * @param Tree $tree
      *
      * @return Closure
      */
     public static function rowMapper(Tree $tree): Closure
     {
-        return static function (stdClass $row) use ($tree): Individual {
-            $individual = Individual::getInstance($row->i_id, $tree, $row->i_gedcom);
-            assert($individual instanceof Individual);
-
-            // Some queries include the names table.
-            // For these we must select the specified name.
-            if (($row->n_num ?? null) !== null) {
-                $individual = clone $individual;
-                $individual->setPrimaryName($row->n_num);
-
-                return $individual;
-            }
-
-            return $individual;
-        };
+        return Factory::individual()->mapper($tree);
     }
 
     /**
@@ -101,22 +88,17 @@ class Individual extends GedcomRecord
      * we just receive the XREF. For bulk records (such as lists
      * and search results) we can receive the GEDCOM data as well.
      *
+     * @deprecated since 2.0.4.  Will be removed in 2.1.0 - Use Factory::individual()
+     *
      * @param string      $xref
      * @param Tree        $tree
      * @param string|null $gedcom
      *
-     * @throws Exception
      * @return Individual|null
      */
     public static function getInstance(string $xref, Tree $tree, string $gedcom = null): ?Individual
     {
-        $record = parent::getInstance($xref, $tree, $gedcom);
-
-        if ($record instanceof self) {
-            return $record;
-        }
-
-        return null;
+        return Factory::individual()->make($xref, $tree, $gedcom);
     }
 
     /**
@@ -137,7 +119,7 @@ class Individual extends GedcomRecord
             ->get();
 
         foreach ($rows as $row) {
-            self::getInstance($row->xref, $tree, $row->gedcom);
+            Factory::individual()->make($row->xref, $tree, $row->gedcom);
         }
     }
 
@@ -217,7 +199,7 @@ class Individual extends GedcomRecord
     {
         static $cache = null;
 
-        $user_individual = self::getInstance($target->tree->getUserPreference(Auth::user(), User::PREF_TREE_ACCOUNT_XREF), $target->tree);
+        $user_individual = Factory::individual()->make($target->tree->getUserPreference(Auth::user(), User::PREF_TREE_ACCOUNT_XREF), $target->tree);
         if ($user_individual) {
             if (!$cache) {
                 $cache = [
@@ -302,7 +284,7 @@ class Individual extends GedcomRecord
         // Just show the 1 FAMC/FAMS tag, not any subtags, which may contain private data
         preg_match_all('/\n1 (?:FAMC|FAMS) @(' . Gedcom::REGEX_XREF . ')@/', $this->gedcom, $matches, PREG_SET_ORDER);
         foreach ($matches as $match) {
-            $rela = Family::getInstance($match[1], $this->tree);
+            $rela = Factory::family()->make($match[1], $this->tree);
             if ($rela && ($SHOW_PRIVATE_RELATIONSHIPS || $rela->canShow($access_level))) {
                 $rec .= $match[0];
             }
@@ -313,22 +295,6 @@ class Individual extends GedcomRecord
         }
 
         return $rec;
-    }
-
-    /**
-     * Fetch data from the database
-     *
-     * @param string $xref
-     * @param int    $tree_id
-     *
-     * @return string|null
-     */
-    protected static function fetchGedcomRecord(string $xref, int $tree_id): ?string
-    {
-        return DB::table('individuals')
-            ->where('i_id', '=', $xref)
-            ->where('i_file', '=', $tree_id)
-            ->value('i_gedcom');
     }
 
     /**
@@ -436,15 +402,15 @@ class Individual extends GedcomRecord
      */
     public function findHighlightedMediaFile(): ?MediaFile
     {
-        foreach ($this->facts(['OBJE']) as $fact) {
-            $media = $fact->target();
-            if ($media instanceof Media) {
-                foreach ($media->mediaFiles() as $media_file) {
-                    if ($media_file->isImage() && !$media_file->isExternal()) {
-                        return $media_file;
-                    }
-                }
-            }
+        $fact = $this->facts(['OBJE'])
+            ->first(static function (Fact $fact): bool {
+                $media = $fact->target();
+
+                return $media instanceof Media && $media->firstImageFile() instanceof MediaFile;
+            });
+
+        if ($fact instanceof Fact && $fact->target() instanceof Media) {
+            return $fact->target()->firstImageFile();
         }
 
         return null;
@@ -947,13 +913,19 @@ class Individual extends GedcomRecord
      */
     public function getChildFamilyLabel(Family $family): string
     {
-        if (preg_match('/\n1 FAMC @' . $family->xref() . '@(?:\n[2-9].*)*\n2 PEDI (.+)/', $this->gedcom(), $match)) {
-            // A specified pedigree
-            return GedcomCodePedi::getChildFamilyLabel($match[1]);
-        }
+        preg_match('/\n1 FAMC @' . $family->xref() . '@(?:\n[2-9].*)*\n2 PEDI (.+)/', $this->gedcom(), $match);
 
-        // Default (birth) pedigree
-        return GedcomCodePedi::getChildFamilyLabel('');
+        $values = [
+            'birth'   => I18N::translate('Family with parents'),
+            'adopted' => I18N::translate('Family with adoptive parents'),
+            'foster'  => I18N::translate('Family with foster parents'),
+            'sealing' => /* I18N: “sealing” is a Mormon ceremony. */
+                I18N::translate('Family with sealing parents'),
+            'rada'    => /* I18N: “rada” is an Arabic word, pronounced “ra DAH”. It is child-to-parent pedigree, established by wet-nursing. */
+                I18N::translate('Family with rada parents'),
+        ];
+
+        return $values[$match[1] ?? 'birth'] ?? $values['birth'];
     }
 
     /**
@@ -1071,7 +1043,6 @@ class Individual extends GedcomRecord
         $sublevel = 1 + (int) substr($gedcom, 0, 1);
         $GIVN     = preg_match("/\n{$sublevel} GIVN (.+)/", $gedcom, $match) ? $match[1] : '';
         $SURN     = preg_match("/\n{$sublevel} SURN (.+)/", $gedcom, $match) ? $match[1] : '';
-        $NICK     = preg_match("/\n{$sublevel} NICK (.+)/", $gedcom, $match) ? $match[1] : '';
 
         // SURN is an comma-separated list of surnames...
         if ($SURN !== '') {
@@ -1146,13 +1117,6 @@ class Individual extends GedcomRecord
             $GIVN = '@P.N.';
             $pos  = (int) strpos($full, '/');
             $full = substr($full, 0, $pos) . '@P.N. ' . substr($full, $pos);
-        }
-
-        // GEDCOM 5.5.1 nicknames should be specificied in a NICK field
-        // GEDCOM 5.5   nicknames should be specified in the NAME field, surrounded by quotes
-        if ($NICK && strpos($full, '"' . $NICK . '"') === false) {
-            // A NICK field is present, but not included in the NAME.  Show it at the end.
-            $full .= ' "' . $NICK . '"';
         }
 
         // Remove slashes - they don’t get displayed

@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -21,7 +21,6 @@ namespace Fisharebest\Webtrees\Http\Middleware;
 
 use Fig\Http\Message\StatusCodeInterface;
 use Fisharebest\Webtrees\Cache;
-use Illuminate\Support\Str;
 use Iodev\Whois\Loaders\CurlLoader;
 use Iodev\Whois\Modules\Asn\AsnRouteInfo;
 use Iodev\Whois\Whois;
@@ -39,8 +38,9 @@ use function array_map;
 use function assert;
 use function gethostbyaddr;
 use function gethostbyname;
-use function in_array;
 use function response;
+use function str_contains;
+use function str_ends_with;
 
 /**
  * Middleware to block bad robots before they waste our valuable CPU cycles.
@@ -68,16 +68,14 @@ class BadBotBlocker implements MiddlewareInterface
     ];
 
     /**
-     * Some search engines provide reverse DNS to verify the IP address.
+     * Some search engines use reverse/forward DNS to verify the IP address.
      *
      * @see https://support.google.com/webmasters/answer/80553?hl=en
      * @see https://www.bing.com/webmaster/help/which-crawlers-does-bing-use-8c184ec0
      * @see https://www.bing.com/webmaster/help/how-to-verify-bingbot-3905dc26
      * @see https://yandex.com/support/webmaster/robot-workings/check-yandex-robots.html
-     * @see https://help.baidu.com/question?prod_id=99&class=0&id=3001
      */
-    private const ROBOT_DNS = [
-        'Baidu'       => ['.baidu.com', '.baidu.jp'],
+    private const ROBOT_REV_FWD_DNS = [
         'bingbot'     => ['.search.msn.com'],
         'BingPreview' => ['.search.msn.com'],
         'Google'      => ['.google.com', '.googlebot.com'],
@@ -86,6 +84,15 @@ class BadBotBlocker implements MiddlewareInterface
         'Sogou'       => ['.crawl.sogou.com'],
         'Yahoo'       => ['.crawl.yahoo.net'],
         'Yandex'      => ['.yandex.ru', '.yandex.net', '.yandex.com'],
+    ];
+
+    /**
+     * Some search engines only use reverse DNS to verify the IP address.
+     *
+     * @see https://help.baidu.com/question?prod_id=99&class=0&id=3001
+     */
+    private const ROBOT_REV_ONLY_DNS = [
+        'Baiduspider' => ['.baidu.com', '.baidu.jp'],
     ];
 
     /**
@@ -137,17 +144,6 @@ class BadBotBlocker implements MiddlewareInterface
     ];
 
     /**
-     * These ASNs belong to server farms.
-     */
-    private const BLOCK_ASN = [
-        'hetzner'   => 'AS24920',
-        'hostdime'  => 'AS33182',
-        'linode'    => 'AS63949',
-        'ovh'       => 'AS16276',
-        'rackspace' => 'AS15395',
-    ];
-
-    /**
      * @param ServerRequestInterface  $request
      * @param RequestHandlerInterface $handler
      *
@@ -160,18 +156,26 @@ class BadBotBlocker implements MiddlewareInterface
         $address = Factory::addressFromString($ip);
         assert($address instanceof AddressInterface);
 
-        if (Str::contains($ua, self::BAD_ROBOTS)) {
-            return $this->response();
+        foreach (self::BAD_ROBOTS as $robot) {
+            if (str_contains($ua, $robot)) {
+                return $this->response();
+            }
         }
 
-        foreach (self::ROBOT_DNS as $robot => $valid_domains) {
-            if (Str::contains($ua, $robot) && !$this->checkReverseDNS($ip, $valid_domains)) {
+        foreach (self::ROBOT_REV_FWD_DNS as $robot => $valid_domains) {
+            if (str_contains($ua, $robot) && !$this->checkRobotDNS($ip, $valid_domains, false)) {
+                return $this->response();
+            }
+        }
+
+        foreach (self::ROBOT_REV_ONLY_DNS as $robot => $valid_domains) {
+            if (str_contains($ua, $robot) && !$this->checkRobotDNS($ip, $valid_domains, true)) {
                 return $this->response();
             }
         }
 
         foreach (self::ROBOT_IPS as $robot => $valid_ips) {
-            if (Str::contains($ua, $robot)) {
+            if (str_contains($ua, $robot)) {
                 foreach ($valid_ips as $ip) {
                     $range = Factory::rangeFromString($ip);
 
@@ -185,7 +189,7 @@ class BadBotBlocker implements MiddlewareInterface
         }
 
         foreach (self::ROBOT_ASN as $robot => $asn) {
-            if (Str::contains($ua, $robot)) {
+            if (str_contains($ua, $robot)) {
                 foreach ($this->fetchIpRangesForAsn($asn) as $range) {
                     if ($range->contains($address)) {
                         continue 2;
@@ -196,14 +200,15 @@ class BadBotBlocker implements MiddlewareInterface
             }
         }
 
-        // This is potentially controversial, and whois lookups may be slow.
-        //foreach (self::BLOCK_ASN as $host => $asn) {
-        //    foreach ($this->fetchIpRangesForAsn($asn) as $range) {
-        //        if ($range->contains($address)) {
-        //            return $this->response();
-        //        }
-        //    }
-        //}
+        // Allow sites to block access from entire networks.
+        preg_match_all('/(AS\d+)/', $request->getAttribute('block_asn', ''), $matches);
+        foreach ($matches[1] as $asn) {
+            foreach ($this->fetchIpRangesForAsn($asn) as $range) {
+                if ($range->contains($address)) {
+                    return $this->response();
+                }
+            }
+        }
 
         return $handler->handle($request);
     }
@@ -213,18 +218,25 @@ class BadBotBlocker implements MiddlewareInterface
      *
      * @param string        $ip
      * @param array<string> $valid_domains
+     * @param bool          $reverse_only
      *
      * @return bool
      */
-    private function checkReverseDNS(string $ip, array $valid_domains): bool
+    private function checkRobotDNS(string $ip, array $valid_domains, bool $reverse_only): bool
     {
         $host = gethostbyaddr($ip);
 
-        if ($host === false || !Str::endsWith($host, $valid_domains)) {
+        if ($host === false) {
             return false;
         }
 
-        return $ip === gethostbyname($host);
+        foreach ($valid_domains as $domain) {
+            if (str_ends_with($host, $domain)) {
+                return $reverse_only || $ip === gethostbyname($host);
+            }
+        }
+
+        return false;
     }
 
     /**

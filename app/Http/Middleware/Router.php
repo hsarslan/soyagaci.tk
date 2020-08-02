@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -20,7 +20,6 @@ declare(strict_types=1);
 namespace Fisharebest\Webtrees\Http\Middleware;
 
 use Aura\Router\RouterContainer;
-use Fisharebest\Webtrees\Exceptions\HttpNotFoundException;
 use Fisharebest\Webtrees\Services\ModuleService;
 use Fisharebest\Webtrees\Services\TreeService;
 use Fisharebest\Webtrees\Tree;
@@ -32,6 +31,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 use function app;
 use function array_map;
+use function str_contains;
 
 /**
  * Simple class to help migrate to a third-party routing library.
@@ -118,7 +118,7 @@ class Router implements MiddlewareInterface
                 app()->instance(Tree::class, $value);
 
                 // Missing mandatory parameter? Let the default handler take care of it.
-                if ($value === null && strpos($route->path, '{tree}') !== false) {
+                if ($value === null && str_contains($route->path, '{tree}')) {
                     return $handler->handle($request);
                 }
             }

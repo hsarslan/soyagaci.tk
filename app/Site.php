@@ -21,6 +21,7 @@ namespace Fisharebest\Webtrees;
 
 use Illuminate\Database\Capsule\Manager as DB;
 
+use function in_array;
 use function mb_substr;
 
 /**
@@ -28,10 +29,15 @@ use function mb_substr;
  */
 class Site
 {
+    // The following preferences contain sensitive data, and should not be logged.
+    private const SENSITIVE_PREFERENCES = [
+        'SMTP_AUTH_PASS'
+    ];
+
     /**
      * Everything from the wt_site_setting table.
      *
-     * @var array
+     * @var array<string,string>
      */
     public static $preferences = [];
 
@@ -77,6 +83,10 @@ class Site
             ]);
 
             self::$preferences[$setting_name] = $setting_value;
+
+            if (in_array($setting_name, self::SENSITIVE_PREFERENCES, true)) {
+                $setting_value = '********';
+            }
 
             Log::addConfigurationLog('Site preference "' . $setting_name . '" set to "' . $setting_value . '"', null);
         }

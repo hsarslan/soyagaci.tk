@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -25,7 +25,7 @@ use Fisharebest\Webtrees\Family;
 use Fisharebest\Webtrees\GedcomTag;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
-use Fisharebest\Webtrees\Location;
+use Fisharebest\Webtrees\PlaceLocation;
 use Fisharebest\Webtrees\Site;
 use Illuminate\Support\Collection;
 use stdClass;
@@ -161,7 +161,7 @@ class PlacesModule extends AbstractModule implements ModuleTabInterface
         ];
 
         foreach ($facts as $id => $fact) {
-            $location = new Location($fact->place()->gedcomName());
+            $location = new PlaceLocation($fact->place()->gedcomName());
 
             // Use the co-ordinates from the fact (if they exist).
             $latitude  = $fact->latitude();
@@ -183,7 +183,7 @@ class PlacesModule extends AbstractModule implements ModuleTabInterface
                     ],
                     'properties' => [
                         'icon'     => static::ICONS[$fact->getTag()] ?? static::DEFAULT_ICON,
-                        'tooltip'  => strip_tags($fact->place()->fullName()),
+                        'tooltip'  => $fact->place()->gedcomName(),
                         'summary'  => view('modules/places/event-sidebar', $this->summaryData($indi, $fact)),
                         'zoom'     => $location->zoom(),
                     ],
@@ -246,7 +246,7 @@ class PlacesModule extends AbstractModule implements ModuleTabInterface
             // Birth of a child
             $url  = $record->url();
             $name = $record->fullName();
-            $tag  = GedcomTag::getLabel('_BIRT_CHIL', $record);
+            $tag  = I18N::translate('Birth of a child');
         }
 
         return [

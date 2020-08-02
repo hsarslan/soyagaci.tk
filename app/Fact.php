@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -34,8 +34,7 @@ use function in_array;
 use function preg_match;
 use function preg_match_all;
 use function preg_replace;
-use function strpos;
-use function trim;
+use function str_contains;
 use function usort;
 
 use const PREG_SET_ORDER;
@@ -76,22 +75,13 @@ class Fact
         '_MARI',
         '_MBON',
         'MARR',
-        'MARR_CIVIL',
-        'MARR_RELIGIOUS',
-        'MARR_PARTNERS',
-        'MARR_UNKNOWN',
         '_COML',
         '_STAT',
         '_SEPR',
         'DIVF',
         'MARS',
-        '_BIRT_CHIL',
         'DIV',
         'ANUL',
-        '_BIRT_',
-        '_MARR_',
-        '_DEAT_',
-        '_BURI_',
         'CENS',
         'OCCU',
         'RESI',
@@ -219,7 +209,7 @@ class Fact
     /**
      * Get the record to which this fact links
      *
-     * @return Individual|Family|Source|Submitter|Submission|Repository|Media|Note|GedcomRecord|null
+     * @return Family|GedcomRecord|Individual|Location|Media|Note|Repository|Source|Submission|Submitter|null
      */
     public function target()
     {
@@ -232,33 +222,35 @@ class Fact
         switch ($this->tag) {
             case 'FAMC':
             case 'FAMS':
-                return Family::getInstance($xref, $this->record()->tree());
+                return Factory::family()->make($xref, $this->record()->tree());
             case 'HUSB':
             case 'WIFE':
             case 'ALIA':
             case 'CHIL':
             case '_ASSO':
-                return Individual::getInstance($xref, $this->record()->tree());
+                return Factory::individual()->make($xref, $this->record()->tree());
             case 'ASSO':
                 return
-                    Individual::getInstance($xref, $this->record()->tree()) ??
-                    Submitter::getInstance($xref, $this->record()->tree());
+                    Factory::individual()->make($xref, $this->record()->tree()) ??
+                    Factory::submitter()->make($xref, $this->record()->tree());
             case 'SOUR':
-                return Source::getInstance($xref, $this->record()->tree());
+                return Factory::source()->make($xref, $this->record()->tree());
             case 'OBJE':
-                return Media::getInstance($xref, $this->record()->tree());
+                return Factory::media()->make($xref, $this->record()->tree());
             case 'REPO':
-                return Repository::getInstance($xref, $this->record()->tree());
+                return Factory::repository()->make($xref, $this->record()->tree());
             case 'NOTE':
-                return Note::getInstance($xref, $this->record()->tree());
+                return Factory::note()->make($xref, $this->record()->tree());
             case 'ANCI':
             case 'DESI':
             case 'SUBM':
-                return Submitter::getInstance($xref, $this->record()->tree());
+                return Factory::submitter()->make($xref, $this->record()->tree());
             case 'SUBN':
-                return Submission::getInstance($xref, $this->record()->tree());
+                return Factory::submission()->make($xref, $this->record()->tree());
+            case '_LOC':
+                return Factory::location()->make($xref, $this->record()->tree());
             default:
-                return GedcomRecord::getInstance($xref, $this->record()->tree());
+                return Factory::gedcomRecord()->make($xref, $this->record()->tree());
         }
     }
 
@@ -322,13 +314,13 @@ class Fact
         $access_level = $access_level ?? Auth::accessLevel($this->record->tree());
 
         // Does this record have an explicit RESN?
-        if (strpos($this->gedcom, "\n2 RESN confidential") !== false) {
+        if (str_contains($this->gedcom, "\n2 RESN confidential")) {
             return Auth::PRIV_NONE >= $access_level;
         }
-        if (strpos($this->gedcom, "\n2 RESN privacy") !== false) {
+        if (str_contains($this->gedcom, "\n2 RESN privacy")) {
             return Auth::PRIV_USER >= $access_level;
         }
-        if (strpos($this->gedcom, "\n2 RESN none") !== false) {
+        if (str_contains($this->gedcom, "\n2 RESN none")) {
             return true;
         }
 
@@ -363,7 +355,7 @@ class Fact
         }
 
         // Members cannot edit RESN, CHAN and locked records
-        return Auth::isEditor($this->record->tree()) && strpos($this->gedcom, "\n2 RESN locked") === false && $this->getTag() !== 'RESN' && $this->getTag() !== 'CHAN';
+        return Auth::isEditor($this->record->tree()) && !str_contains($this->gedcom, "\n2 RESN locked") && $this->tag !== 'RESN' && $this->tag !== 'CHAN';
     }
 
     /**
@@ -421,6 +413,18 @@ class Fact
      *
      * @return string
      */
+    public function tag(): string
+    {
+        return $this->record->tag() . ':' . $this->tag;
+    }
+
+    /**
+     * What is the tag (type) of this fact, such as BIRT, MARR or DEAT.
+     *
+     * @return string
+     *
+     * @deprecated since 2.0.5.  Will be removed in 2.1.0
+     */
     public function getTag(): string
     {
         return $this->tag;
@@ -432,6 +436,8 @@ class Fact
      * @param string $tag
      *
      * @return void
+     *
+     * @deprecated since 2.0.5.  Will be removed in 2.1.0
      */
     public function setTag($tag): void
     {
@@ -441,7 +447,7 @@ class Fact
     /**
      * The Person/Family record where this Fact came from
      *
-     * @return Individual|Family|Source|Repository|Media|Note|GedcomRecord
+     * @return Individual|Family|Source|Repository|Media|Note|Submitter|Submission|Location|Header|GedcomRecord
      */
     public function record()
     {
@@ -456,11 +462,22 @@ class Fact
     public function label(): string
     {
         // Custom FACT/EVEN - with a TYPE
-        if (($this->tag === 'FACT' || $this->tag === 'EVEN') && $this->attribute('TYPE') !== '') {
-            return I18N::translate(e($this->attribute('TYPE')));
+        if ($this->tag === 'FACT' || $this->tag === 'EVEN') {
+            $type = $this->attribute('TYPE');
+
+            if ($type !== '') {
+                // Allow user-translations of custom types.
+                $translated = I18N::translate($type);
+
+                if ($translated !== $type) {
+                    return $translated;
+                }
+
+                return e($type);
+            }
         }
 
-        return GedcomTag::getLabel($this->tag, $this->record);
+        return GedcomTag::getLabel($this->record->tag() . ':' . $this->tag);
     }
 
     /**
@@ -515,7 +532,7 @@ class Fact
         preg_match_all('/\n(2 SOUR @(' . Gedcom::REGEX_XREF . ')@(?:\n[3-9] .*)*)/', $this->gedcom(), $matches, PREG_SET_ORDER);
         $citations = [];
         foreach ($matches as $match) {
-            $source = Source::getInstance($match[2], $this->record()->tree());
+            $source = Factory::source()->make($match[2], $this->record()->tree());
             if ($source && $source->canShow()) {
                 $citations[] = $match[1];
             }
@@ -536,7 +553,7 @@ class Fact
         foreach ($matches[1] as $match) {
             $note = preg_replace("/\n3 CONT ?/", "\n", $match);
             if (preg_match('/@(' . Gedcom::REGEX_XREF . ')@/', $note, $nmatch)) {
-                $note = Note::getInstance($nmatch[1], $this->record()->tree());
+                $note = Factory::note()->make($nmatch[1], $this->record()->tree());
                 if ($note && $note->canShow()) {
                     // A note object
                     $notes[] = $note;
@@ -560,7 +577,7 @@ class Fact
         $media = [];
         preg_match_all('/\n2 OBJE @(' . Gedcom::REGEX_XREF . ')@/', $this->gedcom(), $matches);
         foreach ($matches[1] as $match) {
-            $obje = Media::getInstance($match, $this->record()->tree());
+            $obje = Factory::media()->make($match, $this->record()->tree());
             if ($obje && $obje->canShow()) {
                 $media[] = $obje;
             }
@@ -589,7 +606,7 @@ class Fact
             // Fact date
             $date = $this->date();
             if ($date->isOK()) {
-                if ($this->record() instanceof Individual && in_array($this->getTag(), Gedcom::BIRTH_EVENTS, true) && $this->record()->tree()->getPreference('SHOW_PARENTS_AGE')) {
+                if ($this->record() instanceof Individual && in_array($this->tag, Gedcom::BIRTH_EVENTS, true) && $this->record()->tree()->getPreference('SHOW_PARENTS_AGE')) {
                     $attributes[] = $date->display() . FunctionsPrint::formatParentsAges($this->record(), $date);
                 } else {
                     $attributes[] = $date->display();
@@ -601,7 +618,7 @@ class Fact
             }
         }
 
-        $class = 'fact_' . $this->getTag();
+        $class = 'fact_' . $this->tag;
         if ($this->isPendingAddition()) {
             $class .= ' wt-new';
         } elseif ($this->isPendingDeletion()) {
@@ -666,24 +683,16 @@ class Fact
                 return $a->sortOrder - $b->sortOrder;
             }
 
-            $atag = $a->getTag();
-            $btag = $b->getTag();
+            $atag = $a->tag;
+            $btag = $b->tag;
 
             // Events not in the above list get mapped onto one that is.
             if (!array_key_exists($atag, $factsort)) {
-                if (preg_match('/^(_(BIRT|MARR|DEAT|BURI)_)/', $atag, $match)) {
-                    $atag = $match[1];
-                } else {
-                    $atag = '_????_';
-                }
+                $atag = '_????_';
             }
 
             if (!array_key_exists($btag, $factsort)) {
-                if (preg_match('/^(_(BIRT|MARR|DEAT|BURI)_)/', $btag, $match)) {
-                    $btag = $match[1];
-                } else {
-                    $btag = '_????_';
-                }
+                $btag = '_????_';
             }
 
             // - Don't let dated after DEAT/BURI facts sort non-dated facts before DEAT/BURI
