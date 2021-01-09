@@ -95,7 +95,7 @@ class IPv6 implements AddressInterface
         $result = null;
         if (is_string($address) && strpos($address, ':') !== false && strpos($address, ':::') === false) {
             $matches = null;
-            if ($mayIncludePort && $address[0] === '[' && preg_match('/^\[(.+)\]:\d+$/', $address, $matches)) {
+            if ($mayIncludePort && $address[0] === '[' && preg_match('/^\[(.+)]:\d+$/', $address, $matches)) {
                 $address = $matches[1];
             }
             if ($mayIncludeZoneID) {
@@ -526,5 +526,18 @@ class IPv6 implements AddressInterface
         }
 
         return $overflow ? null : static::fromWords($words);
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * @see \IPLib\Address\AddressInterface::getReverseDNSLookupName()
+     */
+    public function getReverseDNSLookupName()
+    {
+        return implode(
+            '.',
+            array_reverse(str_split(str_replace(':', '', $this->toString(true)), 1))
+        ) . '.ip6.arpa';
     }
 }

@@ -119,7 +119,7 @@ class GedcomRecord
      */
     public static function rowMapper(Tree $tree): Closure
     {
-        return Factory::gedcomRecord()->mapper($tree);
+        return Registry::gedcomRecordFactory()->mapper($tree);
     }
 
     /**
@@ -187,7 +187,7 @@ class GedcomRecord
      */
     public static function getInstance(string $xref, Tree $tree, string $gedcom = null)
     {
-        return Factory::gedcomRecord()->make($xref, $tree, $gedcom);
+        return Registry::gedcomRecordFactory()->make($xref, $tree, $gedcom);
     }
 
     /**
@@ -308,7 +308,7 @@ class GedcomRecord
 
         $cache_key = 'show-' . $this->xref . '-' . $this->tree->id() . '-' . $access_level;
 
-        return app('cache.array')->remember($cache_key, function () use ($access_level) {
+        return Registry::cache()->array()->remember($cache_key, function () use ($access_level) {
             return $this->canShowRecord($access_level);
         });
     }
@@ -400,7 +400,7 @@ class GedcomRecord
                 // Ask the record to extract its names
                 $this->extractNames();
                 // No name found? Use a fallback.
-                if (!$this->getAllNames) {
+                if ($this->getAllNames === []) {
                     $this->addName(static::RECORD_TYPE, $this->getFallBackName(), '');
                 }
             } else {
@@ -620,7 +620,7 @@ class GedcomRecord
             ->where('l_to', '=', $this->xref)
             ->select(['individuals.*'])
             ->get()
-            ->map(Factory::individual()->mapper($this->tree))
+            ->map(Registry::individualFactory()->mapper($this->tree))
             ->filter(self::accessFilter());
     }
 
@@ -644,7 +644,7 @@ class GedcomRecord
             ->where('l_to', '=', $this->xref)
             ->select(['families.*'])
             ->get()
-            ->map(Factory::family()->mapper($this->tree))
+            ->map(Registry::familyFactory()->mapper($this->tree))
             ->filter(self::accessFilter());
     }
 
@@ -668,7 +668,7 @@ class GedcomRecord
             ->where('l_to', '=', $this->xref)
             ->select(['sources.*'])
             ->get()
-            ->map(Factory::source()->mapper($this->tree))
+            ->map(Registry::sourceFactory()->mapper($this->tree))
             ->filter(self::accessFilter());
     }
 
@@ -692,7 +692,7 @@ class GedcomRecord
             ->where('l_to', '=', $this->xref)
             ->select(['media.*'])
             ->get()
-            ->map(Factory::media()->mapper($this->tree))
+            ->map(Registry::mediaFactory()->mapper($this->tree))
             ->filter(self::accessFilter());
     }
 
@@ -717,7 +717,7 @@ class GedcomRecord
             ->where('l_to', '=', $this->xref)
             ->select(['other.*'])
             ->get()
-            ->map(Factory::note()->mapper($this->tree))
+            ->map(Registry::noteFactory()->mapper($this->tree))
             ->filter(self::accessFilter());
     }
 
@@ -742,7 +742,7 @@ class GedcomRecord
             ->where('l_to', '=', $this->xref)
             ->select(['other.*'])
             ->get()
-            ->map(Factory::repository()->mapper($this->tree))
+            ->map(Registry::repositoryFactory()->mapper($this->tree))
             ->filter(self::accessFilter());
     }
 
@@ -767,10 +767,10 @@ class GedcomRecord
             ->where('l_to', '=', $this->xref)
             ->select(['other.*'])
             ->get()
-            ->map(Factory::location()->mapper($this->tree))
+            ->map(Registry::locationFactory()->mapper($this->tree))
             ->filter(self::accessFilter());
     }
-    
+
     /**
      * Get all attributes (e.g. DATE or PLAC) from an event (e.g. BIRT or MARR).
      * This is used to display multiple events on the individual/family lists.
@@ -1143,7 +1143,7 @@ class GedcomRecord
             ->pluck('l_from');
 
         return $xrefs->map(function (string $xref): GedcomRecord {
-            $record = Factory::gedcomRecord()->make($xref, $this->tree);
+            $record = Registry::gedcomRecordFactory()->make($xref, $this->tree);
             assert($record instanceof GedcomRecord);
 
             return $record;
@@ -1253,13 +1253,13 @@ class GedcomRecord
     {
         // Split the record into facts
         if ($this->gedcom) {
-            $gedcom_facts = preg_split('/\n(?=1)/s', $this->gedcom);
+            $gedcom_facts = preg_split('/\n(?=1)/', $this->gedcom);
             array_shift($gedcom_facts);
         } else {
             $gedcom_facts = [];
         }
         if ($this->pending) {
-            $pending_facts = preg_split('/\n(?=1)/s', $this->pending);
+            $pending_facts = preg_split('/\n(?=1)/', $this->pending);
             array_shift($pending_facts);
         } else {
             $pending_facts = [];
@@ -1326,5 +1326,17 @@ class GedcomRecord
 
         // Different types of record have different privacy rules
         return $this->canShowByType($access_level);
+    }
+
+    /**
+     * Lock the database row, to prevent concurrent edits.
+     */
+    public function lock(): void
+    {
+        DB::table('other')
+            ->where('o_file', '=', $this->tree->id())
+            ->where('o_id', '=', $this->xref())
+            ->lockForUpdate()
+            ->get();
     }
 }

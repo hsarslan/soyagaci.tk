@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -201,15 +201,15 @@ class Auth
 
     /**
      * @param ModuleInterface $module
-     * @param string          $component
+     * @param string          $interface
      * @param Tree            $tree
      * @param UserInterface   $user
      *
      * @return void
      */
-    public static function checkComponentAccess(ModuleInterface $module, string $component, Tree $tree, UserInterface $user): void
+    public static function checkComponentAccess(ModuleInterface $module, string $interface, Tree $tree, UserInterface $user): void
     {
-        if ($module->accessLevel($tree, $component) < self::accessLevel($tree, $user)) {
+        if ($module->accessLevel($tree, $interface) < self::accessLevel($tree, $user)) {
             throw new HttpAccessDeniedException();
         }
     }
@@ -229,6 +229,8 @@ class Auth
         }
 
         if ($edit && $family->canEdit()) {
+            $family->lock();
+
             return $family;
         }
 
@@ -254,6 +256,8 @@ class Auth
         }
 
         if ($edit && $header->canEdit()) {
+            $header->lock();
+
             return $header;
         }
 
@@ -280,6 +284,8 @@ class Auth
         }
 
         if ($edit && $individual->canEdit()) {
+            $individual->lock();
+
             return $individual;
         }
 
@@ -309,6 +315,8 @@ class Auth
         }
 
         if ($edit && $media->canEdit()) {
+            $media->lock();
+
             return $media;
         }
 
@@ -334,6 +342,8 @@ class Auth
         }
 
         if ($edit && $note->canEdit()) {
+            $note->lock();
+
             return $note;
         }
 
@@ -359,6 +369,8 @@ class Auth
         }
 
         if ($edit && $record->canEdit()) {
+            $record->lock();
+
             return $record;
         }
 
@@ -384,6 +396,8 @@ class Auth
         }
 
         if ($edit && $repository->canEdit()) {
+            $repository->lock();
+
             return $repository;
         }
 
@@ -409,6 +423,8 @@ class Auth
         }
 
         if ($edit && $source->canEdit()) {
+            $source->lock();
+
             return $source;
         }
 
@@ -418,7 +434,7 @@ class Auth
 
         throw new SourceAccessDeniedException();
     }
-    
+
     /*
      * @param Submitter|null $submitter
      * @param bool           $edit
@@ -434,6 +450,8 @@ class Auth
         }
 
         if ($edit && $submitter->canEdit()) {
+            $submitter->lock();
+
             return $submitter;
         }
 
@@ -459,6 +477,8 @@ class Auth
         }
 
         if ($edit && $submission->canEdit()) {
+            $submission->lock();
+
             return $submission;
         }
 
@@ -475,10 +495,10 @@ class Auth
     public static function accessLevelNames(): array
     {
         return [
-            Auth::PRIV_PRIVATE => I18N::translate('Show to visitors'),
-            Auth::PRIV_USER    => I18N::translate('Show to members'),
-            Auth::PRIV_NONE    => I18N::translate('Show to managers'),
-            Auth::PRIV_HIDE    => I18N::translate('Hide from everyone'),
+            self::PRIV_PRIVATE => I18N::translate('Show to visitors'),
+            self::PRIV_USER    => I18N::translate('Show to members'),
+            self::PRIV_NONE    => I18N::translate('Show to managers'),
+            self::PRIV_HIDE    => I18N::translate('Hide from everyone'),
         ];
     }
 

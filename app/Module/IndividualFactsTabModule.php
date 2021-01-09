@@ -23,7 +23,6 @@ use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Date;
 use Fisharebest\Webtrees\Fact;
 use Fisharebest\Webtrees\Family;
-use Fisharebest\Webtrees\Gedcom;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Services\ClipboardService;
@@ -46,7 +45,7 @@ class IndividualFactsTabModule extends AbstractModule implements ModuleTabInterf
     private $clipboard_service;
 
     /**
-     * UserWelcomeModule constructor.
+     * IndividualFactsTabModule constructor.
      *
      * @param ModuleService    $module_service
      * @param ClipboardService $clipboard_service
@@ -852,7 +851,8 @@ class IndividualFactsTabModule extends AbstractModule implements ModuleTabInterf
             foreach ($family->spouses() as $parent) {
                 if (str_contains($SHOW_RELATIVES_EVENTS, '_DEAT' . ($sosa === 1 ? '_PARE' : '_GPAR'))) {
                     foreach ($parent->facts(['DEAT', 'BURI', 'CREM']) as $fact) {
-                        if ($this->includeFact($fact, $min_date, $max_date)) {
+                        // Show death of parent when it happened prior to birth
+                        if ($sosa === 1 && Date::compare($fact->date(), $min_date) < 0 || $this->includeFact($fact, $min_date, $max_date)) {
                             switch ($sosa) {
                                 case 1:
                                     $facts[] = $this->convertEvent($fact, $death_of_a_parent[$fact->getTag()][$fact->record()->sex()]);
@@ -951,6 +951,6 @@ class IndividualFactsTabModule extends AbstractModule implements ModuleTabInterf
     {
         // We don't actually displaye these facts, but they are displayed
         // outside the tabs/sidebar systems. This just forces them to be excluded here.
-        return new Collection(['NAME', 'SEX']);
+        return new Collection(['NAME', 'SEX', 'OBJE']);
     }
 }

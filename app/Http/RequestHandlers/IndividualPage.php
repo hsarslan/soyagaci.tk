@@ -24,7 +24,6 @@ use Fisharebest\Webtrees\Age;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Date;
 use Fisharebest\Webtrees\Fact;
-use Fisharebest\Webtrees\Factory;
 use Fisharebest\Webtrees\Http\ViewResponseTrait;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
@@ -32,6 +31,7 @@ use Fisharebest\Webtrees\Media;
 use Fisharebest\Webtrees\MediaFile;
 use Fisharebest\Webtrees\Module\ModuleSidebarInterface;
 use Fisharebest\Webtrees\Module\ModuleTabInterface;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Services\ClipboardService;
 use Fisharebest\Webtrees\Services\ModuleService;
 use Fisharebest\Webtrees\Services\UserService;
@@ -97,25 +97,12 @@ class IndividualPage implements RequestHandlerInterface
         $xref = $request->getAttribute('xref');
         assert(is_string($xref));
 
-        $individual = Factory::individual()->make($xref, $tree);
+        $individual = Registry::individualFactory()->make($xref, $tree);
         $individual = Auth::checkIndividualAccess($individual);
 
         // Redirect to correct xref/slug
         if ($individual->xref() !== $xref || $request->getAttribute('slug') !== $individual->slug()) {
             return redirect($individual->url(), StatusCodeInterface::STATUS_MOVED_PERMANENTLY);
-        }
-
-        // What is (was) the age of the individual
-        $bdate = $individual->getBirthDate();
-        $ddate = $individual->getDeathDate();
-
-        if ($individual->isDead()) {
-            // If dead, show age at death
-            $age = (new Age($bdate, $ddate))->ageAtEvent(false);
-        } else {
-            // If living, show age today
-            $today = strtoupper(date('d M Y'));
-            $age   = (new Age($bdate, new Date($today)))->ageAtEvent(true);
         }
 
         // What images are linked to this individual
@@ -148,7 +135,7 @@ class IndividualPage implements RequestHandlerInterface
         }
 
         return $this->viewResponse('individual-page', [
-            'age'              => $age,
+            'age'              => $this->ageString($individual),
             'clipboard_facts'  => $this->clipboard_service->pastableFacts($individual, new Collection()),
             'individual'       => $individual,
             'individual_media' => $individual_media,
@@ -163,6 +150,46 @@ class IndividualPage implements RequestHandlerInterface
             'tree'             => $tree,
             'user_link'        => $user_link,
         ]);
+    }
+
+    /**
+     * @param Individual $individual
+     *
+     * @return string
+     */
+    private function ageString(Individual $individual): string
+    {
+        if ($individual->isDead()) {
+            // If dead, show age at death
+            $age = (string) new Age($individual->getBirthDate(), $individual->getDeathDate());
+
+            if ($age === '') {
+                return '';
+            }
+
+            switch ($individual->sex()) {
+                case 'M':
+                    /* I18N: The age of an individual at a given date */
+                    return I18N::translateContext('Male', '(aged %s)', $age);
+                case 'F':
+                    /* I18N: The age of an individual at a given date */
+                    return I18N::translateContext('Female', '(aged %s)', $age);
+                default:
+                    /* I18N: The age of an individual at a given date */
+                    return I18N::translate('(aged %s)', $age);
+            }
+        }
+
+        // If living, show age today
+        $today = new Date(strtoupper(date('d M Y')));
+        $age   = (string) new Age($individual->getBirthDate(), $today);
+
+        if ($age === '') {
+            return '';
+        }
+
+        /* I18N: The current age of a living individual */
+        return I18N::translate('(age %s)', $age);
     }
 
     /**

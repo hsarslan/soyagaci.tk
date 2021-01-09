@@ -21,7 +21,7 @@ namespace Fisharebest\Webtrees\Statistics\Repository;
 
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
-use Fisharebest\Webtrees\Factory;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Http\RequestHandlers\MessagePage;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
@@ -111,7 +111,7 @@ class UserRepository implements UserRepositoryInterface
                     $content .= '<li>';
                 }
 
-                $individual = Factory::individual()->make($this->tree->getUserPreference($user, User::PREF_TREE_ACCOUNT_XREF), $this->tree);
+                $individual = Registry::individualFactory()->make($this->tree->getUserPreference($user, User::PREF_TREE_ACCOUNT_XREF), $this->tree);
 
                 if ($individual instanceof Individual && $individual->canShow()) {
                     $content .= '<a href="' . e($individual->url()) . '">' . e($user->realName()) . '</a>';
@@ -121,10 +121,7 @@ class UserRepository implements UserRepositoryInterface
 
                 $content .= ' - ' . e($user->userName());
 
-                if (($user->getPreference(User::PREF_CONTACT_METHOD) !== 'none') && (Auth::id() !== $user->id())) {
-                    if ($type === 'list') {
-                        $content .= '<br>';
-                    }
+                if ($user->getPreference(User::PREF_CONTACT_METHOD) !== 'none' && Auth::id() !== $user->id()) {
                     $content .= '<a href="' . e(route(MessagePage::class, ['to' => $user->userName(), 'tree' => $this->tree->name()])) . '" class="btn btn-link" title="' . I18N::translate('Send a message') . '">' . view('icons/email') . '</a>';
                 }
 

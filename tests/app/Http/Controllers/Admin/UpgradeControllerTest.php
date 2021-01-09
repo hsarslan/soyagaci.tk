@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -31,8 +31,6 @@ use Fisharebest\Webtrees\Services\UpgradeService;
 use Fisharebest\Webtrees\Services\UserService;
 use Fisharebest\Webtrees\TestCase;
 use Illuminate\Support\Collection;
-use League\Flysystem\Adapter\NullAdapter;
-use League\Flysystem\Filesystem;
 
 /**
  * Test UpgradeController class.
@@ -57,7 +55,7 @@ class UpgradeControllerTest extends TestCase
         $request  = self::createRequest();
         $response = $controller->wizard($request);
 
-        $this->assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
+        self::assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
     }
 
     /**
@@ -73,12 +71,10 @@ class UpgradeControllerTest extends TestCase
             new UpgradeService(new TimeoutService())
         );
 
-        $request  = self::createRequest(RequestMethodInterface::METHOD_GET, ['continue' => '1'])
-            ->withAttribute('filesystem.data', new Filesystem(new NullAdapter()))
-            ->withAttribute('filesystem.root', new Filesystem(new NullAdapter()));
+        $request  = self::createRequest(RequestMethodInterface::METHOD_GET, ['continue' => '1']);
         $response = $controller->wizard($request);
 
-        $this->assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
+        self::assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
     }
 
     /**
@@ -92,13 +88,11 @@ class UpgradeControllerTest extends TestCase
             new UpgradeService(new TimeoutService())
         );
 
-        $request = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Invalid'])
-            ->withAttribute('filesystem.data', new Filesystem(new NullAdapter()))
-            ->withAttribute('filesystem.root', new Filesystem(new NullAdapter()));
+        $request = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Invalid']);
 
         $response = $controller->step($request);
 
-        $this->assertSame(StatusCodeInterface::STATUS_NO_CONTENT, $response->getStatusCode());
+        self::assertSame(StatusCodeInterface::STATUS_NO_CONTENT, $response->getStatusCode());
     }
 
     /**
@@ -106,7 +100,7 @@ class UpgradeControllerTest extends TestCase
      */
     public function testStepCheckOK(): void
     {
-        $mock_upgrade_service = $this->createMock(UpgradeService::class);
+        $mock_upgrade_service = self::createMock(UpgradeService::class);
         $mock_upgrade_service->method('latestVersion')->willReturn('999.999.999');
         $controller = new UpgradeController(
             new GedcomExportService(),
@@ -114,12 +108,10 @@ class UpgradeControllerTest extends TestCase
             $mock_upgrade_service
         );
 
-        $request  = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Check'])
-            ->withAttribute('filesystem.data', new Filesystem(new NullAdapter()))
-            ->withAttribute('filesystem.root', new Filesystem(new NullAdapter()));
+        $request  = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Check']);
         $response = $controller->step($request);
 
-        $this->assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
+        self::assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
     }
 
     /**
@@ -129,7 +121,7 @@ class UpgradeControllerTest extends TestCase
     {
         $this->expectException(HttpServerErrorException::class);
 
-        $mock_upgrade_service = $this->createMock(UpgradeService::class);
+        $mock_upgrade_service = self::createMock(UpgradeService::class);
         $mock_upgrade_service->method('latestVersion')->willReturn('');
         $controller = new UpgradeController(
             new GedcomExportService(),
@@ -137,9 +129,7 @@ class UpgradeControllerTest extends TestCase
             $mock_upgrade_service
         );
 
-        $request = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Check'])
-            ->withAttribute('filesystem.data', new Filesystem(new NullAdapter()))
-            ->withAttribute('filesystem.root', new Filesystem(new NullAdapter()));
+        $request = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Check']);
         $controller->step($request);
     }
 
@@ -150,7 +140,7 @@ class UpgradeControllerTest extends TestCase
     {
         $this->expectException(HttpServerErrorException::class);
 
-        $mock_upgrade_service = $this->createMock(UpgradeService::class);
+        $mock_upgrade_service = self::createMock(UpgradeService::class);
         $mock_upgrade_service->method('latestVersion')->willReturn('0.0.0');
         $controller = new UpgradeController(
             new GedcomExportService(),
@@ -158,9 +148,7 @@ class UpgradeControllerTest extends TestCase
             $mock_upgrade_service
         );
 
-        $request = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Check'])
-            ->withAttribute('filesystem.data', new Filesystem(new NullAdapter()))
-            ->withAttribute('filesystem.root', new Filesystem(new NullAdapter()));
+        $request = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Check']);
         $controller->step($request);
     }
 
@@ -175,12 +163,10 @@ class UpgradeControllerTest extends TestCase
             new UpgradeService(new TimeoutService())
         );
 
-        $request  = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Prepare'])
-            ->withAttribute('filesystem.data', new Filesystem(new NullAdapter()))
-            ->withAttribute('filesystem.root', new Filesystem(new NullAdapter()));
+        $request  = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Prepare']);
         $response = $controller->step($request);
 
-        $this->assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
+        self::assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
     }
 
     /**
@@ -194,12 +180,10 @@ class UpgradeControllerTest extends TestCase
             new UpgradeService(new TimeoutService())
         );
 
-        $request  = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Pending'])
-            ->withAttribute('filesystem.data', new Filesystem(new NullAdapter()))
-            ->withAttribute('filesystem.root', new Filesystem(new NullAdapter()));
+        $request  = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Pending']);
         $response = $controller->step($request);
 
-        $this->assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
+        self::assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
     }
 
     /**
@@ -222,9 +206,7 @@ class UpgradeControllerTest extends TestCase
             new UpgradeService(new TimeoutService())
         );
 
-        $request = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Pending'])
-            ->withAttribute('filesystem.data', new Filesystem(new NullAdapter()))
-            ->withAttribute('filesystem.root', new Filesystem(new NullAdapter()));
+        $request = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Pending']);
         $controller->step($request);
     }
 
@@ -235,7 +217,7 @@ class UpgradeControllerTest extends TestCase
     {
         $tree            = $this->importTree('demo.ged');
         $all_trees       = Collection::make([$tree->name() => $tree]);
-        $tree_service    = $this->createMock(TreeService::class);
+        $tree_service    = self::createMock(TreeService::class);
         $tree_service->method('all')->willReturn($all_trees);
 
         $controller = new UpgradeController(
@@ -244,18 +226,15 @@ class UpgradeControllerTest extends TestCase
             new UpgradeService(new TimeoutService())
         );
 
-        $request  = self::createRequest()
-            ->withQueryParams(['step' => 'Export', 'tree' => $tree->name()])
-            ->withAttribute('filesystem.data', new Filesystem(new NullAdapter()))
-            ->withAttribute('filesystem.root', new Filesystem(new NullAdapter()));
+        $request  = self::createRequest()->withQueryParams(['step' => 'Export', 'tree' => $tree->name()]);
         $response = $controller->step($request);
 
-        $this->assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
+        self::assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
 
         // Now overwrite the file we just created
         $response = $controller->step($request);
 
-        $this->assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
+        self::assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
     }
 
     /**
@@ -265,17 +244,15 @@ class UpgradeControllerTest extends TestCase
     {
         $this->expectException(HttpServerErrorException::class);
 
-        $mock_upgrade_service = $this->createMock(UpgradeService::class);
-        $mock_upgrade_service->method('downloadFile')->will($this->throwException(new Exception()));
+        $mock_upgrade_service = self::createMock(UpgradeService::class);
+        $mock_upgrade_service->method('downloadFile')->will(self::throwException(new Exception()));
         $controller = new UpgradeController(
             new GedcomExportService(),
             new TreeService(),
             $mock_upgrade_service
         );
 
-        $request = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Download'])
-            ->withAttribute('filesystem.data', new Filesystem(new NullAdapter()))
-            ->withAttribute('filesystem.root', new Filesystem(new NullAdapter()));
+        $request = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Download']);
         $controller->step($request);
     }
 
@@ -284,7 +261,7 @@ class UpgradeControllerTest extends TestCase
      */
     public function testStepDownload(): void
     {
-        $mock_upgrade_service = $this->createMock(UpgradeService::class);
+        $mock_upgrade_service = self::createMock(UpgradeService::class);
         $mock_upgrade_service->method('downloadFile')->willReturn(123456);
         $controller = new UpgradeController(
             new GedcomExportService(),
@@ -292,12 +269,10 @@ class UpgradeControllerTest extends TestCase
             $mock_upgrade_service
         );
 
-        $request  = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Download'])
-            ->withAttribute('filesystem.data', new Filesystem(new NullAdapter()))
-            ->withAttribute('filesystem.root', new Filesystem(new NullAdapter()));
+        $request  = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Download']);
         $response = $controller->step($request);
 
-        $this->assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
+        self::assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
     }
 
     /**
@@ -305,7 +280,7 @@ class UpgradeControllerTest extends TestCase
      */
     public function testStepUnzip(): void
     {
-        $mock_upgrade_service = $this->createMock(UpgradeService::class);
+        $mock_upgrade_service = self::createMock(UpgradeService::class);
         $mock_upgrade_service->method('webtreesZipContents')->willReturn(new Collection());
         $controller = new UpgradeController(
             new GedcomExportService(),
@@ -313,30 +288,9 @@ class UpgradeControllerTest extends TestCase
             $mock_upgrade_service
         );
 
-        $request  = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Unzip'])
-            ->withAttribute('filesystem.data', new Filesystem(new NullAdapter()))
-            ->withAttribute('filesystem.root', new Filesystem(new NullAdapter()));
+        $request  = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Unzip']);
         $response = $controller->step($request);
 
-        $this->assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
-    }
-
-    /**
-     * @return void
-     */
-    public function testStepCopyAndCleanUp(): void
-    {
-        $controller = new UpgradeController(
-            new GedcomExportService(),
-            new TreeService(),
-            new UpgradeService(new TimeoutService())
-        );
-
-        $request  = self::createRequest(RequestMethodInterface::METHOD_POST, ['step' => 'Copy'])
-            ->withAttribute('filesystem.data', new Filesystem(new NullAdapter()))
-            ->withAttribute('filesystem.root', new Filesystem(new NullAdapter()));
-        $response = $controller->step($request);
-
-        $this->assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
+        self::assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
     }
 }

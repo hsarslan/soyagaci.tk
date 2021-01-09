@@ -147,7 +147,7 @@ class StatisticsChartModule extends AbstractModule implements ModuleChartInterfa
 
         $user = $request->getAttribute('user');
 
-        Auth::checkComponentAccess($this, 'chart', $tree, $user);
+        Auth::checkComponentAccess($this, ModuleChartInterface::class, $tree, $user);
 
         $tabs = [
             I18N::translate('Individuals') => route('module', [
@@ -911,7 +911,7 @@ class StatisticsChartModule extends AbstractModule implements ModuleChartInterfa
     /**
      * Find the axis entry for a given value.
      * Some are direct lookup (e.g. M/F, JAN/FEB/MAR).
-     * Others need to find the approprate range.
+     * Others need to find the appropriate range.
      *
      * @param int|float|string $value
      * @param string[]         $axis

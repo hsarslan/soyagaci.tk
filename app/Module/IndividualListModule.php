@@ -23,7 +23,7 @@ use Aura\Router\RouterContainer;
 use Fisharebest\Localization\Locale\LocaleInterface;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
-use Fisharebest\Webtrees\Factory;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Family;
 use Fisharebest\Webtrees\Functions\FunctionsPrintLists;
 use Fisharebest\Webtrees\GedcomRecord;
@@ -45,6 +45,7 @@ use function array_keys;
 use function assert;
 use function e;
 use function implode;
+use function in_array;
 use function ob_get_clean;
 use function ob_start;
 use function redirect;
@@ -131,10 +132,12 @@ class IndividualListModule extends AbstractModule implements ModuleListInterface
         $xref = app(ServerRequestInterface::class)->getAttribute('xref', '');
 
         if ($xref !== '') {
-            $individual = Factory::individual()->make($xref, $tree);
+            $individual = Registry::individualFactory()->make($xref, $tree);
 
             if ($individual instanceof Individual && $individual->canShow()) {
-                $parameters['surname'] = $parameters['surname'] ?? $individual->getAllNames()[0]['surn'] ?? null;
+                $primary_name = $individual->getPrimaryName();
+
+                $parameters['surname'] = $parameters['surname'] ?? $individual->getAllNames()[$primary_name]['surn'] ?? null;
             }
         }
 
@@ -257,7 +260,7 @@ class IndividualListModule extends AbstractModule implements ModuleListInterface
         } elseif ($surname !== '') {
             $alpha    = $this->localization_service->initialLetter($surname, I18N::locale()); // so we can highlight the initial letter
             $show_all = 'no';
-            if ($surname === '@N.N.') {
+            if ($surname === Individual::NOMEN_NESCIO) {
                 $legend = I18N::translateContext('Unknown surname', '…');
             } else {
                 // The surname parameter is a root/canonical form.
@@ -578,27 +581,28 @@ class IndividualListModule extends AbstractModule implements ModuleListInterface
 
         // Now fetch initial letters that are not in our alphabet,
         // including "@" (for "@N.N.") and "" for no surname.
-        $query2 = clone $query;
         foreach ($this->localization_service->alphabet($locale) as $n => $letter) {
-            $query2->where($n_surn, 'NOT LIKE', $letter . '%');
+            $query->where($n_surn, 'NOT LIKE', $letter . '%');
         }
 
-        $rows = $query2
+        $rows = $query
             ->groupBy(['initial'])
-            ->orderBy(new Expression("CASE SUBSTR(n_surn, 1, 1) WHEN '' THEN 1 ELSE 0 END"))
-            ->orderBy(new Expression("CASE SUBSTR(n_surn, 1, 1) WHEN '@' THEN 1 ELSE 0 END"))
             ->orderBy('initial')
             ->pluck(new Expression('COUNT(*) AS aggregate'), new Expression('SUBSTR(n_surn, 1, 1) AS initial'));
 
+        $specials = ['@', ''];
+
         foreach ($rows as $alpha => $count) {
-            $alphas[$alpha] = (int) $count;
+            if (!in_array($alpha, $specials, true)) {
+                $alphas[$alpha] = (int) $count;
+            }
         }
 
-        $count_no_surname = $query->where('n_surn', '=', '')->count();
-
-        if ($count_no_surname !== 0) {
-            // Special code to indicate "no surname"
-            $alphas[','] = $count_no_surname;
+        // Empty surnames have a special code ',' - as we search for SURN.GIVN
+        foreach ($specials as $special) {
+            if ($rows->has($special)) {
+                $alphas[$special ?: ','] = (int) $rows[$special];
+            }
         }
 
         return $alphas;
@@ -634,12 +638,12 @@ class IndividualListModule extends AbstractModule implements ModuleListInterface
         } elseif ($salpha === ',') {
             $query->where('n_surn', '=', '');
         } elseif ($salpha === '@') {
-            $query->where('n_surn', '=', '@N.N.');
+            $query->where('n_surn', '=', Individual::NOMEN_NESCIO);
         } elseif ($salpha !== '') {
             $this->whereInitial($query, 'n_surn', $salpha, $locale);
         } else {
             // All surnames
-            $query->whereNotIn('n_surn', ['', '@N.N.']);
+            $query->whereNotIn('n_surn', ['', Individual::NOMEN_NESCIO]);
         }
 
         // Fetch all the letters in our alphabet, whether or not there
@@ -655,14 +659,23 @@ class IndividualListModule extends AbstractModule implements ModuleListInterface
 
         $rows = $query
             ->groupBy(['initial'])
-            ->orderBy(new Expression("CASE UPPER(SUBSTR(n_givn, 1, 1)) WHEN '' THEN 1 ELSE 0 END"))
-            ->orderBy(new Expression("CASE UPPER(SUBSTR(n_givn, 1, 1)) WHEN '@' THEN 1 ELSE 0 END"))
             ->orderBy('initial')
             ->pluck(new Expression('COUNT(*) AS aggregate'), new Expression('UPPER(SUBSTR(n_givn, 1, 1)) AS initial'));
 
+        $specials = ['@'];
+
         foreach ($rows as $alpha => $count) {
-            $alphas[$alpha] = (int) $count;
+            if ($alpha !== '@') {
+                $alphas[$alpha] = (int) $count;
+            }
         }
+
+        foreach ($specials as $special) {
+            if ($rows->has('@')) {
+                $alphas['@'] = (int) $rows['@'];
+            }
+        }
+
 
         return $alphas;
     }
@@ -705,12 +718,12 @@ class IndividualListModule extends AbstractModule implements ModuleListInterface
         } elseif ($salpha === ',') {
             $query->where('n_surn', '=', '');
         } elseif ($salpha === '@') {
-            $query->where('n_surn', '=', '@N.N.');
+            $query->where('n_surn', '=', Individual::NOMEN_NESCIO);
         } elseif ($salpha !== '') {
             $this->whereInitial($query, 'n_surn', $salpha, $locale);
         } else {
             // All surnames
-            $query->whereNotIn('n_surn', ['', '@N.N.']);
+            $query->whereNotIn('n_surn', ['', Individual::NOMEN_NESCIO]);
         }
         $query
             ->groupBy(['n_surn'])
@@ -773,28 +786,28 @@ class IndividualListModule extends AbstractModule implements ModuleListInterface
         } elseif ($salpha === ',') {
             $query->where($n_surn, '=', '');
         } elseif ($salpha === '@') {
-            $query->where($n_surn, '=', '@N.N.');
+            $query->where($n_surn, '=', Individual::NOMEN_NESCIO);
         } elseif ($salpha) {
             $this->whereInitial($query, 'n_surn', $salpha, $locale);
         } else {
             // All surnames
-            $query->whereNotIn($n_surn, ['', '@N.N.']);
+            $query->whereNotIn($n_surn, ['', Individual::NOMEN_NESCIO]);
         }
         if ($galpha) {
             $this->whereInitial($query, 'n_givn', $galpha, $locale);
         }
 
         $query
-            ->orderBy(new Expression("CASE n_surn WHEN '@N.N.' THEN 1 ELSE 0 END"))
+            ->orderBy(new Expression("CASE n_surn WHEN '" . Individual::NOMEN_NESCIO . "' THEN 1 ELSE 0 END"))
             ->orderBy($n_surn)
-            ->orderBy(new Expression("CASE n_givn WHEN '@N.N.' THEN 1 ELSE 0 END"))
+            ->orderBy(new Expression("CASE n_givn WHEN '" . Individual::NOMEN_NESCIO . "' THEN 1 ELSE 0 END"))
             ->orderBy($n_givn);
 
         $list = [];
         $rows = $query->get();
 
         foreach ($rows as $row) {
-            $individual = Factory::individual()->make($row->xref, $tree, $row->gedcom);
+            $individual = Registry::individualFactory()->make($row->xref, $tree, $row->gedcom);
             assert($individual instanceof Individual);
 
             // The name from the database may be private - check the filtered list...

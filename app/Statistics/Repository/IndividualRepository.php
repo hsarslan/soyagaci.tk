@@ -21,7 +21,7 @@ namespace Fisharebest\Webtrees\Statistics\Repository;
 
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Carbon;
-use Fisharebest\Webtrees\Factory;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Functions\FunctionsPrintLists;
 use Fisharebest\Webtrees\Gedcom;
 use Fisharebest\Webtrees\GedcomRecord;
@@ -92,7 +92,7 @@ class IndividualRepository implements IndividualRepositoryInterface
             })
             ->where('n_file', '=', $this->tree->id())
             ->where('n_type', '<>', '_MARNM')
-            ->where('n_givn', '<>', '@P.N.')
+            ->where('n_givn', '<>', Individual::PRAENOMEN_NESCIO)
             ->where(new Expression('LENGTH(n_givn)'), '>', 1);
 
         switch ($sex) {
@@ -442,7 +442,7 @@ class IndividualRepository implements IndividualRepositoryInterface
             // Count number of distinct given names.
             $query
                 ->distinct()
-                ->where('n_givn', '<>', '@P.N.')
+                ->where('n_givn', '<>', Individual::PRAENOMEN_NESCIO)
                 ->whereNotNull('n_givn');
         } else {
             // Count number of occurences of specific given names.
@@ -492,7 +492,7 @@ class IndividualRepository implements IndividualRepositoryInterface
         $top_surnames = DB::table('name')
             ->where('n_file', '=', $this->tree->id())
             ->where('n_type', '<>', '_MARNM')
-            ->whereNotIn('n_surn', ['', '@N.N.'])
+            ->whereNotIn('n_surn', ['', Individual::NOMEN_NESCIO])
             ->select(['n_surn'])
             ->groupBy(['n_surn'])
             ->orderByRaw('count(n_surn) desc')
@@ -528,7 +528,7 @@ class IndividualRepository implements IndividualRepositoryInterface
     public function getCommonSurname(): string
     {
         $top_surname = $this->topSurnames(1, 0);
-        
+
         return $top_surname
             ? implode(', ', array_keys(array_shift($top_surname)) ?? [])
             : '';
@@ -570,7 +570,7 @@ class IndividualRepository implements IndividualRepositoryInterface
         $module = app(ModuleService::class)->findByComponent(ModuleListInterface::class, $this->tree, Auth::user())->first(static function (ModuleInterface $module): bool {
             return $module instanceof IndividualListModule;
         });
-        
+
         return FunctionsPrintLists::surnameList(
             $surnames,
             ($type === 'list' ? 1 : 2),
@@ -774,7 +774,7 @@ class IndividualRepository implements IndividualRepositoryInterface
      *
      * @return array<stdClass>
      */
-    public function statsAgeQuery(string $related = 'BIRT', string $sex = 'BOTH', int $year1 = -1, int $year2 = -1)
+    public function statsAgeQuery(string $related = 'BIRT', string $sex = 'BOTH', int $year1 = -1, int $year2 = -1): array
     {
         $prefix = DB::connection()->getTablePrefix();
 
@@ -831,7 +831,7 @@ class IndividualRepository implements IndividualRepositoryInterface
         }
 
         /** @var Individual $individual */
-        $individual = Factory::individual()->mapper($this->tree)($row);
+        $individual = Registry::individualFactory()->mapper($this->tree)($row);
 
         if (!$individual->canShow()) {
             return I18N::translate('This information is private and cannot be shown.');
@@ -985,7 +985,7 @@ class IndividualRepository implements IndividualRepositoryInterface
         $top10 = [];
         foreach ($rows as $row) {
             /** @var Individual $individual */
-            $individual = Factory::individual()->mapper($this->tree)($row);
+            $individual = Registry::individualFactory()->mapper($this->tree)($row);
 
             if ($individual->canShow()) {
                 $top10[] = [
@@ -1127,7 +1127,7 @@ class IndividualRepository implements IndividualRepositoryInterface
             ->select(['individuals.*'])
             ->take($total)
             ->get()
-            ->map(Factory::individual()->mapper($this->tree))
+            ->map(Registry::individualFactory()->mapper($this->tree))
             ->filter(GedcomRecord::accessFilter())
             ->map(function (Individual $individual): array {
                 return [

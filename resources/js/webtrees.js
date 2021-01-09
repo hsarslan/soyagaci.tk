@@ -180,13 +180,13 @@
       let yyyy = new Date().getFullYear();
       let yy = yyyy % 100;
       let cc = yyyy - yy;
-      if (dmy === 'DMY' && f1 <= 31 && f2 <= 12 || f1 > 13 && f1 <= 31 && f2 <= 12 && f3 > 31) {
+      if ((dmy === 'DMY' || f1 > 13 && f3 > 31) && f1 <= 31 && f2 <= 12) {
         return f1 + ' ' + months[f2 - 1] + ' ' + (f3 >= 100 ? f3 : (f3 <= yy ? f3 + cc : f3 + cc - 100));
       }
-      if (dmy === 'MDY' && f1 <= 12 && f2 <= 31 || f2 > 13 && f2 <= 31 && f1 <= 12 && f3 > 31) {
+      if ((dmy === 'MDY' || f2 > 13 && f3 > 31) && f1 <= 12 && f2 <= 31) {
         return f2 + ' ' + months[f1 - 1] + ' ' + (f3 >= 100 ? f3 : (f3 <= yy ? f3 + cc : f3 + cc - 100));
       }
-      if (dmy === 'YMD' && f2 <= 12 && f3 <= 31 || f3 > 13 && f3 <= 31 && f2 <= 12 && f1 > 31) {
+      if ((dmy === 'YMD' || f1 > 31) && f2 <= 12 && f3 <= 31) {
         return f3 + ' ' + months[f2 - 1] + ' ' + (f1 >= 100 ? f1 : (f1 <= yy ? f1 + cc : f1 + cc - 100));
       }
       return RegExp.$1 + RegExp.$2 + RegExp.$3 + RegExp.$4 + RegExp.$5;
@@ -337,10 +337,13 @@
     }
 
     /* Javascript calendar functions only work with precise gregorian dates "D M Y" or "Y" */
-    let greg_regex = /((\d+ (JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC) )?\d+)/i;
+    let greg_regex = /(?:(\d*) ?(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC) )?(\d+)/i;
     let date;
     if (greg_regex.exec(dateField.value)) {
-      date = new Date(RegExp.$1);
+      let day   = RegExp.$1 || '1';
+      let month = RegExp.$2 || 'JAN'
+      let year  = RegExp.$3;
+      date = new Date(day + ' ' + month + ' ' + year);
     } else {
       date = new Date();
     }
@@ -588,20 +591,22 @@
       const that = this;
       $(this).typeahead(null, {
         display: 'value',
-        limit: 0,
+        limit: 10,
+        minLength: 2,
         source: new Bloodhound({
           datumTokenizer: Bloodhound.tokenizers.obj.whitespace('value'),
           queryTokenizer: Bloodhound.tokenizers.whitespace,
           remote: {
             url: this.dataset.autocompleteUrl,
             replace: function (url, uriEncodedQuery) {
-              if (that.dataset.autocompleteExtra) {
-                const extra = $(document.querySelector(that.dataset.autocompleteExtra)).val();
-                return url.replace('QUERY', uriEncodedQuery) + '&extra=' + encodeURIComponent(extra);
+              if (that.dataset.autocompleteExtra === 'SOUR') {
+                const element = that.closest('.form-group').previousElementSibling.querySelector('select');
+                const extra   = element.options[element.selectedIndex].value;
+                return url.replace(/(%7B|{)query(%7D|})/, uriEncodedQuery) + '?extra=' + encodeURIComponent(extra);
               }
-              return url.replace('QUERY', uriEncodedQuery);
+              return url.replace(/(%7B|{)query(%7D|})/, uriEncodedQuery);
             },
-            wildcard: 'QUERY'
+            wildcard: '{query}'
           }
         })
       });
@@ -710,6 +715,21 @@ $(function () {
   $('.wt-osk-close').on('click', function () {
     $('.wt-osk').hide();
   });
+});
+
+// Prevent form re-submission via accidental double-click.
+document.addEventListener('submit', function (event) {
+  const form = event.target;
+
+  if (form.reportValidity()) {
+    form.addEventListener('submit', (event) => {
+      if (form.classList.contains('form-is-submitting')) {
+        event.preventDefault();
+      }
+
+      form.classList.add('form-is-submitting');
+    });
+  }
 });
 
 // Convert data-confirm and data-post-url attributes into useful behavior.

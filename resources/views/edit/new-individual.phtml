@@ -2,6 +2,7 @@
 
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Fact;
+use Fisharebest\Webtrees\Family;
 use Fisharebest\Webtrees\Functions\FunctionsEdit;
 use Fisharebest\Webtrees\Gedcom;
 use Fisharebest\Webtrees\GedcomTag;
@@ -13,6 +14,7 @@ use Fisharebest\Webtrees\Http\RequestHandlers\AddSpouseToIndividualAction;
 use Fisharebest\Webtrees\Http\RequestHandlers\AddUnlinkedAction;
 use Fisharebest\Webtrees\Http\RequestHandlers\EditRawFactPage;
 use Fisharebest\Webtrees\Http\RequestHandlers\EditFactAction;
+use Fisharebest\Webtrees\Http\RequestHandlers\ManageTrees;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\SurnameTradition;
@@ -20,8 +22,13 @@ use Fisharebest\Webtrees\View;
 use Illuminate\Support\Collection;
 
 /**
+ * @var Family|null     $family
+ * @var string          $famtag
+ * @var string          $gender
  * @var Individual|null $individual
  * @var Fact|null       $name_fact
+ * @var string          $next_action
+ * @var string          $title
  */
 
 ?>
@@ -34,7 +41,7 @@ if ($individual instanceof Individual) {
     $xref       = $family->xref();
     $cancel_url = $family->url();
 } else {
-    $cancel_url = route('manage-trees', ['tree' => $tree->name()]);
+    $cancel_url = route(ManageTrees::class, ['tree' => $tree->name()]);
     $xref       = 'new';
 }
 

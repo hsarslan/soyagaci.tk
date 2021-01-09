@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -34,6 +34,10 @@ class Individual extends GedcomRecord
 {
     public const RECORD_TYPE = 'INDI';
 
+    // Placeholders to indicate unknown names
+    public const NOMEN_NESCIO     = '@N.N.';
+    public const PRAENOMEN_NESCIO = '@P.N.';
+
     protected const ROUTE_NAME = IndividualPage::class;
 
     /** @var int used in some lists to keep track of this individual’s generation in that list */
@@ -56,7 +60,7 @@ class Individual extends GedcomRecord
      */
     public static function rowMapper(Tree $tree): Closure
     {
-        return Factory::individual()->mapper($tree);
+        return Registry::individualFactory()->mapper($tree);
     }
 
     /**
@@ -79,7 +83,7 @@ class Individual extends GedcomRecord
     public static function deathDateComparator(): Closure
     {
         return static function (Individual $x, Individual $y): int {
-            return Date::compare($x->getEstimatedBirthDate(), $y->getEstimatedBirthDate());
+            return Date::compare($x->getEstimatedDeathDate(), $y->getEstimatedDeathDate());
         };
     }
 
@@ -98,7 +102,7 @@ class Individual extends GedcomRecord
      */
     public static function getInstance(string $xref, Tree $tree, string $gedcom = null): ?Individual
     {
-        return Factory::individual()->make($xref, $tree, $gedcom);
+        return Registry::individualFactory()->make($xref, $tree, $gedcom);
     }
 
     /**
@@ -119,7 +123,7 @@ class Individual extends GedcomRecord
             ->get();
 
         foreach ($rows as $row) {
-            Factory::individual()->make($row->xref, $tree, $row->gedcom);
+            Registry::individualFactory()->make($row->xref, $tree, $row->gedcom);
         }
     }
 
@@ -199,7 +203,7 @@ class Individual extends GedcomRecord
     {
         static $cache = null;
 
-        $user_individual = Factory::individual()->make($target->tree->getUserPreference(Auth::user(), User::PREF_TREE_ACCOUNT_XREF), $target->tree);
+        $user_individual = Registry::individualFactory()->make($target->tree->getUserPreference(Auth::user(), User::PREF_TREE_ACCOUNT_XREF), $target->tree);
         if ($user_individual) {
             if (!$cache) {
                 $cache = [
@@ -284,7 +288,7 @@ class Individual extends GedcomRecord
         // Just show the 1 FAMC/FAMS tag, not any subtags, which may contain private data
         preg_match_all('/\n1 (?:FAMC|FAMS) @(' . Gedcom::REGEX_XREF . ')@/', $this->gedcom, $matches, PREG_SET_ORDER);
         foreach ($matches as $match) {
-            $rela = Factory::family()->make($match[1], $this->tree);
+            $rela = Registry::familyFactory()->make($match[1], $this->tree);
             if ($rela && ($SHOW_PRIVATE_RELATIONSHIPS || $rela->canShow($access_level))) {
                 $rec .= $match[0];
             }
@@ -892,7 +896,7 @@ class Individual extends GedcomRecord
         foreach ($families as $family) {
             $spouse = $family->spouse($this);
 
-            if ($spouse instanceof Individual) {
+            if ($spouse instanceof self) {
                 foreach ($family->spouse($this)->spouseFamilies() as $step_family) {
                     if (!$families->containsStrict($step_family)) {
                         $step_families[] = $step_family;
@@ -1114,7 +1118,7 @@ class Individual extends GedcomRecord
 
         // Add placeholder for unknown given name
         if (!$GIVN) {
-            $GIVN = '@P.N.';
+            $GIVN = self::PRAENOMEN_NESCIO;
             $pos  = (int) strpos($full, '/');
             $full = substr($full, 0, $pos) . '@P.N. ' . substr($full, $pos);
         }
@@ -1125,8 +1129,8 @@ class Individual extends GedcomRecord
         $fullNN = str_replace('/', '', $full);
 
         // Insert placeholders for any missing/unknown names
-        $full = str_replace('@N.N.', I18N::translateContext('Unknown surname', '…'), $full);
-        $full = str_replace('@P.N.', I18N::translateContext('Unknown given name', '…'), $full);
+        $full = str_replace(self::NOMEN_NESCIO, I18N::translateContext('Unknown surname', '…'), $full);
+        $full = str_replace(self::PRAENOMEN_NESCIO, I18N::translateContext('Unknown given name', '…'), $full);
         // Format for display
         $full = '<span class="NAME" dir="auto" translate="no">' . preg_replace('/\/([^\/]*)\//', '<span class="SURN">$1</span>', e($full)) . '</span>';
         // Localise quotation marks around the nickname
@@ -1193,5 +1197,17 @@ class Individual extends GedcomRecord
         return
             $this->formatFirstMajorFact(Gedcom::BIRTH_EVENTS, 1) .
             $this->formatFirstMajorFact(Gedcom::DEATH_EVENTS, 1);
+    }
+
+    /**
+     * Lock the database row, to prevent concurrent edits.
+     */
+    public function lock(): void
+    {
+        DB::table('individuals')
+            ->where('i_file', '=', $this->tree->id())
+            ->where('i_id', '=', $this->xref())
+            ->lockForUpdate()
+            ->get();
     }
 }

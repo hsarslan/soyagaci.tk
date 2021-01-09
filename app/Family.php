@@ -2,7 +2,7 @@
 
 /**
  * webtrees: online genealogy
- * Copyright (C) 2019 webtrees development team
+ * Copyright (C) 2020 webtrees development team
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -21,6 +21,7 @@ namespace Fisharebest\Webtrees;
 
 use Closure;
 use Fisharebest\Webtrees\Http\RequestHandlers\FamilyPage;
+use Illuminate\Database\Capsule\Manager as DB;
 use Illuminate\Support\Collection;
 
 /**
@@ -55,10 +56,10 @@ class Family extends GedcomRecord
         $gedcom_pending = $gedcom . "\n" . $pending;
 
         if (preg_match('/\n1 HUSB @(.+)@/', $gedcom_pending, $match)) {
-            $this->husb = Factory::individual()->make($match[1], $tree);
+            $this->husb = Registry::individualFactory()->make($match[1], $tree);
         }
         if (preg_match('/\n1 WIFE @(.+)@/', $gedcom_pending, $match)) {
-            $this->wife = Factory::individual()->make($match[1], $tree);
+            $this->wife = Registry::individualFactory()->make($match[1], $tree);
         }
     }
 
@@ -73,7 +74,7 @@ class Family extends GedcomRecord
      */
     public static function rowMapper(Tree $tree): Closure
     {
-        return Factory::family()->mapper($tree);
+        return Registry::familyFactory()->mapper($tree);
     }
 
     /**
@@ -103,7 +104,7 @@ class Family extends GedcomRecord
      */
     public static function getInstance(string $xref, Tree $tree, string $gedcom = null): ?Family
     {
-        return Factory::family()->make($xref, $tree, $gedcom);
+        return Registry::familyFactory()->make($xref, $tree, $gedcom);
     }
 
     /**
@@ -123,7 +124,7 @@ class Family extends GedcomRecord
         // Just show the 1 CHIL/HUSB/WIFE tag, not any subtags, which may contain private data
         preg_match_all('/\n1 (?:CHIL|HUSB|WIFE) @(' . Gedcom::REGEX_XREF . ')@/', $this->gedcom, $matches, PREG_SET_ORDER);
         foreach ($matches as $match) {
-            $rela = Factory::individual()->make($match[1], $this->tree);
+            $rela = Registry::individualFactory()->make($match[1], $this->tree);
             if ($rela instanceof Individual && $rela->canShow($access_level)) {
                 $rec .= $match[0];
             }
@@ -184,7 +185,7 @@ class Family extends GedcomRecord
         // Hide a family if any member is private
         preg_match_all('/\n1 (?:CHIL|HUSB|WIFE) @(' . Gedcom::REGEX_XREF . ')@/', $this->gedcom, $matches);
         foreach ($matches[1] as $match) {
-            $person = Factory::individual()->make($match, $this->tree);
+            $person = Registry::individualFactory()->make($match, $this->tree);
             if ($person && !$person->canShow($access_level)) {
                 return false;
             }
@@ -390,7 +391,7 @@ class Family extends GedcomRecord
             if ($husb_names === []) {
                 $husb_names[] = [
                     'type' => 'BIRT',
-                    'sort' => '@N.N.',
+                    'sort' => Individual::NOMEN_NESCIO,
                     'full' => I18N::translateContext('Unknown given name', '…') . ' ' . I18N::translateContext('Unknown surname', '…'),
                 ];
             }
@@ -408,7 +409,7 @@ class Family extends GedcomRecord
             if ($wife_names === []) {
                 $wife_names[] = [
                     'type' => 'BIRT',
-                    'sort' => '@N.N.',
+                    'sort' => Individual::NOMEN_NESCIO,
                     'full' => I18N::translateContext('Unknown given name', '…') . ' ' . I18N::translateContext('Unknown surname', '…'),
                 ];
             }
@@ -459,5 +460,17 @@ class Family extends GedcomRecord
         return
             $this->formatFirstMajorFact(Gedcom::MARRIAGE_EVENTS, 1) .
             $this->formatFirstMajorFact(Gedcom::DIVORCE_EVENTS, 1);
+    }
+
+    /**
+     * Lock the database row, to prevent concurrent edits.
+     */
+    public function lock(): void
+    {
+        DB::table('families')
+            ->where('f_file', '=', $this->tree->id())
+            ->where('f_id', '=', $this->xref())
+            ->lockForUpdate()
+            ->get();
     }
 }
